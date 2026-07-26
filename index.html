@@ -1,0 +1,616 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SNDP eShakha – Digital Branch Management</title>
+  <!-- SEO Meta Tags -->
+  <meta name="description" content="SNDP eShakha: a modern digital platform for SNDP branches to manage member registration, family information, branch administration, and reports.">
+  <meta name="keywords" content="SNDP, eShakha, branch management, member registration, Sree Narayana Guru">
+  <meta name="author" content="SNDP eShakha">
+  <!-- Open Graph -->
+  <meta property="og:title" content="SNDP eShakha – Digital Branch Management System">
+  <meta property="og:description" content="A modern digital platform for SNDP branches to manage member registration, family information, branch administration and reports.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://parkmysite.github.io">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="SNDP eShakha – Digital Branch Management">
+  <meta name="twitter:description" content="Digital platform for SNDP branches.">
+  <!-- Favicon placeholder -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏛️</text></svg>">
+  <!-- Bootstrap 5.3 + Icons CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <!-- Google Font (Inter) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz@14..32&display=swap" rel="stylesheet">
+  <style>
+    /* ===== GLOBAL ===== */
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #fcf9f2;
+      color: #1e1e1e;
+      scroll-behavior: smooth;
+      overflow-x: hidden;
+    }
+    /* ===== COLOR THEME (golden, no blue) ===== */
+    :root {
+      --primary: #C89B2D;
+      --secondary: #A67C00;
+      --light-bg: #F8F4E8;
+      --accent: #6E5620;
+      --dark: #222222;
+      --glass-bg: rgba(255, 248, 235, 0.4);
+      --glass-border: rgba(200, 155, 45, 0.15);
+    }
+    .bg-gold-light { background-color: var(--light-bg); }
+    .text-gold { color: var(--primary); }
+    .text-gold-dark { color: var(--secondary); }
+    .btn-gold {
+      background: linear-gradient(135deg, #C89B2D 0%, #A67C00 100%);
+      border: none;
+      color: #fff;
+      font-weight: 600;
+      padding: 0.6rem 1.8rem;
+      border-radius: 50px;
+      box-shadow: 0 8px 20px rgba(200, 155, 45, 0.3);
+      transition: all 0.2s ease;
+    }
+    .btn-gold:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 28px rgba(166, 124, 0, 0.4);
+      color: #fff;
+      background: linear-gradient(135deg, #d9a932 0%, #b88a00 100%);
+    }
+    .btn-outline-gold {
+      background: transparent;
+      border: 2px solid var(--primary);
+      color: var(--primary);
+      border-radius: 50px;
+      font-weight: 600;
+      padding: 0.6rem 1.8rem;
+      transition: all 0.2s ease;
+    }
+    .btn-outline-gold:hover {
+      background: var(--primary);
+      color: #fff;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(200, 155, 45, 0.25);
+    }
+    /* ===== GLASSMORPHISM ===== */
+    .glass-card {
+      background: var(--glass-bg);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid var(--glass-border);
+      border-radius: 32px;
+      box-shadow: 0 20px 40px -12px rgba(0,0,0,0.08);
+      transition: all 0.3s ease;
+    }
+    .glass-card:hover {
+      box-shadow: 0 30px 50px -16px rgba(110, 86, 32, 0.15);
+      transform: translateY(-4px);
+    }
+    /* ===== NAVBAR ===== */
+    .navbar-blur {
+      background: rgba(255, 252, 245, 0.7);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      box-shadow: 0 4px 30px rgba(0,0,0,0.02);
+      border-bottom: 1px solid rgba(200, 155, 45, 0.08);
+    }
+    .navbar .nav-link {
+      font-weight: 500;
+      color: #2e2e2e;
+      transition: 0.2s;
+    }
+    .navbar .nav-link:hover { color: var(--primary); }
+    .navbar .nav-link.active { color: var(--secondary); font-weight: 600; }
+    .dropdown-menu {
+      background: rgba(255, 250, 240, 0.9);
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(200, 155, 45, 0.15);
+      border-radius: 20px;
+      padding: 0.5rem;
+    }
+    .dropdown-item {
+      border-radius: 12px;
+      padding: 0.6rem 1.2rem;
+      font-weight: 500;
+    }
+    .dropdown-item:hover { background: var(--light-bg); color: var(--secondary); }
+    .dropdown-item i { margin-right: 10px; color: var(--primary); }
+    /* ===== HERO ===== */
+    .hero-section {
+      padding-top: 8rem;
+      padding-bottom: 4rem;
+      background: linear-gradient(145deg, #fcf9f2 0%, #f5efe2 100%);
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-animated-bg {
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(200,155,45,0.06) 0%, transparent 70%);
+      top: -200px;
+      right: -100px;
+      border-radius: 50%;
+      animation: floatBg 14s infinite alternate ease-in-out;
+      z-index: 0;
+    }
+    @keyframes floatBg {
+      0% { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(-40px, 30px) scale(1.1); }
+    }
+    .hero-content { position: relative; z-index: 2; }
+    .hero-svg {
+      max-width: 100%;
+      filter: drop-shadow(0 20px 30px rgba(0,0,0,0.02));
+    }
+    /* ===== SECTION DIVIDERS (SVG) ===== */
+    .section-divider-top {
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 120' preserveAspectRatio='none'%3E%3Cpath d='M0,0 C300,80 700,20 1200,60 L1200,120 L0,120Z' fill='%23f8f4e8'/%3E%3C/svg%3E") no-repeat bottom;
+      background-size: 100% 100%;
+      height: 80px;
+      width: 100%;
+      margin-top: -2px;
+    }
+    .section-divider-bottom {
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 120' preserveAspectRatio='none'%3E%3Cpath d='M0,120 C300,40 700,100 1200,60 L1200,0 L0,0Z' fill='%23f8f4e8'/%3E%3C/svg%3E") no-repeat top;
+      background-size: 100% 100%;
+      height: 80px;
+      width: 100%;
+      margin-bottom: -2px;
+    }
+    /* ===== FEATURES CARDS ===== */
+    .feature-card {
+      background: rgba(255, 252, 245, 0.7);
+      backdrop-filter: blur(4px);
+      border: 1px solid rgba(200,155,45,0.08);
+      border-radius: 32px;
+      padding: 2rem 1.5rem;
+      transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
+      height: 100%;
+      box-shadow: 0 12px 30px -12px rgba(0,0,0,0.03);
+    }
+    .feature-card:hover {
+      transform: translateY(-12px) scale(1.01);
+      box-shadow: 0 30px 50px -20px rgba(166, 124, 0, 0.2);
+      border-color: rgba(200,155,45,0.25);
+      background: rgba(255, 252, 240, 0.85);
+    }
+    .feature-icon {
+      font-size: 3rem;
+      color: var(--primary);
+      background: rgba(200,155,45,0.08);
+      width: 70px;
+      height: 70px;
+      border-radius: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1.2rem;
+    }
+    /* ===== STATS ===== */
+    .stat-number {
+      font-size: 3.2rem;
+      font-weight: 700;
+      color: var(--secondary);
+      line-height: 1.2;
+    }
+    .stat-label { font-weight: 500; color: #3d3d3d; letter-spacing: 0.02em; }
+    /* ===== ABOUT / MISSION ===== */
+    .about-glass {
+      background: rgba(255, 248, 235, 0.5);
+      backdrop-filter: blur(6px);
+      border-radius: 40px;
+      padding: 2.5rem;
+      border: 1px solid rgba(200,155,45,0.1);
+    }
+    .mission-quote {
+      font-size: 1.8rem;
+      font-weight: 400;
+      color: var(--dark);
+      line-height: 1.4;
+      border-left: 5px solid var(--primary);
+      padding-left: 1.8rem;
+    }
+    /* ===== CONTACT ===== */
+    .contact-link {
+      color: var(--dark);
+      text-decoration: none;
+      font-weight: 500;
+      transition: 0.2s;
+    }
+    .contact-link:hover { color: var(--primary); }
+    /* ===== FOOTER ===== */
+    .footer-dark {
+      background: #1a1a1a;
+      color: #e0ddd5;
+      border-top: 2px solid rgba(200,155,45,0.2);
+    }
+    .footer-dark a { color: #cfc9bc; text-decoration: none; transition: 0.2s; }
+    .footer-dark a:hover { color: var(--primary); }
+    /* ===== BACK TO TOP ===== */
+    #backToTop {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      width: 48px;
+      height: 48px;
+      background: var(--primary);
+      border: none;
+      border-radius: 60px;
+      color: #fff;
+      font-size: 1.4rem;
+      box-shadow: 0 12px 28px rgba(200,155,45,0.25);
+      transition: all 0.25s;
+      z-index: 999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    #backToTop:hover { background: var(--secondary); transform: translateY(-4px); }
+    /* ===== LOADING ANIMATION ===== */
+    #loader {
+      position: fixed;
+      inset: 0;
+      background: #fcf9f2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      transition: opacity 0.5s;
+    }
+    .loader-ring {
+      width: 60px;
+      height: 60px;
+      border: 6px solid rgba(200,155,45,0.1);
+      border-top: 6px solid var(--primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 768px) {
+      .hero-section { padding-top: 6rem; }
+      .stat-number { font-size: 2.4rem; }
+      .mission-quote { font-size: 1.4rem; }
+    }
+  </style>
+</head>
+<body>
+  <!-- LOADER -->
+  <div id="loader" aria-hidden="true"><div class="loader-ring"></div></div>
+
+  <!-- ===== NAVBAR ===== -->
+  <nav class="navbar navbar-expand-lg navbar-blur fixed-top py-2" aria-label="Main navigation">
+    <div class="container">
+      <a class="navbar-brand fw-bold" href="#" style="color: var(--secondary);">
+        <i class="bi bi-diagram-3 me-2 text-gold"></i>SNDP eShakha
+      </a>
+      <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="mainNav">
+        <ul class="navbar-nav ms-auto mb-2 mb-lg-0 align-items-lg-center">
+          <li class="nav-item"><a class="nav-link active" href="#home">Home</a></li>
+          <li class="nav-item"><a class="nav-link" href="#features">Features</a></li>
+          <li class="nav-item"><a class="nav-link" href="#about">About</a></li>
+          <li class="nav-item"><a class="nav-link" href="./blog">Blogs</a></li>
+          <li class="nav-item"><a class="nav-link" href="#contact">Contact</a></li>
+          <!-- Login Dropdown -->
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle btn-gold ms-lg-2 px-4 py-2" href="#" id="loginDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" style="color:#fff; background:linear-gradient(135deg,#C89B2D,#A67C00);">
+              <i class="bi bi-box-arrow-in-right me-1"></i> Login
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="loginDropdown">
+              <li><a class="dropdown-item" href="https://parkmysite.github.io/member/app/member-login.html"><i class="bi bi-person-badge"></i> Member Login</a></li>
+              <li><a class="dropdown-item" href="https://parkmysite.github.io/apps/website/index.html"><i class="bi bi-shield-lock"></i> Admin Login</a></li>
+            </ul>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ===== HERO SECTION ===== -->
+  <section id="home" class="hero-section" aria-labelledby="heroTitle">
+    <div class="hero-animated-bg"></div>
+    <div class="container hero-content">
+      <div class="row align-items-center g-5">
+        <div class="col-lg-6">
+          <span class="badge bg-gold-light text-gold-dark px-4 py-2 rounded-pill mb-3" style="font-weight:500;">SNDP Digital</span>
+          <h1 id="heroTitle" class="display-3 fw-bold" style="color: var(--dark);">SNDP eShakha</h1>
+          <p class="lead fs-4 fw-semibold text-gold-dark">Digital Branch Management System</p>
+          <p class="fs-5 text-secondary" style="max-width: 500px;">A modern digital platform for SNDP branches to manage member registration, family information, branch administration and reports.</p>
+          <div class="d-flex flex-wrap gap-3 mt-4">
+            <a href="#features" class="btn btn-gold px-5 py-3"><i class="bi bi-compass me-2"></i>Explore Features</a>
+            <a href="https://parkmysite.github.io/member/app/member-login.html" class="btn btn-outline-gold px-5 py-3"><i class="bi bi-person-plus me-2"></i>Member Login</a>
+          </div>
+        </div>
+        <div class="col-lg-6 text-center">
+          <svg class="hero-svg" width="420" height="320" viewBox="0 0 420 320" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="210" cy="160" r="140" fill="rgba(200,155,45,0.04)" stroke="#C89B2D" stroke-width="1.5" stroke-dasharray="6 6"/>
+            <circle cx="210" cy="160" r="100" fill="rgba(200,155,45,0.04)" stroke="#A67C00" stroke-width="1.2"/>
+            <path d="M140 200 L170 130 L250 130 L280 200 L210 240 L140 200Z" fill="#C89B2D" fill-opacity="0.1" stroke="#C89B2D" stroke-width="2"/>
+            <circle cx="210" cy="170" r="24" fill="#C89B2D" fill-opacity="0.2" stroke="#A67C00" stroke-width="1.5"/>
+            <circle cx="160" cy="150" r="14" fill="#C89B2D" fill-opacity="0.15"/>
+            <circle cx="260" cy="150" r="14" fill="#C89B2D" fill-opacity="0.15"/>
+            <path d="M170 180 L210 200 L250 180" stroke="#6E5620" stroke-width="2"/>
+            <text x="180" y="220" font-size="14" fill="#6E5620" font-weight="500">SNDP</text>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SVG DIVIDER -->
+  <div class="section-divider-top"></div>
+
+  <!-- ===== FEATURES SECTION ===== -->
+  <section id="features" class="py-5 bg-gold-light" aria-labelledby="featuresTitle">
+    <div class="container py-5">
+      <div class="text-center mb-5">
+        <span class="badge bg-gold-light text-gold-dark px-4 py-2 rounded-pill">Features</span>
+        <h2 id="featuresTitle" class="display-5 fw-bold mt-3" style="color:var(--dark);">Designed for SNDP branches</h2>
+        <p class="text-secondary">Everything you need to manage your branch digitally.</p>
+      </div>
+      <div class="row g-4">
+        <!-- Card 1 -->
+        <div class="col-md-6 col-lg-4">
+          <div class="feature-card text-center">
+            <div class="feature-icon mx-auto"><i class="bi bi-person-vcard"></i></div>
+            <h5 class="fw-bold">Member Registration</h5>
+            <p class="text-secondary">Seamless digital onboarding for new members.</p>
+          </div>
+        </div>
+        <!-- Card 2 -->
+        <div class="col-md-6 col-lg-4">
+          <div class="feature-card text-center">
+            <div class="feature-icon mx-auto"><i class="bi bi-house-heart"></i></div>
+            <h5 class="fw-bold">Family Survey</h5>
+            <p class="text-secondary">Comprehensive family data collection.</p>
+          </div>
+        </div>
+        <!-- Card 3 -->
+        <div class="col-md-6 col-lg-4">
+          <div class="feature-card text-center">
+            <div class="feature-icon mx-auto"><i class="bi bi-building"></i></div>
+            <h5 class="fw-bold">Branch Administration</h5>
+            <p class="text-secondary">Complete admin tools for branch management.</p>
+          </div>
+        </div>
+        <!-- Card 4 -->
+        <div class="col-md-6 col-lg-4">
+          <div class="feature-card text-center">
+            <div class="feature-icon mx-auto"><i class="bi bi-bar-chart-fill"></i></div>
+            <h5 class="fw-bold">Reports &amp; Statistics</h5>
+            <p class="text-secondary">Real-time insights and analytics.</p>
+          </div>
+        </div>
+        <!-- Card 5 -->
+        <div class="col-md-6 col-lg-4">
+          <div class="feature-card text-center">
+            <div class="feature-icon mx-auto"><i class="bi bi-shield-check"></i></div>
+            <h5 class="fw-bold">Secure Access</h5>
+            <p class="text-secondary">Role-based authentication with data protection.</p>
+          </div>
+        </div>
+        <!-- Card 6 -->
+        <div class="col-md-6 col-lg-4">
+          <div class="feature-card text-center">
+            <div class="feature-icon mx-auto"><i class="bi bi-phone"></i></div>
+            <h5 class="fw-bold">Mobile Friendly</h5>
+            <p class="text-secondary">Access from any device, anywhere.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SVG DIVIDER -->
+  <div class="section-divider-bottom"></div>
+
+  <!-- ===== STATISTICS ===== -->
+  <section class="py-5" style="background:#fcf9f2;" aria-label="Statistics">
+    <div class="container py-4">
+      <div class="row text-center g-4">
+        <div class="col-md-4">
+          <div class="stat-number"><span class="counter" data-target="100">0</span>+</div>
+          <div class="stat-label">Branches</div>
+        </div>
+        <div class="col-md-4">
+          <div class="stat-number"><span class="counter" data-target="25000">0</span>+</div>
+          <div class="stat-label">Members</div>
+        </div>
+        <div class="col-md-4">
+          <div class="stat-number"><span class="counter" data-target="10000">0</span>+</div>
+          <div class="stat-label">Families</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== ABOUT + MISSION ===== -->
+  <section id="about" class="py-5 bg-gold-light" aria-labelledby="aboutTitle">
+    <div class="container py-4">
+      <div class="row g-5 align-items-center">
+        <div class="col-lg-6">
+          <div class="about-glass">
+            <span class="badge bg-gold-light text-gold-dark px-3 py-2 rounded-pill">About</span>
+            <h2 id="aboutTitle" class="display-6 fw-bold mt-2" style="color:var(--dark);">SNDP eShakha</h2>
+            <p class="text-secondary">SNDP eShakha is a modern digital platform designed to empower SNDP branches with efficient member management, family surveys, and administrative tools. Built with the spirit of Sree Narayana Guru, it brings together technology and community.</p>
+            <p class="text-secondary">Our mission is to provide a secure, mobile-friendly system that simplifies branch operations and fosters transparency.</p>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="mission-quote">
+            “One Caste, One Religion, One God for Humanity.”
+            <div class="mt-3 text-gold-dark" style="font-weight:400; font-size:1.1rem;">— Inspired by the ideals of Sree Narayana Guru</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== CONTACT ===== -->
+  <section id="contact" class="py-5" style="background:#fcf9f2;" aria-labelledby="contactTitle">
+    <div class="container py-4">
+      <div class="text-center mb-5">
+        <span class="badge bg-gold-light text-gold-dark px-4 py-2 rounded-pill">Contact</span>
+        <h2 id="contactTitle" class="display-6 fw-bold mt-2">Get in touch</h2>
+      </div>
+      <div class="row justify-content-center g-4">
+        <div class="col-md-6 col-lg-4 text-center">
+          <div class="glass-card p-4">
+            <i class="bi bi-envelope-fill fs-1 text-gold"></i>
+            <p class="mt-3"><a href="mailto:sndp.eshaka@gmail.com" class="contact-link">sndp.eshaka@gmail.com</a></p>
+          </div>
+        </div>
+        <div class="col-md-6 col-lg-4 text-center">
+          <div class="glass-card p-4">
+            <i class="bi bi-telephone-fill fs-1 text-gold"></i>
+            <p class="mt-3"><a href="tel:+917907803763" class="contact-link">+91 79078 03763</a></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="footer-dark pt-5 pb-3" aria-label="Site footer">
+    <div class="container">
+      <div class="row g-4">
+        <!-- Col 1 -->
+        <div class="col-md-3">
+          <h5 class="fw-bold text-gold"><i class="bi bi-diagram-3 me-2"></i>SNDP eShakha</h5>
+          <p class="small text-secondary" style="color:#b0aa9a !important;">Digital Branch Management System for SNDP.</p>
+        </div>
+        <!-- Col 2 -->
+        <div class="col-md-3">
+          <h6 class="fw-bold">Quick Links</h6>
+          <ul class="list-unstyled small">
+            <li><a href="#home">Home</a></li>
+            <li><a href="#features">Features</a></li>
+            <li><a href="#about">About</a></li>
+            <li><a href="./blog">Blogs</a></li>
+            <li><a href="#contact">Contact</a></li>
+          </ul>
+        </div>
+        <!-- Col 3 -->
+        <div class="col-md-3">
+          <h6 class="fw-bold">Login</h6>
+          <ul class="list-unstyled small">
+            <li><a href="https://parkmysite.github.io/member/app/member-login.html">Member Login</a></li>
+            <li><a href="https://parkmysite.github.io/apps/website/index.html">Admin Login</a></li>
+          </ul>
+        </div>
+        <!-- Col 4 -->
+        <div class="col-md-3">
+          <h6 class="fw-bold">Contact</h6>
+          <ul class="list-unstyled small">
+            <li><a href="mailto:sndp.eshaka@gmail.com"><i class="bi bi-envelope me-1"></i> sndp.eshaka@gmail.com</a></li>
+            <li><a href="tel:+917907803763"><i class="bi bi-phone me-1"></i> +91 79078 03763</a></li>
+          </ul>
+        </div>
+      </div>
+      <hr class="border-secondary" style="opacity:0.2;">
+      <div class="text-center small text-secondary" style="color:#9e988a !important;">
+        &copy; 2026 SNDP eShakha. All Rights Reserved.
+      </div>
+    </div>
+  </footer>
+
+  <!-- BACK TO TOP -->
+  <button id="backToTop" aria-label="Back to top"><i class="bi bi-chevron-up"></i></button>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    (function() {
+      // LOADER
+      window.addEventListener('load', function() {
+        const loader = document.getElementById('loader');
+        if (loader) loader.style.opacity = '0';
+        setTimeout(() => { if(loader) loader.style.display = 'none'; }, 400);
+      });
+
+      // COUNTER ANIMATION (Intersection Observer)
+      const counters = document.querySelectorAll('.counter');
+      let countersStarted = false;
+      function animateCounters() {
+        if (countersStarted) return;
+        countersStarted = true;
+        counters.forEach(counter => {
+          const target = parseInt(counter.getAttribute('data-target'));
+          let current = 0;
+          const step = Math.ceil(target / 60);
+          const update = () => {
+            current += step;
+            if (current >= target) { counter.textContent = target.toLocaleString(); return; }
+            counter.textContent = current.toLocaleString();
+            requestAnimationFrame(update);
+          };
+          update();
+        });
+      }
+
+      const statSection = document.querySelector('[aria-label="Statistics"]');
+      if (statSection) {
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting && !countersStarted) animateCounters();
+          });
+        }, { threshold: 0.3 });
+        observer.observe(statSection);
+      }
+
+      // BACK TO TOP
+      const backBtn = document.getElementById('backToTop');
+      window.addEventListener('scroll', () => {
+        if (window.scrollY > 400) {
+          backBtn.style.display = 'flex';
+        } else {
+          backBtn.style.display = 'none';
+        }
+      });
+      backBtn.addEventListener('click', () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+
+      // SMOOTH SCROLL (anchor links)
+      document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function(e) {
+          const href = this.getAttribute('href');
+          if (href === "#" || href === "#home") return;
+          const target = document.querySelector(href);
+          if (target) {
+            e.preventDefault();
+            target.scrollIntoView({ behavior: 'smooth' });
+          }
+        });
+      });
+
+      // Active nav link (scrollspy manual)
+      const sections = document.querySelectorAll('section[id]');
+      const navLinks = document.querySelectorAll('.navbar-nav .nav-link');
+      window.addEventListener('scroll', () => {
+        let current = '';
+        sections.forEach(section => {
+          const top = section.offsetTop - 150;
+          if (window.scrollY >= top) current = section.getAttribute('id');
+        });
+        navLinks.forEach(link => {
+          link.classList.remove('active');
+          if (link.getAttribute('href') === '#' + current) link.classList.add('active');
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
