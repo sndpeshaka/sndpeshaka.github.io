@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PWA Icon Generator - NOC Mobile</title>
+    <title>PWA Icon Generator - Mobile</title>
     <style>
         * {
             margin: 0;
@@ -28,7 +28,7 @@
         }
         
         h1 {
-            color: #0f3b6a;
+            color: #fff0;
             margin-bottom: 10px;
             font-size: 28px;
         }
@@ -51,12 +51,12 @@
         }
         
         .upload-area:hover {
-            border-color: #0f3b6a;
+            border-color: #fff0;
             background: #f1f5f9;
         }
         
         .upload-area.drag-over {
-            border-color: #0f3b6a;
+            border-color: #fff0;
             background: #e0f2fe;
         }
         
@@ -203,7 +203,7 @@
 <body>
     <div class="container">
         <h1>📱 PWA Icon Generator</h1>
-        <div class="subtitle">Generate all required icons for NOC Mobile PWA (Service Worker compatible)</div>
+        <div class="subtitle">Generate all required icons for Mobile PWA (Service Worker compatible)</div>
         
         <div class="upload-area" id="uploadArea">
             <div class="upload-icon">📸</div>
@@ -351,7 +351,7 @@
                 const maskCtx = maskableCanvas.getContext('2d');
                 
                 // Draw background
-                maskCtx.fillStyle = '#0f3b6a';
+                maskCtx.fillStyle = '#fff0';
                 maskCtx.fillRect(0, 0, size, size);
                 
                 // Draw rounded square
@@ -397,14 +397,14 @@
             }).join(',\n');
             
             const manifestText = `{
-    "name": "NOC Mobile",
-    "short_name": "NOC",
-    "description": "Network Operations Center Mobile Dashboard",
+    "name": "App Mobile",
+    "short_name": "App",
+    "description": "App Description",
     "start_url": "index.html",
     "scope": ".",
     "display": "standalone",
     "background_color": "#f1f5f9",
-    "theme_color": "#0f3b6a",
+    "theme_color": "#fff0",
     "icons": [
 ${iconEntries}
     ]
@@ -463,7 +463,7 @@ ${iconEntries}
             const content = await zip.generateAsync({ type: 'blob' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(content);
-            link.download = 'noc-mobile-icons.zip';
+            link.download = 'mobile-icons.zip';
             link.click();
             URL.revokeObjectURL(link.href);
             
