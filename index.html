@@ -13,7 +13,7 @@
   <meta property="og:title" content="SNDP eShakha – Digital Branch Management System">
   <meta property="og:description" content="A modern digital platform for SNDP branches to manage member registration, family information, branch administration and reports.">
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://parkmysite.github.io">
+  <meta property="og:url" content="https://sndpeshaka.github.io">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="SNDP eShakha – Digital Branch Management">
   <meta name="twitter:description" content="Digital platform for SNDP branches.">
@@ -26,6 +26,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz@14..32&display=swap" rel="stylesheet">
+      <!-- PWA Manifest & Favicon -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
   <style>
     /* ===== GLOBAL ===== */
     * { box-sizing: border-box; }
@@ -163,7 +167,7 @@
       max-width: 100%;
       height: auto;
       border-radius: 32px;
-      box-shadow: 0 30px 50px -20px rgba(0,0,0,0.08);
+     /* box-shadow: 0 30px 50px -20px rgba(0,0,0,0.08);*/
     }
     /* ===== NEWS SECTION (marquee) ===== */
     .news-container {
@@ -389,7 +393,7 @@
         </div>
         <!-- Right column: image -->
         <div class="col-lg-6 order-1 order-lg-2 text-center">
-          <img src="hero.jpg" alt="SNDP community illustration" class="hero-image img-fluid" style="max-width:100%;">
+          <img src="hero.png" alt="SNDP community illustration" class="hero-image img-fluid" style="max-width:100%;">
         </div>
       </div>
     </div>
@@ -398,12 +402,13 @@
   <!-- ===== LATEST NEWS SECTION (below hero) ===== -->
   <section class="py-3" style="background: #f8f4e8;" aria-label="Latest news">
     <div class="container">
-      <div class="news-container">
-        <div class="d-flex align-items-center gap-2 mb-1">
+	    <div class="d-flex align-items-center gap-2 mb-1">
           <i class="bi bi-megaphone-fill text-gold fs-5"></i>
           <span class="fw-semibold text-gold-dark">Latest News</span>
-          <span class="badge bg-gold-light text-gold-dark ms-auto px-3 py-1 rounded-pill" style="font-weight:400;">auto scroll</span>
+          <span class="badge bg-gold-light text-gold-dark ms-auto px-3 py-1 rounded-pill" style="font-weight:400;">#</span>
         </div>
+      <div class="news-container">
+    
         <div id="newsList" class="news-scroll">
           <!-- news items will be injected here from news.html -->
           <div class="text-center py-2 text-muted">Loading news...</div>
