@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
     
     <style>
- :root {
+        :root {
             --primary: #C89B2D;
             --primary-dark: linear-gradient(135deg, #d9a932 0%, #b88a00 100%);
             --success: #10b981;
@@ -154,11 +154,8 @@
             opacity: 0.5;
             cursor: not-allowed;
         }
- .mini-logo {
-           /* width: 38px;*/
-           /* height: 38px;*/
+        .mini-logo {
             border-radius: 12px;
-           /* background: #0f3b6a;*/
             padding: 4px;
             object-fit: contain;
         }
@@ -464,8 +461,7 @@
     const CONFIG = {
         SPREADSHEET_ID: "1Q7fGIi2ky6b7cYt49ljwIwGEJv3kQ8pmz47bFaPBEDs",
         API_KEY: "AIzaSyDc8tegwi2rgHyDFYm7uWBqVqQ7Fwb3uWM",
-        APPS_SCRIPT_URL: "https://script.google.com/macros/s/AKfycbzjvAThlPEkRVgHTNGRFKDKU_XcsStSdsCiXVjTChd9q_5frTHufj8NYTdBW4aJEomm/exec"
-		
+        APPS_SCRIPT_URL: "https://script.google.com/macros/s/AKfycbxlIzDD6kDKYoKtajRh-GA52cTBADITO7FCXR5r37QjCc1SJeoAX7oQ1HMN4S5FxMVp/exec"
     };
 
     let resendTimer = null;
@@ -542,6 +538,11 @@
             
             input.addEventListener('input', (e) => {
                 input.classList.remove('error');
+                // Only allow digits
+                if (e.target.value && !/^\d$/.test(e.target.value)) {
+                    e.target.value = '';
+                    return;
+                }
                 if (e.target.value.length === 1 && i < 6) {
                     document.getElementById(`otp${i+1}`).focus();
                 }
@@ -550,6 +551,13 @@
             input.addEventListener('keydown', (e) => {
                 if (e.key === 'Backspace' && !e.target.value && i > 1) {
                     document.getElementById(`otp${i-1}`).focus();
+                }
+            });
+            
+            // Prevent non-digit characters
+            input.addEventListener('keypress', (e) => {
+                if (!/^\d$/.test(e.key)) {
+                    e.preventDefault();
                 }
             });
             
@@ -567,9 +575,10 @@
                         document.getElementById(`otp${digits.length + 1}`).focus();
                     } else {
                         document.getElementById('otp6').focus();
+                        // Auto-submit after paste
                         setTimeout(() => {
                             document.getElementById('otpForm').dispatchEvent(new Event('submit'));
-                        }, 100);
+                        }, 300);
                     }
                 });
             }
@@ -595,6 +604,12 @@
             if (!input.value || !/^\d$/.test(input.value)) {
                 input.classList.add('error');
             }
+        }
+    }
+
+    function clearOtpErrors() {
+        for (let i = 1; i <= 6; i++) {
+            document.getElementById(`otp${i}`).classList.remove('error');
         }
     }
 
@@ -746,10 +761,19 @@
             });
             otpUrl.search = params.toString();
             
-            await fetch(otpUrl.toString(), {
-                method: 'GET',
-                mode: 'no-cors'
+            const response = await fetch(otpUrl.toString(), {
+                method: 'GET'
             });
+            
+            const result = await response.json();
+            
+            if (!result.success) {
+                showToast(result.error || 'Failed to send OTP', 'error');
+                setLoading(false);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-envelope-paper"></i> Send OTP';
+                return;
+            }
             
             showToast(`OTP sent to ${member.email}`, 'success');
             
@@ -793,10 +817,19 @@
             });
             otpUrl.search = params.toString();
             
-            await fetch(otpUrl.toString(), {
-                method: 'GET',
-                mode: 'no-cors'
+            const response = await fetch(otpUrl.toString(), {
+                method: 'GET'
             });
+            
+            const result = await response.json();
+            
+            if (!result.success) {
+                showToast(result.error || 'Failed to resend OTP', 'error');
+                setLoading(false);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Resend OTP';
+                return;
+            }
             
             showToast(`OTP resent to ${currentEmail}`, 'success');
             startResendTimer();
@@ -820,6 +853,9 @@
     // ================= STEP 2: VERIFY OTP =================
     document.getElementById('otpForm').addEventListener('submit', async (e) => {
         e.preventDefault();
+        
+        // Clear previous errors
+        clearOtpErrors();
         
         const otp = getOtpValue();
         
@@ -846,10 +882,20 @@
             });
             verifyUrl.search = params.toString();
             
-            await fetch(verifyUrl.toString(), {
-                method: 'GET',
-                mode: 'no-cors'
+            const response = await fetch(verifyUrl.toString(), {
+                method: 'GET'
             });
+            
+            const result = await response.json();
+            
+            if (!result.success) {
+                showToast(result.error || 'Invalid OTP. Please try again.', 'error');
+                highlightInvalidOtp();
+                setLoading(false);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-check-circle"></i> Verify OTP';
+                return;
+            }
             
             isOtpVerified = true;
             
@@ -859,7 +905,8 @@
                 homeId: currentHomeId,
                 email: currentEmail,
                 name: currentMemberName,
-                isMember: true
+                isMember: true,
+                loginTime: new Date().toISOString()
             };
             localStorage.setItem('memberSession', JSON.stringify(sessionData));
             sessionStorage.setItem('memberSession', JSON.stringify(sessionData));
@@ -881,7 +928,7 @@
             
         } catch(error) {
             console.error('OTP verification error:', error);
-            showToast('Invalid or expired OTP. Please try again.', 'error');
+            showToast('Failed to verify OTP. Please try again.', 'error');
             highlightInvalidOtp();
         }
         
