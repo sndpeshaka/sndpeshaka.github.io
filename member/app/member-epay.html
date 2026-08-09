@@ -506,6 +506,18 @@
                     <label class="form-label">Sender UPI ID</label>
                     <input type="text" id="senderUpiId" class="form-control" placeholder="Enter your UPI ID (optional)">
                 </div>
+
+                <!-- Payment screenshot -->
+                <div class="col-12" id="paymentProofSection" style="display:none;">
+                    <label class="form-label">Payment Screenshot</label>
+                    <input type="file" id="paymentScreenshot" class="form-control" accept="image/*">
+                    <div style="font-size:0.75rem;color:#64748b;margin-top:6px;">
+                        Upload the successful payment screenshot. The system will OCR the screenshot and save the extracted payment details to Google Sheets.
+                    </div>
+                    <div id="screenshotPreview" style="display:none;margin-top:10px;text-align:center;">
+                        <img id="screenshotPreviewImg" alt="Payment screenshot preview" style="max-width:100%;max-height:220px;border-radius:10px;border:1px solid #e2e8f0;">
+                    </div>
+                </div>
                 
                 <!-- Amount (Read-only, auto-filled) -->
                 <div class="col-md-6">
@@ -554,14 +566,23 @@
             </div>
         </div>
         
-        <!-- QR Code -->
-        <div id="qrCodeContainer">
-            <div id="qrCode"></div>
+        <!-- Hosted UPI QR -->
+        <div id="qrCodeContainer" style="display:none;">
+            <div style="font-size:0.85rem;font-weight:600;color:#0f3b6a;margin-bottom:10px;">
+                <i class="bi bi-qr-code"></i> Scan to Pay
+            </div>
+            <img id="upiQrImage"
+                 src="https://sndpeshaka.github.io/member/app/upi/upi.png"
+                 alt="UPI QR Code"
+                 style="width:min(320px,90vw);height:auto;border:1px solid #e2e8f0;border-radius:14px;padding:10px;background:#fff;">
             <p style="font-size:0.8rem;color:#64748b;margin-top:8px;">
-                <i class="bi bi-qr-code"></i> Scan with any UPI app
+                Scan this QR code with any UPI app and complete the payment.
             </p>
+            <button type="button" id="qrPaidBtn" class="btn btn-success-custom" style="margin-top:4px;">
+                <i class="bi bi-check-circle"></i> I Paid — Upload Screenshot
+            </button>
         </div>
-        
+
         <!-- Action Buttons -->
         <div class="action-buttons">
             <button type="button" id="payNowBtn" class="btn btn-success-custom">
@@ -597,7 +618,7 @@
     const CONFIG = (function() {
         const _s = '1FKCX4TODUcQ_0o8xP14fGENYT17k4Mcm_rJe6eFSTjE';
         const _k = 'AIzaSyDc8tegwi2rgHyDFYm7uWBqVqQ7Fwb3uWM';
-        const _url = 'https://script.google.com/macros/s/AKfycbwqENb-R5Ecq3hVmma1VUDbUprnfAjUmgVgNJWglzL4TDXDS93H1ADLVN8stjA8avUxZQ/exec';
+        const _url = 'https://script.google.com/macros/s/AKfycbxhWy6TGru3X0TzQ-fZ1dZTwbhSF6FzvWZUokIoQnW0wuFxbbEeY_qTxbT-ejoCOVM2jg/exec';
         
         return {
             get SPREADSHEET_ID() { return _s; },
@@ -979,22 +1000,27 @@
         document.body.removeChild(textArea);
     }
 
-    // ================= OPEN UPI APP =================
+    // ================= UPI PAYMENT FLOW =================
+    const UPI_QR_URL = 'https://sndpeshaka.github.io/member/app/upi/upi.png';
     let upiPaymentStarted = false;
     let upiReturnTimer = null;
+
+    function showHostedQr() {
+        document.getElementById('qrCodeContainer').style.display = 'block';
+        document.getElementById('qrCodeContainer').scrollIntoView({behavior:'smooth', block:'center'});
+    }
+
+    function hideHostedQr() {
+        document.getElementById('qrCodeContainer').style.display = 'none';
+    }
 
     function openUpiApp() {
         const upiId = receiptUpiId;
         const amount = parseFloat(document.getElementById('receiptAmount').value) || 0;
         const receiptNo = document.getElementById('receiptIdValue').textContent.trim();
-        
-        if (!upiId) {
-            showToast('UPI ID not available.', 'error');
-            return;
-        }
-        
-        if (amount <= 0) {
-            showToast('Please enter a valid amount.', 'error');
+
+        if (!upiId || amount <= 0) {
+            showToast('Please enter a valid payment amount.', 'error');
             return;
         }
 
@@ -1005,10 +1031,11 @@
             startedAt: Date.now()
         }));
 
-        // UPI intent only starts the payment. It does NOT confirm payment.
-        const upiIntent = `upi://pay?pa=${encodeURIComponent(upiId)}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(receiptNo)}`;
-        
-        showToast('Opening UPI app. Complete the payment there.', 'info');
+        const upiIntent =
+            `upi://pay?pa=${encodeURIComponent(upiId)}` +
+            `&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(receiptNo)}`;
+
+        showToast('Opening your UPI app. Complete the payment there.', 'info');
 
         try {
             const link = document.createElement('a');
@@ -1019,14 +1046,9 @@
             link.click();
             document.body.removeChild(link);
         } catch (e) {
-            try {
-                window.location.href = upiIntent;
-            } catch (e2) {
-                showToast('Unable to open UPI app. Please use Show QR.', 'error');
-            }
+            window.location.href = upiIntent;
         }
 
-        // When the user returns to this page, ask for the UPI transaction ID.
         clearTimeout(upiReturnTimer);
         upiReturnTimer = setTimeout(showPaymentReturnDialog, 2500);
     }
@@ -1038,50 +1060,133 @@
         const amount = parseFloat(document.getElementById('receiptAmount').value) || 0;
 
         const result = await Swal.fire({
-            title: 'Did you complete the payment?',
+            title: 'Payment status',
             html: `
                 <div style="text-align:left;font-size:0.92rem;">
                     <p><strong>Amount:</strong> ₹${amount.toFixed(2)}</p>
                     <p><strong>Reference:</strong> ${escapeHtml(receiptNo)}</p>
                     <hr>
-                    <p style="color:#64748b;margin-bottom:8px;">
-                        If payment was successful, enter the <strong>UPI Transaction ID / UTR</strong> shown in your UPI app.
+                    <p style="margin-bottom:0;color:#475569;">
+                        Did the UPI app show that your payment was successful?
                     </p>
-                    <input id="swalTransactionId" class="swal2-input" placeholder="Enter UTR / Transaction ID" style="width:90%;margin:8px auto;">
-                    <input id="swalSenderUpiId" class="swal2-input" placeholder="Your UPI ID (optional)" style="width:90%;margin:8px auto;">
                 </div>
             `,
             icon: 'question',
+            showDenyButton: true,
             showCancelButton: true,
-            confirmButtonText: 'Submit Payment Details',
-            cancelButtonText: 'Payment Not Completed',
+            confirmButtonText: 'Payment Successful',
+            denyButtonText: 'Payment Not Successful',
+            cancelButtonText: 'Close',
             confirmButtonColor: '#16a34a',
-            cancelButtonColor: '#64748b',
-            preConfirm: () => {
+            denyButtonColor: '#dc2626',
+            cancelButtonColor: '#64748b'
+        });
+
+        if (result.isConfirmed) {
+            upiPaymentStarted = false;
+            sessionStorage.removeItem('upiPaymentPending');
+            await showSuccessProofDialog();
+        } else if (result.isDenied) {
+            upiPaymentStarted = false;
+            sessionStorage.removeItem('upiPaymentPending');
+            showHostedQr();
+            Swal.fire({
+                title: 'Use QR to Pay',
+                html: `
+                    <p style="font-size:0.9rem;color:#475569;">
+                        The previous payment was not successful.<br>
+                        Scan the QR code below with your UPI app and try again.
+                    </p>
+                `,
+                imageUrl: UPI_QR_URL,
+                imageAlt: 'UPI QR Code',
+                imageWidth: 240,
+                confirmButtonText: 'Show QR & Try Again',
+                confirmButtonColor: '#0f3b6a'
+            });
+        }
+    }
+
+    async function showSuccessProofDialog() {
+        const result = await Swal.fire({
+            title: 'Upload payment proof',
+            html: `
+                <div style="text-align:left;font-size:0.9rem;">
+                    <p style="color:#475569;">
+                        Please upload the screenshot from your UPI app showing the successful payment.
+                        The screenshot will be OCR-processed and the extracted details will be saved to Google Sheets.
+                    </p>
+                    <input id="swalPaymentScreenshot" type="file" accept="image/*"
+                           class="swal2-file" style="width:100%;">
+                    <input id="swalTransactionId" class="swal2-input"
+                           placeholder="UTR / Transaction ID (optional if visible in screenshot)">
+                    <input id="swalSenderUpiId" class="swal2-input"
+                           placeholder="Your UPI ID (optional)">
+                </div>
+            `,
+            icon: 'success',
+            showCancelButton: true,
+            confirmButtonText: 'Submit Payment Proof',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#16a34a',
+            preConfirm: async () => {
+                const file = document.getElementById('swalPaymentScreenshot').files[0];
                 const transactionId = document.getElementById('swalTransactionId').value.trim();
                 const senderUpiId = document.getElementById('swalSenderUpiId').value.trim();
-                if (!transactionId) {
-                    Swal.showValidationMessage('Please enter the UPI Transaction ID / UTR.');
+
+                if (!file) {
+                    Swal.showValidationMessage('Please upload the successful payment screenshot.');
                     return false;
                 }
-                return { transactionId, senderUpiId };
+
+                if (!file.type.startsWith('image/')) {
+                    Swal.showValidationMessage('Please select an image file.');
+                    return false;
+                }
+
+                if (file.size > 6 * 1024 * 1024) {
+                    Swal.showValidationMessage('Please use an image smaller than 6 MB.');
+                    return false;
+                }
+
+                Swal.showLoading();
+                const screenshotBase64 = await fileToBase64(file);
+
+                return {
+                    transactionId,
+                    senderUpiId,
+                    screenshotBase64,
+                    screenshotName: file.name,
+                    screenshotMimeType: file.type
+                };
             }
         });
 
         if (result.isConfirmed && result.value) {
             document.getElementById('transactionId').value = result.value.transactionId;
             document.getElementById('senderUpiId').value = result.value.senderUpiId;
-            await saveReceipt();
-            upiPaymentStarted = false;
-            sessionStorage.removeItem('upiPaymentPending');
-        } else if (result.dismiss === Swal.DismissReason.cancel) {
-            showToast('Payment was not recorded. You can try again.', 'info');
-            upiPaymentStarted = false;
-            sessionStorage.removeItem('upiPaymentPending');
+            await saveReceipt({
+                screenshotBase64: result.value.screenshotBase64,
+                screenshotName: result.value.screenshotName,
+                screenshotMimeType: result.value.screenshotMimeType,
+                paymentMethod: 'UPI'
+            });
         }
     }
 
-    // Detect when the browser becomes visible again after the UPI app.
+    function fileToBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const result = reader.result || '';
+                resolve(result.toString().split(',')[1] || '');
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
+
+    // Detect return from UPI app.
     document.addEventListener('visibilitychange', function() {
         if (document.visibilityState === 'visible' && upiPaymentStarted) {
             clearTimeout(upiReturnTimer);
@@ -1106,7 +1211,7 @@
     });
 
     // ================= SAVE RECEIPT (Record Only) =================
-    async function saveReceipt() {
+    async function saveReceipt(proof = null) {
         if (isSubmitting) return;
         
         if (!calculateBalance()) {
@@ -1174,7 +1279,11 @@
                 amount: receiptData.amount,
                 receiptAmount: receiptData.receiptAmount,
                 balance: receiptData.balance,
-                remarks: receiptData.remarks || ''
+                remarks: receiptData.remarks || '',
+                paymentMethod: proof?.paymentMethod || 'UPI',
+                screenshotBase64: proof?.screenshotBase64 || '',
+                screenshotName: proof?.screenshotName || '',
+                screenshotMimeType: proof?.screenshotMimeType || ''
             };
             
             await fetch(CONFIG.APPS_SCRIPT_URL, {
@@ -1345,7 +1454,8 @@
         
         // Event listeners
         document.getElementById('payNowBtn').addEventListener('click', handlePayNow);
-        document.getElementById('showQrBtn').addEventListener('click', toggleQrCode);
+        document.getElementById('showQrBtn').addEventListener('click', showHostedQr);
+        document.getElementById('qrPaidBtn').addEventListener('click', showSuccessProofDialog);
         document.getElementById('resetBtn').addEventListener('click', resetForm);
         document.getElementById('saveBtn').addEventListener('click', saveReceipt);
         document.getElementById('receiptAmount').addEventListener('input', function() {
