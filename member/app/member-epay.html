@@ -933,10 +933,20 @@
 
     // ================= GENERATE QR CODE =================
     function generateUpiQR(upiId, amount, receiptNo) {
-        const upiString = `upi://pay?pa=${encodeURIComponent(upiId)}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(receiptNo)}`;
-        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiString)}`;
-        
-        document.getElementById('qrCode').innerHTML = `<img src="${qrUrl}" alt="UPI QR Code" class="qr-code-img">`;
+        const tr = buildUpiTransactionRef(receiptNo);
+        const upiString =
+            `upi://pay?pa=${encodeURIComponent(upiId)}` +
+            `&pn=${encodeURIComponent('GOKUL G')}` +
+            `&tr=${encodeURIComponent(tr)}` +
+            `&am=${amount.toFixed(2)}` +
+            `&cu=INR` +
+            `&tn=${encodeURIComponent(String(receiptNo).slice(0, 80))}`;
+
+        const qrUrl =
+            `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiString)}`;
+
+        const img = document.getElementById('upiQrImage');
+        if (img) img.src = qrUrl;
     }
 
     function toggleQrCode() {
@@ -1014,6 +1024,15 @@
         document.getElementById('qrCodeContainer').style.display = 'none';
     }
 
+    // Build a unique, compact UPI transaction reference.
+    // Keep it alphanumeric and <= 35 characters for broad UPI-app compatibility.
+    function buildUpiTransactionRef(receiptNo) {
+        const base = String(receiptNo || 'RECEIPT')
+            .replace(/[^A-Za-z0-9]/g, '')
+            .slice(-20);
+        return `${base}${Date.now().toString(36)}`.slice(0, 35);
+    }
+
     function openUpiApp() {
         const upiId = receiptUpiId;
         const amount = parseFloat(document.getElementById('receiptAmount').value) || 0;
@@ -1031,26 +1050,25 @@
             startedAt: Date.now()
         }));
 
+        const tr = buildUpiTransactionRef(receiptNo);
+        const tn = String(receiptNo || 'UPI Payment').slice(0, 80);
+
+        // Generic UPI intent: do not invent an MCC for a normal VPA.
         const upiIntent =
             `upi://pay?pa=${encodeURIComponent(upiId)}` +
-            `&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(receiptNo)}`;
+            `&pn=${encodeURIComponent('GOKUL G')}` +
+            `&tr=${encodeURIComponent(tr)}` +
+            `&am=${amount.toFixed(2)}` +
+            `&cu=INR` +
+            `&tn=${encodeURIComponent(tn)}`;
 
         showToast('Opening your UPI app. Complete the payment there.', 'info');
 
-        try {
-            const link = document.createElement('a');
-            link.href = upiIntent;
-            link.target = '_blank';
-            link.rel = 'noopener';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        } catch (e) {
-            window.location.href = upiIntent;
-        }
+        // Direct navigation is more reliable than target=_blank for Android UPI intents.
+        window.location.href = upiIntent;
 
         clearTimeout(upiReturnTimer);
-        upiReturnTimer = setTimeout(showPaymentReturnDialog, 2500);
+        upiReturnTimer = setTimeout(showPaymentReturnDialog, 3000);
     }
 
     async function showPaymentReturnDialog() {
