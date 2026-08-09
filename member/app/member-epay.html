@@ -237,6 +237,45 @@
             display: block;
         }
         
+        /* QR Code Container */
+        #qrCodeContainer {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+        }
+        #qrCodeContainer .qr-code-img {
+            width: 200px;
+            height: 200px;
+            margin: 0 auto;
+            border-radius: 8px;
+            border: 2px solid #e2e8f0;
+        }
+        #qrCodeContainer .upi-id-display {
+            background: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            display: inline-block;
+            margin-top: 10px;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+        .copy-btn {
+            background: transparent;
+            border: none;
+            color: #0f5b9c;
+            cursor: pointer;
+            padding: 4px 8px;
+            font-size: 0.8rem;
+        }
+        .copy-btn:hover {
+            text-decoration: underline;
+        }
+        
         /* Section Divider */
         .section-divider {
             border-top: 2px dashed #e2e8f0;
@@ -293,6 +332,19 @@
             opacity: 0.6;
             cursor: not-allowed;
         }
+        .btn-outline-primary-custom {
+            background: transparent;
+            border: 1px solid #0f5b9c;
+            color: #0f5b9c;
+            padding: 8px 16px;
+            font-weight: 500;
+            border-radius: 40px;
+            transition: 0.2s;
+            font-size: 0.8rem;
+        }
+        .btn-outline-primary-custom:hover {
+            background: #e6f0fa;
+        }
         .action-buttons {
             display: flex;
             gap: 8px;
@@ -347,6 +399,10 @@
             .action-buttons { flex-direction: column; }
             .action-buttons .btn { width: 100%; }
             .receipt-id-display { font-size: 0.8rem; padding: 10px; }
+            #qrCodeContainer .qr-code-img {
+                width: 150px;
+                height: 150px;
+            }
         }
     </style>
 </head>
@@ -373,6 +429,9 @@
     <!-- Header -->
     <div class="page-header">
         <h4><i class="bi bi-receipt"></i> New Receipt</h4>
+        <button class="back-btn" onclick="goBackToDashboard()">
+            <i class="bi bi-arrow-left"></i> Back
+        </button>
     </div>
     
     <div class="content-card">
@@ -421,7 +480,7 @@
                 </div>
                 
                 <!-- Transaction ID -->
-                <div class="col-md-6" style="display:none;">
+                <div class="col-md-6">
                     <label class="form-label">Transaction ID</label>
                     <input type="text" id="transactionId" class="form-control" placeholder="Enter transaction ID (optional)">
                 </div>
@@ -454,10 +513,27 @@
                 <!-- Remarks -->
                 <div class="col-12">
                     <label class="form-label">Remarks</label>
-                    <textarea id="remarks" class="form-control" rows="2" placeholder=""></textarea>
+                    <textarea id="remarks" class="form-control" rows="2" placeholder="Optional remarks"></textarea>
                 </div>
             </div>
         </form>
+        
+        <!-- QR Code Container -->
+        <div id="qrCodeContainer">
+            <div id="qrCode"></div>
+            <p style="font-size:0.85rem;color:#64748b;margin-top:10px;">
+                <i class="bi bi-qr-code"></i> Scan this QR code with any UPI app
+            </p>
+            <div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:8px;">
+                <span class="upi-id-display" id="qrUpiIdDisplay"></span>
+                <button class="btn-outline-primary-custom" onclick="copyUpiId()">
+                    <i class="bi bi-clipboard"></i> Copy UPI ID
+                </button>
+            </div>
+            <button class="btn btn-secondary-custom btn-sm mt-3" onclick="closeQrCode()">
+                <i class="bi bi-x-circle"></i> Close
+            </button>
+        </div>
         
         <div class="section-divider"></div>
         
@@ -465,6 +541,9 @@
         <div class="action-buttons">
             <button type="button" id="payNowBtn" class="btn btn-success-custom">
                 <i class="bi bi-upc-scan"></i> Pay Now
+            </button>
+            <button type="button" id="showQrBtn" class="btn btn-primary-custom">
+                <i class="bi bi-qr-code"></i> Show QR Code
             </button>
             <button type="button" id="resetBtn" class="btn btn-secondary-custom">
                 <i class="bi bi-arrow-counterclockwise"></i> Reset
@@ -483,17 +562,10 @@
 
 <script>
     // ================= CONFIGURATION (Encrypted) =================
-    // The actual sheet ID is encoded using a simple reversible transformation
-    // This provides basic obfuscation, not cryptographic security
     const CONFIG = (function() {
-        // Encoded sheet ID: "1FKCX4TODUcQ_0o8xP14fGENYT17k4Mcm_rJe6eFSTjE"
-        // Simple Caesar cipher shift for obfuscation
-        const encoded = '1FKCX4TODUcQ_0o8xP14fGENYT17k4Mcm_rJe6eFSTjE';
-        // No explicit decoding - using directly but with obfuscated variable name
-        // This provides basic hiding from casual inspection
         const _s = '1FKCX4TODUcQ_0o8xP14fGENYT17k4Mcm_rJe6eFSTjE';
         const _k = 'AIzaSyDc8tegwi2rgHyDFYm7uWBqVqQ7Fwb3uWM';
-        const _url = 'https://script.google.com/macros/s/AKfycby1ZpBj2ke9-zmdtXSRBeXSuSpRT2KVzEexLCBsyxddfsanhpkEkKgf2ZE2oLdDoWMTTw/exec';
+        const _url = 'https://script.google.com/macros/s/AKfycbxa7fr6v4_NdlJ-tWcrQFWMBDp_kDKb9JOgRy7r7l45gw-pqfXpTF1btFDBXkuv_vaigQ/exec';
         
         return {
             get SPREADSHEET_ID() { return _s; },
@@ -585,33 +657,11 @@
         return padZero(new Date().getDate());
     }
 
-    function getCurrentYearSuffix() {
-        const year = new Date().getFullYear();
-        return year.toString().slice(-2);
-    }
-
-    function getNextYearSuffix() {
-        const year = new Date().getFullYear() + 1;
-        return year.toString().slice(-2);
-    }
-
     function goBackToDashboard() {
         window.location.href = 'member-dashboard.html';
     }
 
     // ================= FETCH DATA FROM SHEET =================
-    async function fetchSheetData() {
-        try {
-            const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values?key=${CONFIG.API_KEY}&_=${Date.now()}`;
-            const response = await fetch(url);
-            const data = await response.json();
-            return data;
-        } catch (e) {
-            console.error('Error fetching sheet data:', e);
-            return null;
-        }
-    }
-
     async function fetchReceiptCategories() {
         try {
             const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values/'Receipt Category and Amount'!A:C?key=${CONFIG.API_KEY}&_=${Date.now()}`;
@@ -681,17 +731,14 @@
         const month = getCurrentMonth();
         const day = getCurrentDay();
         
-        // Get selected category ID
         const categorySelect = document.getElementById('receiptCategory');
         const selectedCategory = categorySelect.options[categorySelect.selectedIndex];
         const categoryId = selectedCategory ? selectedCategory.value : 'XX';
         
-        // Get selected financial year
         const yearSelect = document.getElementById('financialYear');
         const selectedYear = yearSelect.options[yearSelect.selectedIndex];
         const yearValue = selectedYear ? selectedYear.value : '2425';
         
-        // Format: SN+{Branch}+{Home}+{Category}+{MM}{DD}+{FinancialYear}
         const receiptId = `SN${branch}${home}${categoryId}${month}${day}${yearValue}`;
         return receiptId;
     }
@@ -712,7 +759,6 @@
         if (category) {
             document.getElementById('amount').value = category.amount.toFixed(2);
             selectedCategoryAmount = category.amount;
-            // Update receipt amount default
             document.getElementById('receiptAmount').value = category.amount.toFixed(2);
             calculateBalance();
         } else {
@@ -732,7 +778,6 @@
         const balance = amount - receiptAmount;
         document.getElementById('balance').value = balance >= 0 ? balance.toFixed(2) : '0.00';
         
-        // Validate receipt amount
         const errorEl = document.getElementById('receiptAmountError');
         const input = document.getElementById('receiptAmount');
         
@@ -774,7 +819,6 @@
             select.appendChild(option);
         });
         
-        // Initialize Select2
         $('#receiptCategory').select2({
             theme: 'bootstrap-5',
             placeholder: 'Select Category',
@@ -782,7 +826,6 @@
             width: '100%'
         });
         
-        // Add change event
         $('#receiptCategory').on('change', function() {
             updateAmount();
         });
@@ -792,7 +835,6 @@
         const select = document.getElementById('financialYear');
         select.innerHTML = '<option value="">Select Financial Year</option>';
         
-        // Sort years in descending order (latest first)
         const sortedYears = [...years].sort((a, b) => {
             const aStart = parseInt(a.split('-')[0]);
             const bStart = parseInt(b.split('-')[0]);
@@ -806,12 +848,10 @@
             select.appendChild(option);
         });
         
-        // Set default to latest year
         if (sortedYears.length > 0) {
             select.value = sortedYears[0].replace('-', '');
         }
         
-        // Initialize Select2
         $('#financialYear').select2({
             theme: 'bootstrap-5',
             placeholder: 'Select Financial Year',
@@ -819,7 +859,6 @@
             width: '100%'
         });
         
-        // Add change event
         $('#financialYear').on('change', function() {
             updateReceiptId();
         });
@@ -855,6 +894,193 @@
             console.error('Error submitting receipt:', e);
             return false;
         }
+    }
+
+    // ================= BUILD UPI INTENT URL =================
+    function buildUpiIntent(upiId, amount, receiptNo) {
+        const payeeName = 'E-Shaka';
+        const note = `Payment for ${receiptNo}`;
+        
+        const params = new URLSearchParams({
+            pa: upiId,
+            pn: payeeName,
+            am: amount.toFixed(2),
+            cu: 'INR',
+            tn: note,
+            mc: '0000',
+            tid: receiptNo,
+            tr: receiptNo
+        });
+        
+        return `upi://pay?${params.toString()}`;
+    }
+
+    // ================= OPEN UPI APP =================
+    function openUpiApp(upiIntent) {
+        // Method 1: Direct location.href
+        try {
+            window.location.href = upiIntent;
+            return true;
+        } catch (e) {
+            console.warn('Method 1 failed:', e);
+        }
+        
+        // Method 2: window.open
+        try {
+            const win = window.open(upiIntent, '_blank');
+            if (win && !win.closed) {
+                return true;
+            }
+        } catch (e) {
+            console.warn('Method 2 failed:', e);
+        }
+        
+        // Method 3: Create and click a hidden link
+        try {
+            const link = document.createElement('a');
+            link.href = upiIntent;
+            link.target = '_blank';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            return true;
+        } catch (e) {
+            console.warn('Method 3 failed:', e);
+        }
+        
+        // Method 4: Try app-specific schemes
+        try {
+            const upiId = document.getElementById('senderUpiId')?.value || receiptUpiId;
+            const amount = parseFloat(document.getElementById('receiptAmount').value) || 0;
+            const receiptNo = document.getElementById('receiptIdValue').textContent;
+            
+            const appIntents = [
+                `upi://pay?pa=${encodeURIComponent(upiId)}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(receiptNo)}`,
+                `googlepay://upi/pay?pa=${encodeURIComponent(upiId)}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(receiptNo)}`,
+                `phonepe://upi/pay?pa=${encodeURIComponent(upiId)}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(receiptNo)}`,
+                `paytmmp://upi/pay?pa=${encodeURIComponent(upiId)}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(receiptNo)}`,
+                `axis://upi/pay?pa=${encodeURIComponent(upiId)}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(receiptNo)}`,
+                `icici://upi/pay?pa=${encodeURIComponent(upiId)}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(receiptNo)}`,
+                `sbi://upi/pay?pa=${encodeURIComponent(upiId)}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(receiptNo)}`
+            ];
+            
+            for (const intent of appIntents) {
+                try {
+                    const win = window.open(intent, '_blank');
+                    if (win && !win.closed) {
+                        return true;
+                    }
+                } catch (e) {
+                    // Continue to next app
+                }
+            }
+        } catch (e) {
+            console.warn('App-specific intents failed:', e);
+        }
+        
+        return false;
+    }
+
+    // ================= GENERATE QR CODE =================
+    function generateUpiQR(upiId, amount, receiptNo) {
+        const upiString = `upi://pay?pa=${encodeURIComponent(upiId)}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(receiptNo)}`;
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(upiString)}`;
+        
+        document.getElementById('qrCode').innerHTML = `<img src="${qrUrl}" alt="UPI QR Code" class="qr-code-img">`;
+        document.getElementById('qrUpiIdDisplay').textContent = upiId;
+        document.getElementById('qrCodeContainer').style.display = 'block';
+        
+        // Scroll to QR code
+        document.getElementById('qrCodeContainer').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function closeQrCode() {
+        document.getElementById('qrCodeContainer').style.display = 'none';
+    }
+
+    function copyUpiId() {
+        const upiId = document.getElementById('qrUpiIdDisplay').textContent;
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(upiId).then(() => {
+                showToast('UPI ID copied to clipboard!', 'success');
+            }).catch(() => {
+                fallbackCopy(upiId);
+            });
+        } else {
+            fallbackCopy(upiId);
+        }
+    }
+
+    function fallbackCopy(text) {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            showToast('UPI ID copied to clipboard!', 'success');
+        } catch (e) {
+            showToast('Failed to copy. Please copy manually.', 'error');
+        }
+        document.body.removeChild(textArea);
+    }
+
+    // ================= SHOW MANUAL UPI PAYMENT =================
+    async function showManualUpiPayment(upiId, amount, receiptNo) {
+        const result = await Swal.fire({
+            title: '⚠️ Unable to Open UPI App',
+            html: `
+                <div style="text-align:left;">
+                    <p>Please complete the payment manually using any UPI app:</p>
+                    <div style="background:#f1f5f9;padding:15px;border-radius:12px;margin:10px 0;">
+                        <p><strong>UPI ID:</strong> ${escapeHtml(upiId)}</p>
+                        <p><strong>Amount:</strong> ₹${amount.toFixed(2)}</p>
+                        <p><strong>Reference:</strong> ${escapeHtml(receiptNo)}</p>
+                    </div>
+                    <p style="font-size:0.85rem;color:#64748b;">After payment, the receipt will be verified manually.</p>
+                    <button class="btn btn-outline-primary btn-sm mt-2" onclick="copyUpiId()">
+                        <i class="bi bi-clipboard"></i> Copy UPI ID
+                    </button>
+                </div>
+            `,
+            icon: 'info',
+            confirmButtonText: 'I have made the payment',
+            showCancelButton: true,
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#16a34a',
+            cancelButtonColor: '#64748b'
+        });
+        
+        if (result.isConfirmed) {
+            await Swal.fire({
+                title: 'Thank You!',
+                text: 'Your payment has been recorded and will be verified.',
+                icon: 'success',
+                timer: 2000,
+                showConfirmButton: false
+            });
+        }
+    }
+
+    // ================= SHOW PAYMENT FOLLOW-UP =================
+    async function showPaymentFollowUp(receiptNo) {
+        await Swal.fire({
+            title: '💳 Payment Initiated',
+            html: `
+                <p>Please complete the payment in your UPI app.</p>
+                <p style="font-size:0.85rem;color:#64748b;">
+                    Receipt No: <strong>${escapeHtml(receiptNo)}</strong><br>
+                    Status: <strong>Verification Pending</strong>
+                </p>
+                <p style="font-size:0.8rem;color:#64748b;margin-top:10px;">
+                    If the UPI app didn't open, click "Show QR Code" below.
+                </p>
+            `,
+            icon: 'info',
+            confirmButtonText: 'OK, I\'ll complete it',
+            timer: 5000,
+            timerProgressBar: true
+        });
     }
 
     // ================= PAY NOW =================
@@ -929,21 +1155,10 @@
         const originalHtml = btn.innerHTML;
         btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Processing...';
         btn.disabled = true;
-        showLoading(true, 'Processing payment...');
+        showLoading(true, 'Opening payment app...');
         
         try {
-            // Open UPI app
-            const upiUrl = `upi://pay?pa=${encodeURIComponent(receiptUpiId)}&am=${receiptAmount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(receiptNo)}`;
-            
-            // Open UPI app
-            const upiWindow = window.open(upiUrl, '_blank');
-            
-            // If window.open fails, try redirect
-            if (!upiWindow || upiWindow.closed) {
-                window.location.href = upiUrl;
-            }
-            
-            // Submit data to sheet
+            // Submit data to sheet first (with pending status)
             const receiptData = {
                 branchId: branchId,
                 homeId: homeId,
@@ -960,13 +1175,29 @@
             
             await submitReceiptData(receiptData);
             
-            showLoading(false);
-            showToast('Payment initiated and receipt recorded!', 'success');
+            // Build the UPI intent URL
+            const upiIntent = buildUpiIntent(receiptUpiId, receiptAmount, receiptNo);
+            
+            // Try to open the UPI app
+            const opened = openUpiApp(upiIntent);
+            
+            if (!opened) {
+                // Fallback: show manual UPI payment
+                await showManualUpiPayment(receiptUpiId, receiptAmount, receiptNo);
+                // Also show QR code
+                generateUpiQR(receiptUpiId, receiptAmount, receiptNo);
+            } else {
+                showLoading(false);
+                showToast('Payment initiated! Please complete the payment in your UPI app.', 'success');
+                await showPaymentFollowUp(receiptNo);
+            }
             
             // Reset form after delay
             setTimeout(() => {
-                resetForm();
-            }, 2000);
+                if (!document.getElementById('qrCodeContainer').style.display === 'block') {
+                    resetForm();
+                }
+            }, 5000);
             
         } catch (err) {
             showLoading(false);
@@ -979,12 +1210,29 @@
         }
     }
 
+    // ================= SHOW QR CODE =================
+    function handleShowQr() {
+        const receiptAmount = parseFloat(document.getElementById('receiptAmount').value) || 0;
+        const receiptNo = document.getElementById('receiptIdValue').textContent;
+        
+        if (receiptAmount <= 0) {
+            showToast('Please enter a valid receipt amount first.', 'error');
+            return;
+        }
+        
+        if (!receiptUpiId) {
+            showToast('UPI ID not available. Please refresh and try again.', 'error');
+            return;
+        }
+        
+        generateUpiQR(receiptUpiId, receiptAmount, receiptNo);
+    }
+
     // ================= RESET FORM =================
     function resetForm() {
         document.getElementById('receiptCategory').value = '';
         $('#receiptCategory').trigger('change');
         
-        // Reset financial year to default (latest)
         const yearSelect = document.getElementById('financialYear');
         const options = yearSelect.options;
         if (options.length > 1) {
@@ -998,18 +1246,16 @@
         document.getElementById('receiptAmount').value = '';
         document.getElementById('balance').value = '';
         document.getElementById('remarks').value = '';
-        
         document.getElementById('receiptAmountError').classList.remove('show');
         document.getElementById('receiptAmount').classList.remove('is-invalid');
+        closeQrCode();
         
-        // Reset amount after category change
         updateAmount();
         updateReceiptId();
     }
 
     // ================= INIT =================
     async function init() {
-        // Check session
         const session = getSessionFromStorage();
         if (!isValidSession(session)) {
             document.getElementById('accessDeniedOverlay').classList.add('active');
@@ -1020,11 +1266,9 @@
         homeId = session.homeId;
         memberName = session.name || 'Member';
         
-        // Show main content
         document.getElementById('mainContent').style.display = 'block';
         document.getElementById('accessDeniedOverlay').classList.remove('active');
         
-        // Display info
         document.getElementById('displayBranchId').textContent = branchId;
         document.getElementById('displayHomeId').textContent = homeId;
         document.getElementById('displayMemberName').textContent = memberName;
@@ -1034,7 +1278,6 @@
         showLoading(true, 'Loading data...');
         
         try {
-            // Fetch all data
             const [categories, years, upiId] = await Promise.all([
                 fetchReceiptCategories(),
                 fetchFinancialYears(),
@@ -1048,10 +1291,8 @@
             populateReceiptCategories(categories);
             populateFinancialYears(years);
             
-            // Update receipt ID
             updateReceiptId();
             
-            // Auto-select first category if available
             if (categories.length > 0) {
                 document.getElementById('receiptCategory').value = categories[0].id;
                 $('#receiptCategory').trigger('change');
@@ -1066,6 +1307,7 @@
         
         // Event listeners
         document.getElementById('payNowBtn').addEventListener('click', handlePayNow);
+        document.getElementById('showQrBtn').addEventListener('click', handleShowQr);
         document.getElementById('resetBtn').addEventListener('click', resetForm);
         document.getElementById('receiptAmount').addEventListener('input', function() {
             calculateBalance();
@@ -1074,11 +1316,9 @@
 
     // ================= START =================
     document.addEventListener('DOMContentLoaded', function() {
-        // Wait for Select2 to load
         if (typeof $.fn.select2 !== 'undefined') {
             init();
         } else {
-            // Fallback: wait for jQuery and Select2
             const checkSelect2 = setInterval(function() {
                 if (typeof $.fn.select2 !== 'undefined') {
                     clearInterval(checkSelect2);
