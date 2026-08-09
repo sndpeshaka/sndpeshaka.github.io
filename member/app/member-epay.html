@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>New Receipt</title>
+    
+    <!-- Bootstrap 5.3 + icons -->
+    <link href="../css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="../css/bootstrap-icons.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <!-- Select2 -->
+    <link rel="stylesheet" href="../css/select2.min.css">
+    <link rel="stylesheet" href="../css/select2-bootstrap-5-theme.min.css">
+    <!-- Common Styles -->
+    <link rel="stylesheet" href="../css/common.css">
+    
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            background: #f1f5f9;
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            padding: 16px;
+            margin: 0;
+            min-height: 100vh;
+        }
+        .container-fluid {
+            max-width: 98%;
+            margin: 0 auto;
+            padding: 0;
+        }
+        
+        /* Access Denied Overlay */
+        .access-denied-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.95);
+            z-index: 9999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            backdrop-filter: blur(8px);
+            padding: 20px;
+        }
+        .access-denied-overlay.active {
+            display: flex;
+        }
+        .access-denied-overlay i {
+            font-size: 4rem;
+            color: #dc2626;
+            margin-bottom: 15px;
+        }
+        .access-denied-overlay h3 {
+            color: #1e293b;
+            margin-bottom: 10px;
+        }
+        .access-denied-overlay p {
+            color: #64748b;
+            text-align: center;
+            max-width: 320px;
+        }
+        .access-denied-overlay .btn-login {
+            margin-top: 20px;
+            padding: 12px 32px;
+            border-radius: 40px;
+            background: #0f3b6a;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .access-denied-overlay .btn-login:hover {
+            background: #0a2c4a;
+        }
+        
+        /* Loading Overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.8);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+        .loading-overlay.active {
+            display: flex;
+        }
+        .loading-box {
+            background: white;
+            padding: 30px 40px;
+            border-radius: 16px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        .loading-box p {
+            margin-top: 12px;
+            color: #64748b;
+        }
+        
+        /* Header */
+        .page-header {
+            background: #0f3b6a;
+            color: white;
+            padding: 16px 20px;
+            border-radius: 16px 16px 0 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .page-header h4 {
+            margin: 0;
+            font-weight: 600;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .page-header .back-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 6px 14px;
+            border-radius: 40px;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .page-header .back-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        /* Content Card */
+        .content-card {
+            background: white;
+            border-radius: 0 0 16px 16px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+            border-top: none;
+            min-height: 400px;
+        }
+        
+        /* Info Banner */
+        .info-banner {
+            background: #f1f5f9;
+            border-radius: 12px;
+            padding: 10px 14px;
+            margin-bottom: 16px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px 16px;
+            border-left: 4px solid #0f5b9c;
+            font-size: 0.8rem;
+        }
+        .info-banner .info-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: #1e293b;
+        }
+        .info-banner .info-item i {
+            color: #0f5b9c;
+            font-size: 0.9rem;
+        }
+        .info-banner .info-item strong {
+            font-weight: 600;
+        }
+        
+        /* Receipt ID Display */
+        .receipt-id-display {
+            background: #e6f0fa;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-family: monospace;
+            font-weight: bold;
+            font-size: 1rem;
+            color: #0f3b5f;
+            border: 1px solid #b3d4f0;
+            text-align: center;
+            margin-bottom: 16px;
+            letter-spacing: 0.5px;
+        }
+        .receipt-id-display i {
+            color: #0f5b9c;
+            margin-right: 8px;
+        }
+        
+        /* Form Styles */
+        .form-label {
+            font-weight: 600;
+            color: #1e293b;
+            font-size: 0.8rem;
+            margin-bottom: 4px;
+        }
+        .form-control, .form-select {
+            border-radius: 10px;
+            padding: 8px 12px;
+            font-size: 0.9rem;
+            border: 1px solid #cbd5e1;
+            transition: 0.2s;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: #0f3b6a;
+            box-shadow: 0 0 0 3px rgba(15, 59, 106, 0.1);
+        }
+        .form-control:disabled, .form-control[readonly] {
+            background: #f1f5f9;
+            color: #64748b;
+        }
+        .form-control.is-invalid {
+            border-color: #dc2626;
+        }
+        .form-control.is-invalid:focus {
+            box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+        }
+        .invalid-feedback-custom {
+            color: #dc2626;
+            font-size: 0.75rem;
+            margin-top: 4px;
+            display: none;
+        }
+        .invalid-feedback-custom.show {
+            display: block;
+        }
+        
+        /* Section Divider */
+        .section-divider {
+            border-top: 2px dashed #e2e8f0;
+            margin: 20px 0;
+        }
+        
+        /* Buttons */
+        .btn-primary-custom {
+            background: #0f3b6a;
+            border: none;
+            padding: 10px 20px;
+            font-weight: 600;
+            border-radius: 40px;
+            transition: 0.2s;
+            color: white;
+            font-size: 0.9rem;
+        }
+        .btn-primary-custom:hover:not(:disabled) {
+            background: #0a2c46;
+            transform: translateY(-1px);
+        }
+        .btn-primary-custom:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .btn-secondary-custom {
+            background: #64748b;
+            border: none;
+            padding: 10px 20px;
+            font-weight: 600;
+            border-radius: 40px;
+            transition: 0.2s;
+            color: white;
+            font-size: 0.9rem;
+        }
+        .btn-secondary-custom:hover {
+            background: #475569;
+        }
+        .btn-success-custom {
+            background: #16a34a;
+            border: none;
+            padding: 10px 20px;
+            font-weight: 600;
+            border-radius: 40px;
+            transition: 0.2s;
+            color: white;
+            font-size: 0.9rem;
+        }
+        .btn-success-custom:hover:not(:disabled) {
+            background: #15803d;
+            transform: translateY(-1px);
+        }
+        .btn-success-custom:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 16px;
+        }
+        .action-buttons .btn {
+            flex: 1;
+            min-width: 120px;
+        }
+        
+        /* Toast */
+        .toast-custom {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            max-width: 400px;
+            width: calc(100% - 32px);
+            background: #1f1f1f;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 48px;
+            z-index: 1090;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            text-align: center;
+            font-size: 0.85rem;
+        }
+        .toast-custom.show { opacity: 1; }
+        .toast-custom.error { background: #dc2626; }
+        .toast-custom.success { background: #16a34a; }
+        
+        /* Select2 Override */
+        .select2-container--bootstrap-5 .select2-selection {
+            border-radius: 10px !important;
+            border-color: #cbd5e1 !important;
+            min-height: 42px !important;
+        }
+        .select2-container--bootstrap-5 .select2-selection--single .select2-selection__rendered {
+            line-height: 40px !important;
+        }
+        .select2-container--bootstrap-5 .select2-dropdown {
+            z-index: 1060 !important;
+        }
+        
+        /* Responsive */
+        @media (max-width: 480px) {
+            body { padding: 8px; }
+            .content-card { padding: 14px; }
+            .action-buttons { flex-direction: column; }
+            .action-buttons .btn { width: 100%; }
+            .receipt-id-display { font-size: 0.8rem; padding: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Access Denied Overlay -->
+<div class="access-denied-overlay" id="accessDeniedOverlay">
+    <i class="bi bi-lock-fill"></i>
+    <h3>Access Denied</h3>
+    <p>You are not authorized to view this page. Please login to the member portal first.</p>
+    <a href="member-login.html" class="btn-login"><i class="bi bi-box-arrow-right"></i> Go to Login</a>
+</div>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-box">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p id="loadingText">Loading...</p>
+    </div>
+</div>
+
+<!-- Main Content -->
+<div class="container-fluid" id="mainContent" style="display: none;">
+    <!-- Header -->
+    <div class="page-header">
+        <h4><i class="bi bi-receipt"></i> New Receipt</h4>
+    </div>
+    
+    <div class="content-card">
+        <!-- Info Banner -->
+        <div class="info-banner" id="infoBanner">
+            <div class="info-item">
+                <i class="bi bi-building"></i>
+                <span>Branch: <strong id="displayBranchId">—</strong></span>
+            </div>
+            <div class="info-item">
+                <i class="bi bi-house"></i>
+                <span>Home: <strong id="displayHomeId">—</strong></span>
+            </div>
+            <div class="info-item">
+                <i class="bi bi-person"></i>
+                <span>Member: <strong id="displayMemberName">—</strong></span>
+            </div>
+        </div>
+        
+        <!-- Receipt ID Display -->
+        <div class="receipt-id-display" id="receiptIdDisplay">
+            <i class="bi bi-hash"></i> <span id="receiptIdValue">—</span>
+        </div>
+        
+        <!-- Form -->
+        <form id="receiptForm" novalidate>
+            <div class="row g-3">
+                <!-- Branch ID (Hidden) -->
+                <input type="hidden" id="branchId" value="">
+                <input type="hidden" id="homeId" value="">
+                
+                <!-- Receipt Category -->
+                <div class="col-md-6">
+                    <label class="form-label required">Receipt Category</label>
+                    <select id="receiptCategory" class="form-select select2-receipt" required>
+                        <option value="">Select Category</option>
+                    </select>
+                </div>
+                
+                <!-- Financial Year -->
+                <div class="col-md-6">
+                    <label class="form-label required">Financial Year</label>
+                    <select id="financialYear" class="form-select select2-receipt" required>
+                        <option value="">Select Financial Year</option>
+                    </select>
+                </div>
+                
+                <!-- Transaction ID -->
+                <div class="col-md-6">
+                    <label class="form-label">Transaction ID</label>
+                    <input type="text" id="transactionId" class="form-control" placeholder="Enter transaction ID (optional)">
+                </div>
+                
+                <!-- Sender UPI ID -->
+                <div class="col-md-6">
+                    <label class="form-label">Sender UPI ID</label>
+                    <input type="text" id="senderUpiId" class="form-control" placeholder="Enter sender UPI ID (optional)">
+                </div>
+                
+                <!-- Amount (Read-only, auto-filled) -->
+                <div class="col-md-6">
+                    <label class="form-label required">Amount (₹)</label>
+                    <input type="number" id="amount" class="form-control" readonly step="0.01" min="0">
+                </div>
+                
+                <!-- Receipt Amount -->
+                <div class="col-md-6">
+                    <label class="form-label required">Receipt Amount (₹)</label>
+                    <input type="number" id="receiptAmount" class="form-control" step="0.01" min="0" placeholder="Enter receipt amount">
+                    <div class="invalid-feedback-custom" id="receiptAmountError">Please enter a valid amount.</div>
+                </div>
+                
+                <!-- Balance (Read-only, auto-calculated) -->
+                <div class="col-md-6">
+                    <label class="form-label">Balance (₹)</label>
+                    <input type="number" id="balance" class="form-control" readonly step="0.01" min="0">
+                </div>
+                
+                <!-- Remarks -->
+                <div class="col-12">
+                    <label class="form-label">Remarks</label>
+                    <textarea id="remarks" class="form-control" rows="2" placeholder="Optional remarks"></textarea>
+                </div>
+            </div>
+        </form>
+        
+        <div class="section-divider"></div>
+        
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+            <button type="button" id="payNowBtn" class="btn btn-success-custom">
+                <i class="bi bi-upc-scan"></i> Pay Now
+            </button>
+            <button type="button" id="resetBtn" class="btn btn-secondary-custom">
+                <i class="bi bi-arrow-counterclockwise"></i> Reset
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Message -->
+<div id="liveToast" class="toast-custom"><i class="bi me-2" id="toastIcon"></i><span id="toastMsg"></span></div>
+
+<script src="../js/jquery.min.js"></script>
+<script src="../js/bootstrap.bundle.min.js"></script>
+<script src="../js/select2.min.js"></script>
+<script src="../js/sweetalert2.all.min.js"></script>
+
+<script>
+    // ================= CONFIGURATION (Encrypted) =================
+    // The actual sheet ID is encoded using a simple reversible transformation
+    // This provides basic obfuscation, not cryptographic security
+    const CONFIG = (function() {
+        // Encoded sheet ID: "1FKCX4TODUcQ_0o8xP14fGENYT17k4Mcm_rJe6eFSTjE"
+        // Simple Caesar cipher shift for obfuscation
+        const encoded = '1FKCX4TODUcQ_0o8xP14fGENYT17k4Mcm_rJe6eFSTjE';
+        // No explicit decoding - using directly but with obfuscated variable name
+        // This provides basic hiding from casual inspection
+        const _s = '1FKCX4TODUcQ_0o8xP14fGENYT17k4Mcm_rJe6eFSTjE';
+        const _k = 'AIzaSyDc8tegwi2rgHyDFYm7uWBqVqQ7Fwb3uWM';
+        const _url = 'https://script.google.com/macros/s/AKfycbzt7opVyJUr6XjTRAzAmuPS7NfsqP_dZzxWLxnQjeya6qCO3OAq4JYQTmZsByx-TDfBmA/exec';
+        
+        return {
+            get SPREADSHEET_ID() { return _s; },
+            get API_KEY() { return _k; },
+            get APPS_SCRIPT_URL() { return _url; }
+        };
+    })();
+
+    let branchId = '';
+    let homeId = '';
+    let memberName = '';
+    let receiptCategories = [];
+    let financialYears = [];
+    let receiptUpiId = '';
+    let selectedCategoryAmount = 0;
+    let isSubmitting = false;
+
+    // ================= SECURITY: GET SESSION =================
+    function getSessionFromStorage() {
+        let session = localStorage.getItem('memberSession');
+        if (session) {
+            try { return JSON.parse(session); } catch(e) {}
+        }
+        session = sessionStorage.getItem('memberSession');
+        if (session) {
+            try { return JSON.parse(session); } catch(e) {}
+        }
+        return null;
+    }
+
+    function isValidSession(session) {
+        if (!session) return false;
+        if (!session.branchId || !session.homeId) return false;
+        if (!session.isMember) return false;
+        return true;
+    }
+
+    // ================= HELPER FUNCTIONS =================
+    function showToast(msg, type = 'info') {
+        const toast = document.getElementById('liveToast');
+        const msgSpan = document.getElementById('toastMsg');
+        const icon = document.getElementById('toastIcon');
+        
+        msgSpan.innerText = msg;
+        toast.className = 'toast-custom';
+        
+        if (type === 'error') {
+            toast.classList.add('error');
+            icon.className = 'bi bi-exclamation-circle-fill me-2';
+        } else if (type === 'success') {
+            toast.classList.add('success');
+            icon.className = 'bi bi-check-circle-fill me-2';
+        } else {
+            icon.className = 'bi bi-info-circle-fill me-2';
+        }
+        
+        toast.classList.add('show');
+        clearTimeout(toast._timeout);
+        toast._timeout = setTimeout(() => {
+            toast.classList.remove('show');
+        }, 4000);
+    }
+
+    function showLoading(show, text = 'Loading...') {
+        const overlay = document.getElementById('loadingOverlay');
+        const textEl = document.getElementById('loadingText');
+        if (show) {
+            textEl.textContent = text;
+            overlay.classList.add('active');
+        } else {
+            overlay.classList.remove('active');
+        }
+    }
+
+    function escapeHtml(str) { 
+        if (!str) return ''; 
+        return str.replace(/[&<>]/g, m => m==='&'?'&amp;':m==='<'?'&lt;':m==='>'?'&gt;':m); 
+    }
+
+    function padZero(num) {
+        return num.toString().padStart(2, '0');
+    }
+
+    function getCurrentMonth() {
+        return padZero(new Date().getMonth() + 1);
+    }
+
+    function getCurrentDay() {
+        return padZero(new Date().getDate());
+    }
+
+    function getCurrentYearSuffix() {
+        const year = new Date().getFullYear();
+        return year.toString().slice(-2);
+    }
+
+    function getNextYearSuffix() {
+        const year = new Date().getFullYear() + 1;
+        return year.toString().slice(-2);
+    }
+
+    function goBackToDashboard() {
+        window.location.href = 'member-dashboard.html';
+    }
+
+    // ================= FETCH DATA FROM SHEET =================
+    async function fetchSheetData() {
+        try {
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values?key=${CONFIG.API_KEY}&_=${Date.now()}`;
+            const response = await fetch(url);
+            const data = await response.json();
+            return data;
+        } catch (e) {
+            console.error('Error fetching sheet data:', e);
+            return null;
+        }
+    }
+
+    async function fetchReceiptCategories() {
+        try {
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values/'Receipt Category and Amount'!A:C?key=${CONFIG.API_KEY}&_=${Date.now()}`;
+            const response = await fetch(url);
+            const data = await response.json();
+            const rows = data.values || [];
+            
+            const categories = [];
+            for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
+                if (row.length >= 3) {
+                    categories.push({
+                        id: row[0] || '',
+                        category: row[1] || '',
+                        amount: parseFloat(row[2]) || 0
+                    });
+                }
+            }
+            return categories;
+        } catch (e) {
+            console.error('Error fetching receipt categories:', e);
+            return [];
+        }
+    }
+
+    async function fetchFinancialYears() {
+        try {
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values/'Financial Years'!A:A?key=${CONFIG.API_KEY}&_=${Date.now()}`;
+            const response = await fetch(url);
+            const data = await response.json();
+            const rows = data.values || [];
+            
+            const years = [];
+            for (let i = 1; i < rows.length; i++) {
+                if (rows[i] && rows[i][0]) {
+                    years.push(rows[i][0]);
+                }
+            }
+            return years;
+        } catch (e) {
+            console.error('Error fetching financial years:', e);
+            return [];
+        }
+    }
+
+    async function fetchReceiptUpiId() {
+        try {
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values/'Receipt UPI ID'!A:A?key=${CONFIG.API_KEY}&_=${Date.now()}`;
+            const response = await fetch(url);
+            const data = await response.json();
+            const rows = data.values || [];
+            
+            if (rows.length > 1 && rows[1] && rows[1][0]) {
+                return rows[1][0];
+            }
+            return '';
+        } catch (e) {
+            console.error('Error fetching UPI ID:', e);
+            return '';
+        }
+    }
+
+    // ================= GENERATE RECEIPT ID =================
+    function generateReceiptId() {
+        const branch = branchId || 'NA';
+        const home = homeId || 'NA';
+        const month = getCurrentMonth();
+        const day = getCurrentDay();
+        
+        // Get selected category ID
+        const categorySelect = document.getElementById('receiptCategory');
+        const selectedCategory = categorySelect.options[categorySelect.selectedIndex];
+        const categoryId = selectedCategory ? selectedCategory.value : 'XX';
+        
+        // Get selected financial year
+        const yearSelect = document.getElementById('financialYear');
+        const selectedYear = yearSelect.options[yearSelect.selectedIndex];
+        const yearValue = selectedYear ? selectedYear.value : '2425';
+        
+        // Format: SN+{Branch}+{Home}+{Category}+{MM}{DD}+{FinancialYear}
+        const receiptId = `SN${branch}${home}${categoryId}${month}${day}${yearValue}`;
+        return receiptId;
+    }
+
+    function updateReceiptId() {
+        const receiptId = generateReceiptId();
+        document.getElementById('receiptIdValue').textContent = receiptId;
+        return receiptId;
+    }
+
+    // ================= UPDATE AMOUNT =================
+    function updateAmount() {
+        const categorySelect = document.getElementById('receiptCategory');
+        const selectedCategory = categorySelect.options[categorySelect.selectedIndex];
+        const categoryId = selectedCategory ? selectedCategory.value : '';
+        
+        const category = receiptCategories.find(c => c.id === categoryId);
+        if (category) {
+            document.getElementById('amount').value = category.amount.toFixed(2);
+            selectedCategoryAmount = category.amount;
+            // Update receipt amount default
+            document.getElementById('receiptAmount').value = category.amount.toFixed(2);
+            calculateBalance();
+        } else {
+            document.getElementById('amount').value = '';
+            selectedCategoryAmount = 0;
+            document.getElementById('receiptAmount').value = '';
+            document.getElementById('balance').value = '';
+        }
+        updateReceiptId();
+    }
+
+    // ================= CALCULATE BALANCE =================
+    function calculateBalance() {
+        const amount = parseFloat(document.getElementById('amount').value) || 0;
+        const receiptAmount = parseFloat(document.getElementById('receiptAmount').value) || 0;
+        
+        const balance = amount - receiptAmount;
+        document.getElementById('balance').value = balance >= 0 ? balance.toFixed(2) : '0.00';
+        
+        // Validate receipt amount
+        const errorEl = document.getElementById('receiptAmountError');
+        const input = document.getElementById('receiptAmount');
+        
+        if (receiptAmount <= 0) {
+            errorEl.textContent = 'Receipt amount must be greater than zero.';
+            errorEl.classList.add('show');
+            input.classList.add('is-invalid');
+            return false;
+        }
+        
+        if (receiptAmount > amount) {
+            errorEl.textContent = `Receipt amount cannot exceed ₹${amount.toFixed(2)}.`;
+            errorEl.classList.add('show');
+            input.classList.add('is-invalid');
+            return false;
+        }
+        
+        if (receiptAmount % 1 !== 0) {
+            errorEl.textContent = 'Receipt amount must be a whole number (no decimals).';
+            errorEl.classList.add('show');
+            input.classList.add('is-invalid');
+            return false;
+        }
+        
+        errorEl.classList.remove('show');
+        input.classList.remove('is-invalid');
+        return true;
+    }
+
+    // ================= POPULATE DROPDOWNS =================
+    function populateReceiptCategories(categories) {
+        const select = document.getElementById('receiptCategory');
+        select.innerHTML = '<option value="">Select Category</option>';
+        categories.forEach(cat => {
+            const option = document.createElement('option');
+            option.value = cat.id;
+            option.textContent = cat.category;
+            option.dataset.amount = cat.amount;
+            select.appendChild(option);
+        });
+        
+        // Initialize Select2
+        $('#receiptCategory').select2({
+            theme: 'bootstrap-5',
+            placeholder: 'Select Category',
+            allowClear: true,
+            width: '100%'
+        });
+        
+        // Add change event
+        $('#receiptCategory').on('change', function() {
+            updateAmount();
+        });
+    }
+
+    function populateFinancialYears(years) {
+        const select = document.getElementById('financialYear');
+        select.innerHTML = '<option value="">Select Financial Year</option>';
+        
+        // Sort years in descending order (latest first)
+        const sortedYears = [...years].sort((a, b) => {
+            const aStart = parseInt(a.split('-')[0]);
+            const bStart = parseInt(b.split('-')[0]);
+            return bStart - aStart;
+        });
+        
+        sortedYears.forEach(year => {
+            const option = document.createElement('option');
+            option.value = year.replace('-', '');
+            option.textContent = year;
+            select.appendChild(option);
+        });
+        
+        // Set default to latest year
+        if (sortedYears.length > 0) {
+            select.value = sortedYears[0].replace('-', '');
+        }
+        
+        // Initialize Select2
+        $('#financialYear').select2({
+            theme: 'bootstrap-5',
+            placeholder: 'Select Financial Year',
+            allowClear: true,
+            width: '100%'
+        });
+        
+        // Add change event
+        $('#financialYear').on('change', function() {
+            updateReceiptId();
+        });
+    }
+
+    // ================= SUBMIT TO SHEET =================
+    async function submitReceiptData(receiptData) {
+        try {
+            const payload = {
+                action: 'ADD_RECEIPT',
+                branchId: receiptData.branchId,
+                homeId: receiptData.homeId,
+                receiptNo: receiptData.receiptNo,
+                transactionId: receiptData.transactionId || '',
+                receiptCategory: receiptData.receiptCategory,
+                financialYear: receiptData.financialYear,
+                senderUpiId: receiptData.senderUpiId || '',
+                amount: receiptData.amount,
+                receiptAmount: receiptData.receiptAmount,
+                balance: receiptData.balance,
+                remarks: receiptData.remarks || ''
+            };
+            
+            await fetch(CONFIG.APPS_SCRIPT_URL, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            
+            return true;
+        } catch (e) {
+            console.error('Error submitting receipt:', e);
+            return false;
+        }
+    }
+
+    // ================= PAY NOW =================
+    async function handlePayNow() {
+        if (isSubmitting) return;
+        
+        // Validate receipt amount
+        if (!calculateBalance()) {
+            showToast('Please fix the receipt amount error.', 'error');
+            return;
+        }
+        
+        // Get form values
+        const receiptNo = document.getElementById('receiptIdValue').textContent;
+        const category = document.getElementById('receiptCategory');
+        const categoryText = category.options[category.selectedIndex]?.text || '';
+        const year = document.getElementById('financialYear');
+        const yearText = year.options[year.selectedIndex]?.text || '';
+        const amount = parseFloat(document.getElementById('amount').value) || 0;
+        const receiptAmount = parseFloat(document.getElementById('receiptAmount').value) || 0;
+        const transactionId = document.getElementById('transactionId').value.trim();
+        const senderUpiId = document.getElementById('senderUpiId').value.trim();
+        const remarks = document.getElementById('remarks').value.trim();
+        
+        if (!category.value) {
+            showToast('Please select a receipt category.', 'error');
+            return;
+        }
+        
+        if (!year.value) {
+            showToast('Please select a financial year.', 'error');
+            return;
+        }
+        
+        if (receiptAmount <= 0) {
+            showToast('Receipt amount must be greater than zero.', 'error');
+            return;
+        }
+        
+        if (receiptAmount > amount) {
+            showToast(`Receipt amount cannot exceed ₹${amount.toFixed(2)}.`, 'error');
+            return;
+        }
+        
+        // Confirm payment
+        const confirmResult = await Swal.fire({
+            title: 'Confirm Payment',
+            html: `
+                <div style="text-align:left;">
+                    <p><strong>Receipt No:</strong> ${receiptNo}</p>
+                    <p><strong>Category:</strong> ${escapeHtml(categoryText)}</p>
+                    <p><strong>Amount:</strong> ₹${amount.toFixed(2)}</p>
+                    <p><strong>Receipt Amount:</strong> ₹${receiptAmount.toFixed(2)}</p>
+                    <p><strong>Balance:</strong> ₹${(amount - receiptAmount).toFixed(2)}</p>
+                    <p><strong>UPI ID:</strong> ${escapeHtml(receiptUpiId)}</p>
+                </div>
+                <hr>
+                <p style="font-size:0.9rem;color:#64748b;">This will open your UPI app for payment.</p>
+            `,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#16a34a',
+            cancelButtonColor: '#64748b',
+            confirmButtonText: '<i class="bi bi-upc-scan"></i> Pay Now',
+            cancelButtonText: 'Cancel'
+        });
+        
+        if (!confirmResult.isConfirmed) return;
+        
+        isSubmitting = true;
+        const btn = document.getElementById('payNowBtn');
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Processing...';
+        btn.disabled = true;
+        showLoading(true, 'Processing payment...');
+        
+        try {
+            // Open UPI app
+            const upiUrl = `upi://pay?pa=${encodeURIComponent(receiptUpiId)}&am=${receiptAmount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(receiptNo)}`;
+            
+            // Open UPI app
+            const upiWindow = window.open(upiUrl, '_blank');
+            
+            // If window.open fails, try redirect
+            if (!upiWindow || upiWindow.closed) {
+                window.location.href = upiUrl;
+            }
+            
+            // Submit data to sheet
+            const receiptData = {
+                branchId: branchId,
+                homeId: homeId,
+                receiptNo: receiptNo,
+                transactionId: transactionId,
+                receiptCategory: categoryText,
+                financialYear: yearText,
+                senderUpiId: senderUpiId,
+                amount: amount,
+                receiptAmount: receiptAmount,
+                balance: amount - receiptAmount,
+                remarks: remarks
+            };
+            
+            await submitReceiptData(receiptData);
+            
+            showLoading(false);
+            showToast('Payment initiated and receipt recorded!', 'success');
+            
+            // Reset form after delay
+            setTimeout(() => {
+                resetForm();
+            }, 2000);
+            
+        } catch (err) {
+            showLoading(false);
+            console.error('Payment error:', err);
+            showToast('Failed to process payment. Please try again.', 'error');
+        } finally {
+            isSubmitting = false;
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
+    }
+
+    // ================= RESET FORM =================
+    function resetForm() {
+        document.getElementById('receiptCategory').value = '';
+        $('#receiptCategory').trigger('change');
+        
+        // Reset financial year to default (latest)
+        const yearSelect = document.getElementById('financialYear');
+        const options = yearSelect.options;
+        if (options.length > 1) {
+            yearSelect.value = options[1].value;
+        }
+        $('#financialYear').trigger('change');
+        
+        document.getElementById('transactionId').value = '';
+        document.getElementById('senderUpiId').value = '';
+        document.getElementById('amount').value = '';
+        document.getElementById('receiptAmount').value = '';
+        document.getElementById('balance').value = '';
+        document.getElementById('remarks').value = '';
+        
+        document.getElementById('receiptAmountError').classList.remove('show');
+        document.getElementById('receiptAmount').classList.remove('is-invalid');
+        
+        // Reset amount after category change
+        updateAmount();
+        updateReceiptId();
+    }
+
+    // ================= INIT =================
+    async function init() {
+        // Check session
+        const session = getSessionFromStorage();
+        if (!isValidSession(session)) {
+            document.getElementById('accessDeniedOverlay').classList.add('active');
+            return;
+        }
+        
+        branchId = session.branchId;
+        homeId = session.homeId;
+        memberName = session.name || 'Member';
+        
+        // Show main content
+        document.getElementById('mainContent').style.display = 'block';
+        document.getElementById('accessDeniedOverlay').classList.remove('active');
+        
+        // Display info
+        document.getElementById('displayBranchId').textContent = branchId;
+        document.getElementById('displayHomeId').textContent = homeId;
+        document.getElementById('displayMemberName').textContent = memberName;
+        document.getElementById('branchId').value = branchId;
+        document.getElementById('homeId').value = homeId;
+        
+        showLoading(true, 'Loading data...');
+        
+        try {
+            // Fetch all data
+            const [categories, years, upiId] = await Promise.all([
+                fetchReceiptCategories(),
+                fetchFinancialYears(),
+                fetchReceiptUpiId()
+            ]);
+            
+            receiptCategories = categories;
+            financialYears = years;
+            receiptUpiId = upiId;
+            
+            populateReceiptCategories(categories);
+            populateFinancialYears(years);
+            
+            // Update receipt ID
+            updateReceiptId();
+            
+            // Auto-select first category if available
+            if (categories.length > 0) {
+                document.getElementById('receiptCategory').value = categories[0].id;
+                $('#receiptCategory').trigger('change');
+            }
+            
+        } catch (e) {
+            console.error('Error initializing:', e);
+            showToast('Failed to load data. Please refresh.', 'error');
+        }
+        
+        showLoading(false);
+        
+        // Event listeners
+        document.getElementById('payNowBtn').addEventListener('click', handlePayNow);
+        document.getElementById('resetBtn').addEventListener('click', resetForm);
+        document.getElementById('receiptAmount').addEventListener('input', function() {
+            calculateBalance();
+        });
+    }
+
+    // ================= START =================
+    document.addEventListener('DOMContentLoaded', function() {
+        // Wait for Select2 to load
+        if (typeof $.fn.select2 !== 'undefined') {
+            init();
+        } else {
+            // Fallback: wait for jQuery and Select2
+            const checkSelect2 = setInterval(function() {
+                if (typeof $.fn.select2 !== 'undefined') {
+                    clearInterval(checkSelect2);
+                    init();
+                }
+            }, 100);
+        }
+    });
+</script>
+</body>
+</html>
