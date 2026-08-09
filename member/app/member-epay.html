@@ -237,106 +237,10 @@
             display: block;
         }
         
-        /* Payment Card */
-        .payment-card {
-            display: none;
-            background: #f8fafc;
-            border-radius: 16px;
-            padding: 24px;
+        /* Section Divider */
+        .section-divider {
+            border-top: 2px dashed #e2e8f0;
             margin: 20px 0;
-            border: 2px solid #16a34a;
-            animation: slideDown 0.3s ease-out;
-            text-align: center;
-        }
-        .payment-card.active {
-            display: block;
-        }
-        .payment-card .payment-title {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: #0f172a;
-            margin-bottom: 16px;
-        }
-        .payment-card .payment-title i {
-            color: #16a34a;
-        }
-        
-        /* UPI QR Image */
-        .upi-qr-container {
-            background: white;
-            border-radius: 12px;
-            padding: 20px;
-            border: 1px solid #e2e8f0;
-            display: inline-block;
-            margin: 0 auto;
-        }
-        .upi-qr-container img {
-            max-width: 250px;
-            height: auto;
-            display: block;
-        }
-        
-        /* Payment Details */
-        .payment-details {
-            margin-top: 16px;
-            background: white;
-            border-radius: 12px;
-            padding: 16px;
-            border: 1px solid #e2e8f0;
-            text-align: left;
-            max-width: 400px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-        .payment-details .detail-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 6px 0;
-            border-bottom: 1px solid #f1f5f9;
-            font-size: 0.9rem;
-        }
-        .payment-details .detail-row:last-child {
-            border-bottom: none;
-        }
-        .payment-details .label {
-            color: #64748b;
-        }
-        .payment-details .value {
-            font-weight: 600;
-            color: #0f172a;
-        }
-        .payment-details .value.highlight {
-            color: #0f5b9c;
-            font-family: monospace;
-            font-size: 1rem;
-        }
-        
-        /* Copy Button */
-        .copy-btn {
-            background: transparent;
-            border: none;
-            color: #0f5b9c;
-            cursor: pointer;
-            padding: 2px 8px;
-            font-size: 0.75rem;
-        }
-        .copy-btn:hover {
-            text-decoration: underline;
-        }
-        
-        /* Payment Instructions */
-        .payment-instructions {
-            margin-top: 16px;
-            padding: 12px 16px;
-            background: #fef3c7;
-            border-radius: 12px;
-            border-left: 4px solid #d97706;
-            text-align: left;
-            font-size: 0.85rem;
-            color: #78350f;
-        }
-        .payment-instructions i {
-            color: #d97706;
         }
         
         /* Buttons */
@@ -413,10 +317,60 @@
             min-width: 120px;
         }
         
-        /* Section Divider */
-        .section-divider {
-            border-top: 2px dashed #e2e8f0;
-            margin: 20px 0;
+        /* Payment Info Box */
+        .payment-info-box {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 16px;
+            margin: 16px 0;
+            border: 2px solid #16a34a;
+            text-align: center;
+        }
+        .payment-info-box .upi-id {
+            font-family: monospace;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #0f3b6a;
+            background: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            display: inline-block;
+            margin: 8px 0;
+        }
+        .payment-info-box .amount-display {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .payment-info-box .copy-btn {
+            background: transparent;
+            border: none;
+            color: #0f5b9c;
+            cursor: pointer;
+            padding: 4px 8px;
+            font-size: 0.8rem;
+        }
+        .payment-info-box .copy-btn:hover {
+            text-decoration: underline;
+        }
+        
+        /* QR Code */
+        #qrCodeContainer {
+            display: none;
+            text-align: center;
+            margin: 15px 0;
+            padding: 15px;
+            background: white;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+        }
+        #qrCodeContainer .qr-code-img {
+            width: 180px;
+            height: 180px;
+            margin: 0 auto;
+            border-radius: 8px;
+            border: 2px solid #e2e8f0;
         }
         
         /* Toast */
@@ -455,12 +409,6 @@
             z-index: 1060 !important;
         }
         
-        /* Animation */
-        @keyframes slideDown {
-            from { opacity: 0; transform: translateY(-20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
         /* Responsive */
         @media (max-width: 480px) {
             body { padding: 8px; }
@@ -468,8 +416,9 @@
             .action-buttons { flex-direction: column; }
             .action-buttons .btn { width: 100%; }
             .receipt-id-display { font-size: 0.8rem; padding: 10px; }
-            .upi-qr-container img { max-width: 200px; }
-            .payment-details { margin-left: 0; margin-right: 0; }
+            #qrCodeContainer .qr-code-img { width: 150px; height: 150px; }
+            .payment-info-box .amount-display { font-size: 1.4rem; }
+            .payment-info-box .upi-id { font-size: 1rem; }
         }
     </style>
 </head>
@@ -549,13 +498,13 @@
                 <!-- Transaction ID -->
                 <div class="col-md-6">
                     <label class="form-label">Transaction ID</label>
-                    <input type="text" id="transactionId" class="form-control" placeholder="Enter transaction ID (optional)">
+                    <input type="text" id="transactionId" class="form-control" placeholder="Enter UPI Transaction ID / UTR after payment">
                 </div>
                 
                 <!-- Sender UPI ID -->
                 <div class="col-md-6">
                     <label class="form-label">Sender UPI ID</label>
-                    <input type="text" id="senderUpiId" class="form-control" placeholder="Enter sender UPI ID (optional)">
+                    <input type="text" id="senderUpiId" class="form-control" placeholder="Enter your UPI ID (optional)">
                 </div>
                 
                 <!-- Amount (Read-only, auto-filled) -->
@@ -585,69 +534,51 @@
             </div>
         </form>
         
-        <!-- Payment Card -->
-        <div class="payment-card" id="paymentCard">
-            <div class="payment-title">
-                <i class="bi bi-check-circle-fill"></i> Scan & Pay
+        <div class="section-divider"></div>
+        
+        <!-- Payment Info Box -->
+        <div class="payment-info-box" id="paymentInfoBox">
+            <div style="font-size:0.8rem;color:#64748b;margin-bottom:8px;">
+                <i class="bi bi-credit-card"></i> Pay to this UPI ID
             </div>
-            
-            <!-- UPI QR Image -->
-            <div class="upi-qr-container">
-                <img src="./upi/upi.png" alt="UPI QR Code" id="upiQrImage">
+            <div class="upi-id" id="upiIdDisplay">
+                <span id="upiIdValue">—</span>
+                <button class="copy-btn" onclick="copyUpiId()"><i class="bi bi-clipboard"></i> Copy</button>
             </div>
-            
-            <!-- Payment Details -->
-            <div class="payment-details">
-                <div class="detail-row">
-                    <span class="label">Receipt No</span>
-                    <span class="value" id="paymentReceiptNo">—</span>
-                </div>
-                <div class="detail-row">
-                    <span class="label">Amount</span>
-                    <span class="value" id="paymentAmount">₹0.00</span>
-                </div>
-                <div class="detail-row">
-                    <span class="label">Status</span>
-                    <span class="value" style="color:#d97706;">Verification Pending</span>
-                </div>
-                <div class="detail-row">
-                    <span class="label">UPI ID</span>
-                    <span class="value highlight" id="paymentUpiId">—</span>
-                    <button class="copy-btn" onclick="copyUpiId()"><i class="bi bi-clipboard"></i> Copy</button>
-                </div>
+            <div style="margin:10px 0;">
+                <span style="font-size:0.8rem;color:#64748b;">Amount</span>
+                <div class="amount-display" id="amountDisplay">₹0.00</div>
             </div>
-            
-            <!-- Instructions -->
-            <div class="payment-instructions">
-                <i class="bi bi-info-circle"></i>
-                <strong>How to pay:</strong>
-                <ol style="margin:8px 0 0 20px;padding:0;">
-                    <li>Open any UPI app (Google Pay, PhonePe, Paytm, etc.)</li>
-                    <li>Scan the QR code above or enter UPI ID manually</li>
-                    <li>Enter the exact amount shown above</li>
-                    <li>Make the payment</li>
-                </ol>
-                <p style="margin:8px 0 0 0;font-size:0.8rem;color:#78350f;">
-                    <i class="bi bi-clock"></i> Admin will verify and confirm your payment manually.
-                </p>
-            </div>
-            
-            <div style="margin-top:16px;">
-                <button class="btn btn-outline-primary-custom" onclick="closePaymentCard()">
-                    <i class="bi bi-x-circle"></i> Close
-                </button>
+            <div style="font-size:0.75rem;color:#94a3b8;">
+                <i class="bi bi-info-circle"></i> Click "Pay Now" to open your UPI app
             </div>
         </div>
         
-        <div class="section-divider"></div>
+        <!-- QR Code -->
+        <div id="qrCodeContainer">
+            <div id="qrCode"></div>
+            <p style="font-size:0.8rem;color:#64748b;margin-top:8px;">
+                <i class="bi bi-qr-code"></i> Scan with any UPI app
+            </p>
+        </div>
         
         <!-- Action Buttons -->
         <div class="action-buttons">
             <button type="button" id="payNowBtn" class="btn btn-success-custom">
-                <i class="bi bi-credit-card"></i> Generate Receipt & Pay
+                <i class="bi bi-upc-scan"></i> Pay Now
+            </button>
+            <button type="button" id="showQrBtn" class="btn btn-primary-custom">
+                <i class="bi bi-qr-code"></i> Show QR
             </button>
             <button type="button" id="resetBtn" class="btn btn-secondary-custom">
                 <i class="bi bi-arrow-counterclockwise"></i> Reset
+            </button>
+        </div>
+        
+        <!-- Save Button (hidden, just for recording) -->
+        <div style="margin-top:12px;text-align:center;">
+            <button type="button" id="saveBtn" class="btn btn-outline-primary-custom" style="font-size:0.7rem;">
+                <i class="bi bi-save"></i> Save Receipt (Record Only)
             </button>
         </div>
     </div>
@@ -666,7 +597,7 @@
     const CONFIG = (function() {
         const _s = '1FKCX4TODUcQ_0o8xP14fGENYT17k4Mcm_rJe6eFSTjE';
         const _k = 'AIzaSyDc8tegwi2rgHyDFYm7uWBqVqQ7Fwb3uWM';
-        const _url = 'https://script.google.com/macros/s/AKfycbw_6d0M4iUr8agw4U1cwmn8tBU4CbwTxFTcvqVZAO0xNaE-uGBgVpPHeZr2xfMcnw5Oeg/exec';
+        const _url = 'https://script.google.com/macros/s/AKfycbwqENb-R5Ecq3hVmma1VUDbUprnfAjUmgVgNJWglzL4TDXDS93H1ADLVN8stjA8avUxZQ/exec';
         
         return {
             get SPREADSHEET_ID() { return _s; },
@@ -683,6 +614,7 @@
     let receiptUpiId = '';
     let selectedCategoryAmount = 0;
     let isSubmitting = false;
+    let qrVisible = false;
 
     // ================= SECURITY: GET SESSION =================
     function getSessionFromStorage() {
@@ -727,7 +659,7 @@
         clearTimeout(toast._timeout);
         toast._timeout = setTimeout(() => {
             toast.classList.remove('show');
-        }, 4000);
+        }, 3000);
     }
 
     function showLoading(show, text = 'Loading...') {
@@ -862,11 +794,13 @@
             selectedCategoryAmount = category.amount;
             document.getElementById('receiptAmount').value = category.amount.toFixed(2);
             calculateBalance();
+            updatePaymentDisplay();
         } else {
             document.getElementById('amount').value = '';
             selectedCategoryAmount = 0;
             document.getElementById('receiptAmount').value = '';
             document.getElementById('balance').value = '';
+            updatePaymentDisplay();
         }
         updateReceiptId();
     }
@@ -886,6 +820,7 @@
             errorEl.textContent = 'Receipt amount must be greater than zero.';
             errorEl.classList.add('show');
             input.classList.add('is-invalid');
+            updatePaymentDisplay();
             return false;
         }
         
@@ -893,6 +828,7 @@
             errorEl.textContent = `Receipt amount cannot exceed ₹${amount.toFixed(2)}.`;
             errorEl.classList.add('show');
             input.classList.add('is-invalid');
+            updatePaymentDisplay();
             return false;
         }
         
@@ -900,12 +836,21 @@
             errorEl.textContent = 'Receipt amount must be a whole number (no decimals).';
             errorEl.classList.add('show');
             input.classList.add('is-invalid');
+            updatePaymentDisplay();
             return false;
         }
         
         errorEl.classList.remove('show');
         input.classList.remove('is-invalid');
+        updatePaymentDisplay();
         return true;
+    }
+
+    // ================= UPDATE PAYMENT DISPLAY =================
+    function updatePaymentDisplay() {
+        const amount = parseFloat(document.getElementById('receiptAmount').value) || 0;
+        document.getElementById('upiIdValue').textContent = receiptUpiId || '—';
+        document.getElementById('amountDisplay').textContent = `₹${amount.toFixed(2)}`;
     }
 
     // ================= POPULATE DROPDOWNS =================
@@ -965,41 +910,45 @@
         });
     }
 
-    // ================= SUBMIT TO SHEET =================
-    async function submitReceiptData(receiptData) {
-        try {
-            const payload = {
-                action: 'ADD_RECEIPT',
-                branchId: receiptData.branchId,
-                homeId: receiptData.homeId,
-                receiptNo: receiptData.receiptNo,
-                transactionId: receiptData.transactionId || '',
-                receiptCategory: receiptData.receiptCategory,
-                financialYear: receiptData.financialYear,
-                senderUpiId: receiptData.senderUpiId || '',
-                amount: receiptData.amount,
-                receiptAmount: receiptData.receiptAmount,
-                balance: receiptData.balance,
-                remarks: receiptData.remarks || ''
-            };
+    // ================= GENERATE QR CODE =================
+    function generateUpiQR(upiId, amount, receiptNo) {
+        const upiString = `upi://pay?pa=${encodeURIComponent(upiId)}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(receiptNo)}`;
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiString)}`;
+        
+        document.getElementById('qrCode').innerHTML = `<img src="${qrUrl}" alt="UPI QR Code" class="qr-code-img">`;
+    }
+
+    function toggleQrCode() {
+        const container = document.getElementById('qrCodeContainer');
+        const btn = document.getElementById('showQrBtn');
+        
+        if (qrVisible) {
+            container.style.display = 'none';
+            btn.innerHTML = '<i class="bi bi-qr-code"></i> Show QR';
+            qrVisible = false;
+        } else {
+            const receiptAmount = parseFloat(document.getElementById('receiptAmount').value) || 0;
+            const receiptNo = document.getElementById('receiptIdValue').textContent;
             
-            await fetch(CONFIG.APPS_SCRIPT_URL, {
-                method: "POST",
-                mode: "no-cors",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            });
+            if (receiptAmount <= 0) {
+                showToast('Please enter a valid amount first.', 'error');
+                return;
+            }
             
-            return true;
-        } catch (e) {
-            console.error('Error submitting receipt:', e);
-            return false;
+            if (!receiptUpiId) {
+                showToast('UPI ID not available.', 'error');
+                return;
+            }
+            
+            generateUpiQR(receiptUpiId, receiptAmount, receiptNo);
+            container.style.display = 'block';
+            btn.innerHTML = '<i class="bi bi-qr-code"></i> Hide QR';
+            qrVisible = true;
         }
     }
 
-    // ================= COPY UPI ID =================
     function copyUpiId() {
-        const upiId = document.getElementById('paymentUpiId').textContent;
+        const upiId = document.getElementById('upiIdValue').textContent;
         if (upiId === '—') {
             showToast('No UPI ID available.', 'error');
             return;
@@ -1030,23 +979,141 @@
         document.body.removeChild(textArea);
     }
 
-    // ================= CLOSE PAYMENT CARD =================
-    function closePaymentCard() {
-        document.getElementById('paymentCard').classList.remove('active');
-        resetForm();
+    // ================= OPEN UPI APP =================
+    let upiPaymentStarted = false;
+    let upiReturnTimer = null;
+
+    function openUpiApp() {
+        const upiId = receiptUpiId;
+        const amount = parseFloat(document.getElementById('receiptAmount').value) || 0;
+        const receiptNo = document.getElementById('receiptIdValue').textContent.trim();
+        
+        if (!upiId) {
+            showToast('UPI ID not available.', 'error');
+            return;
+        }
+        
+        if (amount <= 0) {
+            showToast('Please enter a valid amount.', 'error');
+            return;
+        }
+
+        upiPaymentStarted = true;
+        sessionStorage.setItem('upiPaymentPending', JSON.stringify({
+            receiptNo: receiptNo,
+            amount: amount.toFixed(2),
+            startedAt: Date.now()
+        }));
+
+        // UPI intent only starts the payment. It does NOT confirm payment.
+        const upiIntent = `upi://pay?pa=${encodeURIComponent(upiId)}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(receiptNo)}`;
+        
+        showToast('Opening UPI app. Complete the payment there.', 'info');
+
+        try {
+            const link = document.createElement('a');
+            link.href = upiIntent;
+            link.target = '_blank';
+            link.rel = 'noopener';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (e) {
+            try {
+                window.location.href = upiIntent;
+            } catch (e2) {
+                showToast('Unable to open UPI app. Please use Show QR.', 'error');
+            }
+        }
+
+        // When the user returns to this page, ask for the UPI transaction ID.
+        clearTimeout(upiReturnTimer);
+        upiReturnTimer = setTimeout(showPaymentReturnDialog, 2500);
     }
 
-    // ================= GENERATE RECEIPT =================
-    async function handleGenerateReceipt() {
+    async function showPaymentReturnDialog() {
+        if (!upiPaymentStarted) return;
+
+        const receiptNo = document.getElementById('receiptIdValue').textContent.trim();
+        const amount = parseFloat(document.getElementById('receiptAmount').value) || 0;
+
+        const result = await Swal.fire({
+            title: 'Did you complete the payment?',
+            html: `
+                <div style="text-align:left;font-size:0.92rem;">
+                    <p><strong>Amount:</strong> ₹${amount.toFixed(2)}</p>
+                    <p><strong>Reference:</strong> ${escapeHtml(receiptNo)}</p>
+                    <hr>
+                    <p style="color:#64748b;margin-bottom:8px;">
+                        If payment was successful, enter the <strong>UPI Transaction ID / UTR</strong> shown in your UPI app.
+                    </p>
+                    <input id="swalTransactionId" class="swal2-input" placeholder="Enter UTR / Transaction ID" style="width:90%;margin:8px auto;">
+                    <input id="swalSenderUpiId" class="swal2-input" placeholder="Your UPI ID (optional)" style="width:90%;margin:8px auto;">
+                </div>
+            `,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Submit Payment Details',
+            cancelButtonText: 'Payment Not Completed',
+            confirmButtonColor: '#16a34a',
+            cancelButtonColor: '#64748b',
+            preConfirm: () => {
+                const transactionId = document.getElementById('swalTransactionId').value.trim();
+                const senderUpiId = document.getElementById('swalSenderUpiId').value.trim();
+                if (!transactionId) {
+                    Swal.showValidationMessage('Please enter the UPI Transaction ID / UTR.');
+                    return false;
+                }
+                return { transactionId, senderUpiId };
+            }
+        });
+
+        if (result.isConfirmed && result.value) {
+            document.getElementById('transactionId').value = result.value.transactionId;
+            document.getElementById('senderUpiId').value = result.value.senderUpiId;
+            await saveReceipt();
+            upiPaymentStarted = false;
+            sessionStorage.removeItem('upiPaymentPending');
+        } else if (result.dismiss === Swal.DismissReason.cancel) {
+            showToast('Payment was not recorded. You can try again.', 'info');
+            upiPaymentStarted = false;
+            sessionStorage.removeItem('upiPaymentPending');
+        }
+    }
+
+    // Detect when the browser becomes visible again after the UPI app.
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'visible' && upiPaymentStarted) {
+            clearTimeout(upiReturnTimer);
+            upiReturnTimer = setTimeout(showPaymentReturnDialog, 700);
+        }
+    });
+
+    window.addEventListener('pageshow', function() {
+        const pending = sessionStorage.getItem('upiPaymentPending');
+        if (pending && !upiPaymentStarted) {
+            try {
+                const data = JSON.parse(pending);
+                if (Date.now() - data.startedAt < 30 * 60 * 1000) {
+                    upiPaymentStarted = true;
+                } else {
+                    sessionStorage.removeItem('upiPaymentPending');
+                }
+            } catch (e) {
+                sessionStorage.removeItem('upiPaymentPending');
+            }
+        }
+    });
+
+    // ================= SAVE RECEIPT (Record Only) =================
+    async function saveReceipt() {
         if (isSubmitting) return;
         
-        // Validate receipt amount
         if (!calculateBalance()) {
             showToast('Please fix the amount error.', 'error');
             return;
         }
         
-        // Get form values
         const receiptNo = document.getElementById('receiptIdValue').textContent;
         const category = document.getElementById('receiptCategory');
         const categoryText = category.options[category.selectedIndex]?.text || '';
@@ -1073,41 +1140,14 @@
             return;
         }
         
-        // Confirm
-        const confirmResult = await Swal.fire({
-            title: 'Generate Receipt',
-            html: `
-                <div style="text-align:left;">
-                    <p><strong>Receipt No:</strong> ${receiptNo}</p>
-                    <p><strong>Category:</strong> ${escapeHtml(categoryText)}</p>
-                    <p><strong>Amount:</strong> ₹${amount.toFixed(2)}</p>
-                    <p><strong>Receipt Amount:</strong> ₹${receiptAmount.toFixed(2)}</p>
-                    <p><strong>Balance:</strong> ₹${(amount - receiptAmount).toFixed(2)}</p>
-                </div>
-                <hr>
-                <p style="font-size:0.9rem;color:#64748b;">
-                    This will save the receipt and show payment details.
-                </p>
-            `,
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonColor: '#16a34a',
-            cancelButtonColor: '#64748b',
-            confirmButtonText: '<i class="bi bi-credit-card"></i> Generate Receipt',
-            cancelButtonText: 'Cancel'
-        });
-        
-        if (!confirmResult.isConfirmed) return;
-        
         isSubmitting = true;
-        const btn = document.getElementById('payNowBtn');
+        const btn = document.getElementById('saveBtn');
         const originalHtml = btn.innerHTML;
         btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Saving...';
         btn.disabled = true;
         showLoading(true, 'Saving receipt...');
         
         try {
-            // Submit data to sheet
             const receiptData = {
                 branchId: branchId,
                 homeId: homeId,
@@ -1122,42 +1162,107 @@
                 remarks: remarks
             };
             
-            await submitReceiptData(receiptData);
+            const payload = {
+                action: 'ADD_RECEIPT',
+                branchId: receiptData.branchId,
+                homeId: receiptData.homeId,
+                receiptNo: receiptData.receiptNo,
+                transactionId: receiptData.transactionId || '',
+                receiptCategory: receiptData.receiptCategory,
+                financialYear: receiptData.financialYear,
+                senderUpiId: receiptData.senderUpiId || '',
+                amount: receiptData.amount,
+                receiptAmount: receiptData.receiptAmount,
+                balance: receiptData.balance,
+                remarks: receiptData.remarks || ''
+            };
             
-            // Show payment card
-            document.getElementById('paymentReceiptNo').textContent = receiptNo;
-            document.getElementById('paymentAmount').textContent = `₹${receiptAmount.toFixed(2)}`;
-            document.getElementById('paymentUpiId').textContent = receiptUpiId;
-            
-            // Show payment card
-            document.getElementById('paymentCard').classList.add('active');
-            
-            // Scroll to payment card
-            document.getElementById('paymentCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            await fetch(CONFIG.APPS_SCRIPT_URL, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
             
             showLoading(false);
-            showToast('Receipt saved! Please scan and pay.', 'success');
+            showToast('Receipt saved successfully!', 'success');
             
-            isSubmitting = false;
-            btn.innerHTML = originalHtml;
-            btn.disabled = false;
+            // Show receipt info
+            await Swal.fire({
+                title: '✅ Receipt Saved',
+                html: `
+                    <p style="font-size:0.9rem;">
+                        Receipt No: <strong>${escapeHtml(receiptNo)}</strong>
+                    </p>
+                    <p style="font-size:0.9rem;">
+                        Amount: <strong>₹${receiptAmount.toFixed(2)}</strong>
+                    </p>
+                    <p style="font-size:0.85rem;color:#64748b;">
+                        Status: <strong style="color:#d97706;">Verification Pending</strong>
+                    </p>
+                    <p style="font-size:0.8rem;color:#94a3b8;margin-top:10px;">
+                        Admin will verify the payment.
+                    </p>
+                `,
+                icon: 'success',
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#0f3b6a'
+            });
             
         } catch (err) {
             showLoading(false);
             console.error('Error:', err);
             showToast('Failed to save receipt. Please try again.', 'error');
+        } finally {
             isSubmitting = false;
             btn.innerHTML = originalHtml;
             btn.disabled = false;
         }
     }
 
-    // ================= RESET FORM =================
-    function resetForm() {
-        if (document.getElementById('paymentCard').classList.contains('active')) {
-            document.getElementById('paymentCard').classList.remove('active');
+    // ================= PAY NOW =================
+    function handlePayNow() {
+        if (!calculateBalance()) {
+            showToast('Please fix the amount error.', 'error');
+            return;
         }
         
+        const amount = parseFloat(document.getElementById('receiptAmount').value) || 0;
+        
+        if (amount <= 0) {
+            showToast('Please enter a valid amount.', 'error');
+            return;
+        }
+        
+        // Show confirmation
+        Swal.fire({
+            title: 'Pay Now',
+            html: `
+                <div style="text-align:left;">
+                    <p><strong>UPI ID:</strong> ${escapeHtml(receiptUpiId)}</p>
+                    <p><strong>Amount:</strong> ₹${amount.toFixed(2)}</p>
+                    <p><strong>Reference:</strong> ${escapeHtml(document.getElementById('receiptIdValue').textContent)}</p>
+                </div>
+                <hr>
+                <p style="font-size:0.9rem;color:#64748b;">
+                    This will open your UPI app to complete the payment.
+                </p>
+            `,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#16a34a',
+            cancelButtonColor: '#64748b',
+            confirmButtonText: '<i class="bi bi-upc-scan"></i> Open UPI App',
+            cancelButtonText: 'Cancel'
+        }).then(result => {
+            if (result.isConfirmed) {
+                openUpiApp();
+            }
+        });
+    }
+
+    // ================= RESET FORM =================
+    function resetForm() {
         document.getElementById('receiptCategory').value = '';
         $('#receiptCategory').trigger('change');
         
@@ -1176,6 +1281,11 @@
         document.getElementById('remarks').value = '';
         document.getElementById('receiptAmountError').classList.remove('show');
         document.getElementById('receiptAmount').classList.remove('is-invalid');
+        
+        // Hide QR
+        document.getElementById('qrCodeContainer').style.display = 'none';
+        qrVisible = false;
+        document.getElementById('showQrBtn').innerHTML = '<i class="bi bi-qr-code"></i> Show QR';
         
         updateAmount();
         updateReceiptId();
@@ -1219,6 +1329,7 @@
             populateFinancialYears(years);
             
             updateReceiptId();
+            updatePaymentDisplay();
             
             if (categories.length > 0) {
                 document.getElementById('receiptCategory').value = categories[0].id;
@@ -1233,8 +1344,10 @@
         showLoading(false);
         
         // Event listeners
-        document.getElementById('payNowBtn').addEventListener('click', handleGenerateReceipt);
+        document.getElementById('payNowBtn').addEventListener('click', handlePayNow);
+        document.getElementById('showQrBtn').addEventListener('click', toggleQrCode);
         document.getElementById('resetBtn').addEventListener('click', resetForm);
+        document.getElementById('saveBtn').addEventListener('click', saveReceipt);
         document.getElementById('receiptAmount').addEventListener('input', function() {
             calculateBalance();
         });
