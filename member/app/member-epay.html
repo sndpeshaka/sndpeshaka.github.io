@@ -618,7 +618,7 @@
     const CONFIG = (function() {
         const _s = '1FKCX4TODUcQ_0o8xP14fGENYT17k4Mcm_rJe6eFSTjE';
         const _k = 'AIzaSyDc8tegwi2rgHyDFYm7uWBqVqQ7Fwb3uWM';
-        const _url = 'https://script.google.com/macros/s/AKfycbxhWy6TGru3X0TzQ-fZ1dZTwbhSF6FzvWZUokIoQnW0wuFxbbEeY_qTxbT-ejoCOVM2jg/exec';
+        const _url = 'https://script.google.com/macros/s/AKfycbxEtLaaH3RqBuuhL6tVzR5nR9FuHmIsfXh8ynZVNN1IfUlI30Xyw4lt-zmMcCAoewz0sw/exec';
         
         return {
             get SPREADSHEET_ID() { return _s; },
@@ -1211,124 +1211,168 @@
     });
 
     // ================= SAVE RECEIPT (Record Only) =================
-    async function saveReceipt(proof = null) {
-        if (isSubmitting) return;
-        
-        if (!calculateBalance()) {
-            showToast('Please fix the amount error.', 'error');
-            return;
-        }
-        
-        const receiptNo = document.getElementById('receiptIdValue').textContent;
-        const category = document.getElementById('receiptCategory');
-        const categoryText = category.options[category.selectedIndex]?.text || '';
-        const year = document.getElementById('financialYear');
-        const yearText = year.options[year.selectedIndex]?.text || '';
-        const amount = parseFloat(document.getElementById('amount').value) || 0;
-        const receiptAmount = parseFloat(document.getElementById('receiptAmount').value) || 0;
-        const transactionId = document.getElementById('transactionId').value.trim();
-        const senderUpiId = document.getElementById('senderUpiId').value.trim();
-        const remarks = document.getElementById('remarks').value.trim();
-        
-        if (!category.value) {
-            showToast('Please select a receipt category.', 'error');
-            return;
-        }
-        
-        if (!year.value) {
-            showToast('Please select a financial year.', 'error');
-            return;
-        }
-        
-        if (receiptAmount <= 0) {
-            showToast('Receipt amount must be greater than zero.', 'error');
-            return;
-        }
-        
-        isSubmitting = true;
-        const btn = document.getElementById('saveBtn');
-        const originalHtml = btn.innerHTML;
-        btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Saving...';
-        btn.disabled = true;
-        showLoading(true, 'Saving receipt...');
-        
-        try {
-            const receiptData = {
-                branchId: branchId,
-                homeId: homeId,
-                receiptNo: receiptNo,
-                transactionId: transactionId,
-                receiptCategory: categoryText,
-                financialYear: yearText,
-                senderUpiId: senderUpiId,
-                amount: amount,
-                receiptAmount: receiptAmount,
-                balance: amount - receiptAmount,
-                remarks: remarks
-            };
-            
-            const payload = {
-                action: 'ADD_RECEIPT',
-                branchId: receiptData.branchId,
-                homeId: receiptData.homeId,
-                receiptNo: receiptData.receiptNo,
-                transactionId: receiptData.transactionId || '',
-                receiptCategory: receiptData.receiptCategory,
-                financialYear: receiptData.financialYear,
-                senderUpiId: receiptData.senderUpiId || '',
-                amount: receiptData.amount,
-                receiptAmount: receiptData.receiptAmount,
-                balance: receiptData.balance,
-                remarks: receiptData.remarks || '',
-                paymentMethod: proof?.paymentMethod || 'UPI',
-                screenshotBase64: proof?.screenshotBase64 || '',
-                screenshotName: proof?.screenshotName || '',
-                screenshotMimeType: proof?.screenshotMimeType || ''
-            };
-            
-            await fetch(CONFIG.APPS_SCRIPT_URL, {
-                method: "POST",
-                mode: "no-cors",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            });
-            
-            showLoading(false);
-            showToast('Receipt saved successfully!', 'success');
-            
-            // Show receipt info
-            await Swal.fire({
-                title: '✅ Receipt Saved',
-                html: `
-                    <p style="font-size:0.9rem;">
-                        Receipt No: <strong>${escapeHtml(receiptNo)}</strong>
-                    </p>
-                    <p style="font-size:0.9rem;">
-                        Amount: <strong>₹${receiptAmount.toFixed(2)}</strong>
-                    </p>
-                    <p style="font-size:0.85rem;color:#64748b;">
-                        Status: <strong style="color:#d97706;">Verification Pending</strong>
-                    </p>
-                    <p style="font-size:0.8rem;color:#94a3b8;margin-top:10px;">
-                        Admin will verify the payment.
-                    </p>
-                `,
-                icon: 'success',
-                confirmButtonText: 'OK',
-                confirmButtonColor: '#0f3b6a'
-            });
-            
-        } catch (err) {
-            showLoading(false);
-            console.error('Error:', err);
-            showToast('Failed to save receipt. Please try again.', 'error');
-        } finally {
-            isSubmitting = false;
-            btn.innerHTML = originalHtml;
-            btn.disabled = false;
-        }
+   async function saveReceipt(proof = null) {
+    if (isSubmitting) return;
+    
+    if (!calculateBalance()) {
+        showToast('Please fix the amount error.', 'error');
+        return;
     }
-
+    
+    const receiptNo = document.getElementById('receiptIdValue').textContent;
+    const category = document.getElementById('receiptCategory');
+    const categoryText = category.options[category.selectedIndex]?.text || '';
+    const year = document.getElementById('financialYear');
+    const yearText = year.options[year.selectedIndex]?.text || '';
+    const amount = parseFloat(document.getElementById('amount').value) || 0;
+    const receiptAmount = parseFloat(document.getElementById('receiptAmount').value) || 0;
+    const transactionId = document.getElementById('transactionId').value.trim();
+    const senderUpiId = document.getElementById('senderUpiId').value.trim();
+    const remarks = document.getElementById('remarks').value.trim();
+    
+    if (!category.value) {
+        showToast('Please select a receipt category.', 'error');
+        return;
+    }
+    
+    if (!year.value) {
+        showToast('Please select a financial year.', 'error');
+        return;
+    }
+    
+    if (receiptAmount <= 0) {
+        showToast('Receipt amount must be greater than zero.', 'error');
+        return;
+    }
+    
+    isSubmitting = true;
+    const btn = document.getElementById('saveBtn');
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Saving...';
+    btn.disabled = true;
+    showLoading(true, 'Saving receipt...');
+    
+    try {
+        const receiptData = {
+            branchId: branchId,
+            homeId: homeId,
+            receiptNo: receiptNo,
+            transactionId: transactionId,
+            receiptCategory: categoryText,
+            financialYear: yearText,
+            senderUpiId: senderUpiId,
+            amount: amount,
+            receiptAmount: receiptAmount,
+            balance: amount - receiptAmount,
+            remarks: remarks
+        };
+        
+        // Process screenshot to JPEG data URL if provided
+        let screenshotDataUrl = '';
+        if (proof?.screenshotBase64) {
+            // Convert any image to JPEG format
+            screenshotDataUrl = await convertToJpegDataUrl(
+                proof.screenshotBase64,
+                proof.screenshotMimeType || 'image/jpeg'
+            );
+        }
+        
+        const payload = {
+            action: 'ADD_RECEIPT',
+            branchId: receiptData.branchId,
+            homeId: receiptData.homeId,
+            receiptNo: receiptData.receiptNo,
+            transactionId: receiptData.transactionId || '',
+            receiptCategory: receiptData.receiptCategory,
+            financialYear: receiptData.financialYear,
+            senderUpiId: receiptData.senderUpiId || '',
+            amount: receiptData.amount,
+            receiptAmount: receiptData.receiptAmount,
+            balance: receiptData.balance,
+            remarks: receiptData.remarks || '',
+            paymentMethod: proof?.paymentMethod || 'UPI',
+            screenshotDataUrl: screenshotDataUrl  // Send as JPEG data URL
+        };
+        
+        await fetch(CONFIG.APPS_SCRIPT_URL, {
+            method: "POST",
+            mode: "no-cors",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        
+        showLoading(false);
+        showToast('Receipt saved successfully!', 'success');
+        
+        await Swal.fire({
+            title: '✅ Receipt Saved',
+            html: `
+                <p style="font-size:0.9rem;">
+                    Receipt No: <strong>${escapeHtml(receiptNo)}</strong>
+                </p>
+                <p style="font-size:0.9rem;">
+                    Amount: <strong>₹${receiptAmount.toFixed(2)}</strong>
+                </p>
+                <p style="font-size:0.85rem;color:#64748b;">
+                    Status: <strong style="color:#d97706;">Verification Pending</strong>
+                </p>
+                <p style="font-size:0.8rem;color:#94a3b8;margin-top:10px;">
+                    Admin will verify the payment.
+                </p>
+            `,
+            icon: 'success',
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#0f3b6a'
+        });
+        
+    } catch (err) {
+        showLoading(false);
+        console.error('Error:', err);
+        showToast('Failed to save receipt. Please try again.', 'error');
+    } finally {
+        isSubmitting = false;
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+    }
+}
+function convertToJpegDataUrl(base64Data, mimeType) {
+    return new Promise((resolve, reject) => {
+        try {
+            // Create an image from the base64 data
+            const img = new Image();
+            const fullDataUrl = `data:${mimeType || 'image/jpeg'};base64,${base64Data}`;
+            
+            img.onload = function() {
+                try {
+                    // Create canvas and draw image
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    
+                    // White background for JPEG (handles transparency)
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0);
+                    
+                    // Convert to JPEG with quality 0.85
+                    const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                    resolve(jpegDataUrl);
+                } catch (canvasError) {
+                    reject(new Error('Canvas conversion error: ' + canvasError.message));
+                }
+            };
+            
+            img.onerror = function() {
+                reject(new Error('Failed to load image for conversion'));
+            };
+            
+            img.src = fullDataUrl;
+        } catch (error) {
+            reject(new Error('Image conversion error: ' + error.message));
+        }
+    });
+}
     // ================= PAY NOW =================
     function handlePayNow() {
         if (!calculateBalance()) {
