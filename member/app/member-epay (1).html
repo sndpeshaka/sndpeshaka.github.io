@@ -1,0 +1,2543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Make Payment</title>
+    
+    <!-- Bootstrap 5.3 + icons -->
+    <link href="../css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="../css/bootstrap-icons.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <!-- Select2 -->
+    <link rel="stylesheet" href="../css/select2.min.css">
+    <link rel="stylesheet" href="../css/select2-bootstrap-5-theme.min.css">
+    <!-- Common Styles -->
+    <link rel="stylesheet" href="../css/common.css">
+    
+    <!-- QRCode.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            background: #f1f5f9;
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            padding: 16px;
+            margin: 0;
+            min-height: 100vh;
+        }
+        .container-fluid {
+            max-width: 98%;
+            margin: 0 auto;
+            padding: 0;
+        }
+        
+        .access-denied-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.95);
+            z-index: 9999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            backdrop-filter: blur(8px);
+            padding: 20px;
+        }
+        .access-denied-overlay.active {
+            display: flex;
+        }
+        .access-denied-overlay i {
+            font-size: 4rem;
+            color: #dc2626;
+            margin-bottom: 15px;
+        }
+        .access-denied-overlay h3 {
+            color: #1e293b;
+            margin-bottom: 10px;
+        }
+        .access-denied-overlay p {
+            color: #64748b;
+            text-align: center;
+            max-width: 320px;
+        }
+        .access-denied-overlay .btn-login {
+            margin-top: 20px;
+            padding: 12px 32px;
+            border-radius: 40px;
+            background: #0f3b6a;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .access-denied-overlay .btn-login:hover {
+            background: #0a2c4a;
+        }
+        
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.8);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+        .loading-overlay.active {
+            display: flex;
+        }
+        .loading-box {
+            background: white;
+            padding: 30px 40px;
+            border-radius: 16px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        .loading-box p {
+            margin-top: 12px;
+            color: #64748b;
+        }
+        
+        .page-header {
+            background: #0f3b6a;
+            color: white;
+            padding: 16px 20px;
+            border-radius: 16px 16px 0 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .page-header h4 {
+            margin: 0;
+            font-weight: 600;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .page-header .back-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 6px 14px;
+            border-radius: 40px;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .page-header .back-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        .content-card {
+            background: white;
+            border-radius: 0 0 16px 16px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+            border-top: none;
+            min-height: 400px;
+        }
+        
+        .info-banner {
+            background: #f1f5f9;
+            border-radius: 12px;
+            padding: 10px 14px;
+            margin-bottom: 16px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px 16px;
+            border-left: 4px solid #0f5b9c;
+            font-size: 0.8rem;
+        }
+        .info-banner .info-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: #1e293b;
+        }
+        .info-banner .info-item i {
+            color: #0f5b9c;
+            font-size: 0.9rem;
+        }
+        .info-banner .info-item strong {
+            font-weight: 600;
+        }
+        
+        .receipt-id-display {
+            background: #e6f0fa;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-family: monospace;
+            font-weight: bold;
+            font-size: 1rem;
+            color: #0f3b5f;
+            border: 1px solid #b3d4f0;
+            text-align: center;
+            margin-bottom: 16px;
+            letter-spacing: 0.5px;
+        }
+        .receipt-id-display i {
+            color: #0f5b9c;
+            margin-right: 8px;
+        }
+        
+        .form-label {
+            font-weight: 600;
+            color: #1e293b;
+            font-size: 0.8rem;
+            margin-bottom: 4px;
+        }
+        .form-control, .form-select {
+            border-radius: 10px;
+            padding: 8px 12px;
+            font-size: 0.9rem;
+            border: 1px solid #cbd5e1;
+            transition: 0.2s;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: #0f3b6a;
+            box-shadow: 0 0 0 3px rgba(15, 59, 106, 0.1);
+        }
+        .form-control:disabled, .form-control[readonly] {
+            background: #f1f5f9;
+            color: #64748b;
+        }
+        .form-control.is-invalid {
+            border-color: #dc2626;
+        }
+        .form-control.is-invalid:focus {
+            box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+        }
+        .invalid-feedback-custom {
+            color: #dc2626;
+            font-size: 0.75rem;
+            margin-top: 4px;
+            display: none;
+        }
+        .invalid-feedback-custom.show {
+            display: block;
+        }
+        
+        .section-divider {
+            border-top: 2px dashed #e2e8f0;
+            margin: 20px 0;
+        }
+        
+        .btn-primary-custom {
+            background: #0f3b6a;
+            border: none;
+            padding: 10px 20px;
+            font-weight: 600;
+            border-radius: 40px;
+            transition: 0.2s;
+            color: white;
+            font-size: 0.9rem;
+        }
+        .btn-primary-custom:hover:not(:disabled) {
+            background: #0a2c46;
+            transform: translateY(-1px);
+        }
+        .btn-primary-custom:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .btn-secondary-custom {
+            background: #64748b;
+            border: none;
+            padding: 10px 20px;
+            font-weight: 600;
+            border-radius: 40px;
+            transition: 0.2s;
+            color: white;
+            font-size: 0.9rem;
+        }
+        .btn-secondary-custom:hover {
+            background: #475569;
+        }
+        .btn-success-custom {
+            background: #16a34a;
+            border: none;
+            padding: 10px 20px;
+            font-weight: 600;
+            border-radius: 40px;
+            transition: 0.2s;
+            color: white;
+            font-size: 0.9rem;
+        }
+        .btn-success-custom:hover:not(:disabled) {
+            background: #15803d;
+            transform: translateY(-1px);
+        }
+        .btn-success-custom:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .btn-outline-primary-custom {
+            background: transparent;
+            border: 1px solid #0f5b9c;
+            color: #0f5b9c;
+            padding: 8px 16px;
+            font-weight: 500;
+            border-radius: 40px;
+            transition: 0.2s;
+            font-size: 0.8rem;
+        }
+        .btn-outline-primary-custom:hover {
+            background: #e6f0fa;
+        }
+        .btn-outline-success-custom {
+            background: transparent;
+            border: 1px solid #16a34a;
+            color: #16a34a;
+            padding: 8px 16px;
+            font-weight: 500;
+            border-radius: 40px;
+            transition: 0.2s;
+            font-size: 0.8rem;
+        }
+        .btn-outline-success-custom:hover {
+            background: #e6f7ed;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 16px;
+        }
+        .action-buttons .btn {
+            flex: 1;
+            min-width: 120px;
+        }
+        
+        .payment-info-box {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 16px;
+            margin: 16px 0;
+            border: 2px solid #16a34a;
+            text-align: center;
+        }
+        .payment-info-box .upi-id {
+            font-family: monospace;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #0f3b6a;
+            background: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            display: inline-block;
+            margin: 8px 0;
+        }
+        .payment-info-box .amount-display {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .payment-info-box .copy-btn {
+            background: transparent;
+            border: none;
+            color: #0f5b9c;
+            cursor: pointer;
+            padding: 4px 8px;
+            font-size: 0.8rem;
+        }
+        .payment-info-box .copy-btn:hover {
+            text-decoration: underline;
+        }
+        
+        #qrCodeContainer {
+            display: none;
+            text-align: center;
+            margin: 15px 0;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            border: 2px solid #0f3b6a;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        #qrCodeContainer .qr-code-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 220px;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        #qrCodeContainer .qr-code-wrapper img,
+        #qrCodeContainer .qr-code-wrapper canvas {
+            width: 220px !important;
+            height: 220px !important;
+            border-radius: 8px;
+            border: 2px solid #e2e8f0;
+        }
+        #qrCodeContainer .qr-code-wrapper .qr-placeholder {
+            width: 220px;
+            height: 220px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #f8fafc;
+            border-radius: 8px;
+            color: #94a3b8;
+            border: 2px dashed #cbd5e1;
+        }
+        #qrCodeContainer .qr-code-wrapper .qr-placeholder i {
+            font-size: 3rem;
+            margin-bottom: 8px;
+            color: #cbd5e1;
+        }
+        #qrCodeContainer .qr-code-wrapper .qr-placeholder span {
+            font-size: 0.8rem;
+        }
+        #qrCodeContainer .qr-actions-small {
+            margin-top: 12px;
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        #qrCodeContainer .qr-actions-small .btn {
+            padding: 6px 16px;
+            font-size: 0.8rem;
+            border-radius: 30px;
+        }
+        
+        .upi-info-display {
+            background: #e6f0fa;
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin: 12px 0;
+            border: 1px solid #b3d4f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .upi-info-display .label {
+            font-size: 0.75rem;
+            color: #64748b;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .upi-info-display .value {
+            font-weight: 600;
+            color: #0f3b6a;
+            font-size: 0.95rem;
+        }
+        
+        .ocr-progress {
+            display: none;
+            margin: 10px 0;
+            padding: 12px;
+            background: #f1f5f9;
+            border-radius: 10px;
+            border: 1px solid #cbd5e1;
+        }
+        .ocr-progress.active {
+            display: block;
+        }
+        .ocr-progress .progress-bar {
+            height: 6px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        .ocr-progress .progress-bar .progress-fill {
+            height: 100%;
+            background: #0f3b6a;
+            width: 0%;
+            transition: width 0.3s;
+            border-radius: 4px;
+        }
+        .ocr-progress .ocr-status {
+            font-size: 0.85rem;
+            color: #1e293b;
+        }
+        .ocr-progress .ocr-status i {
+            color: #0f5b9c;
+        }
+        
+        .ocr-confidence-note {
+            margin-top: 8px;
+            font-size: 0.72rem;
+            color: #64748b;
+            line-height: 1.4;
+        }
+        .extracted-badge {
+            display: inline-block;
+            background: #16a34a;
+            color: white;
+            font-size: 0.6rem;
+            padding: 2px 8px;
+            border-radius: 12px;
+            margin-left: 6px;
+        }
+        
+        .toast-custom {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            max-width: 400px;
+            width: calc(100% - 32px);
+            background: #1f1f1f;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 48px;
+            z-index: 1090;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            text-align: center;
+            font-size: 0.85rem;
+        }
+        .toast-custom.show { opacity: 1; }
+        .toast-custom.error { background: #dc2626; }
+        .toast-custom.success { background: #16a34a; }
+        
+        .select2-container--bootstrap-5 .select2-selection {
+            border-radius: 10px !important;
+            border-color: #cbd5e1 !important;
+            min-height: 42px !important;
+        }
+        .select2-container--bootstrap-5 .select2-selection--single .select2-selection__rendered {
+            line-height: 40px !important;
+        }
+        .select2-container--bootstrap-5 .select2-dropdown {
+            z-index: 1060 !important;
+        }
+        
+        /* Extracted Results Styles */
+        #extractedResults {
+            display: none;
+            margin-top: 12px;
+            padding: 12px;
+            background: #f0fdf4;
+            border-radius: 10px;
+            border: 2px solid #16a34a;
+            transition: all 0.3s ease;
+        }
+        #extractedResults .extracted-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        #extractedResults .extracted-header .icon {
+            color: #16a34a;
+            font-size: 1.2rem;
+        }
+        #extractedResults .extracted-header .title {
+            font-weight: 600;
+            color: #16a34a;
+        }
+        #extractedResults .extracted-header .time {
+            font-size: 0.7rem;
+            color: #64748b;
+            margin-left: auto;
+        }
+        #extractedResults .extracted-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: 0.9rem;
+        }
+        #extractedResults .extracted-grid .field-label {
+            color: #64748b;
+            font-size: 0.75rem;
+        }
+        #extractedResults .extracted-grid .field-value {
+            font-weight: 600;
+            color: #0f3b6a;
+            background: white;
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid #bbf7d0;
+            word-break: break-all;
+        }
+        #extractedResults .extracted-actions {
+            margin-top: 8px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        #extractedResults .extracted-actions .btn {
+            padding: 4px 16px;
+            font-size: 0.8rem;
+        }
+        #extractedResults .extracted-info {
+            font-size: 0.7rem;
+            color: #64748b;
+            margin-top: 6px;
+        }
+        #extractedResults .auto-accept-msg {
+            margin-top: 8px;
+            color: #16a34a;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        
+        .spinner-border-sm {
+            width: 1rem;
+            height: 1rem;
+            border-width: 0.2em;
+            animation: spinner-border 0.75s linear infinite;
+        }
+        @keyframes spinner-border {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Manual entry hint */
+        .manual-entry-hint {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 8px;
+            padding: 10px 14px;
+            margin-top: 10px;
+            font-size: 0.85rem;
+            color: #92400e;
+            display: none;
+        }
+        .manual-entry-hint.show {
+            display: block;
+        }
+        
+        @media (max-width: 480px) {
+            body { padding: 8px; }
+            .content-card { padding: 14px; }
+            .action-buttons { flex-direction: column; }
+            .action-buttons .btn { width: 100%; }
+            .receipt-id-display { font-size: 0.8rem; padding: 10px; }
+            #qrCodeContainer .qr-code-wrapper img,
+            #qrCodeContainer .qr-code-wrapper canvas {
+                width: 180px !important;
+                height: 180px !important;
+            }
+            #qrCodeContainer .qr-code-wrapper .qr-placeholder {
+                width: 180px;
+                height: 180px;
+            }
+            .payment-info-box .amount-display { font-size: 1.4rem; }
+            .payment-info-box .upi-id { font-size: 1rem; }
+            .upi-info-display { flex-direction: column; align-items: flex-start; }
+            #extractedResults .extracted-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Access Denied Overlay -->
+<div class="access-denied-overlay" id="accessDeniedOverlay">
+    <i class="bi bi-lock-fill"></i>
+    <h3>Access Denied</h3>
+    <p>You are not authorized to view this page. Please login to the member portal first.</p>
+    <a href="member-login.html" class="btn-login"><i class="bi bi-box-arrow-right"></i> Go to Login</a>
+</div>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-box">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p id="loadingText">Loading...</p>
+    </div>
+</div>
+
+<!-- Main Content -->
+<div class="container-fluid" id="mainContent" style="display: none;">
+    <!-- Header -->
+    <div class="page-header">
+        <h4><i class="bi bi-receipt"></i> Make Payment</h4>
+        <button class="back-btn" onclick="goBackToDashboard()">
+            <i class="bi bi-arrow-left"></i> Back
+        </button>
+    </div>
+    
+    <div class="content-card">
+        <!-- Info Banner -->
+        <div class="info-banner" id="infoBanner">
+            <div class="info-item">
+                <i class="bi bi-building"></i>
+                <span>Branch: <strong id="displayBranchId">—</strong></span>
+            </div>
+            <div class="info-item">
+                <i class="bi bi-house"></i>
+                <span>Home: <strong id="displayHomeId">—</strong></span>
+            </div>
+            <div class="info-item">
+                <i class="bi bi-person"></i>
+                <span>Member: <strong id="displayMemberName">—</strong></span>
+            </div>
+        </div>
+        
+        <!-- Receipt ID Display -->
+        <div class="receipt-id-display" id="receiptIdDisplay">
+            <i class="bi bi-hash"></i> <span id="receiptIdValue">—</span>
+        </div>
+        
+        <!-- UPI Info Display -->
+        <div class="upi-info-display">
+            <div>
+                <div class="label"><i class="bi bi-credit-card"></i> UPI ID</div>
+                <div class="value" id="displayUpiId">—</div>
+            </div>
+            <div>
+                <div class="label"><i class="bi bi-building"></i> Banking Name</div>
+                <div class="value" id="displayBankingName">—</div>
+            </div>
+        </div>
+        
+        <!-- Form -->
+        <form id="receiptForm" novalidate>
+            <div class="row g-3">
+                <input type="hidden" id="branchId" value="">
+                <input type="hidden" id="homeId" value="">
+                
+                <div class="col-md-6">
+                    <label class="form-label required">Receipt Category</label>
+                    <select id="receiptCategory" class="form-select select2-receipt" required>
+                        <option value="">Select Category</option>
+                    </select>
+                </div>
+                
+                <div class="col-md-6">
+                    <label class="form-label required">Financial Year</label>
+                    <select id="financialYear" class="form-select select2-receipt" required>
+                        <option value="">Select Financial Year</option>
+                    </select>
+                </div>
+                
+                <div class="col-md-6">
+                    <label class="form-label">Transaction ID <span style="color:#dc2626;font-size:0.7rem;">(OCR-assisted — verify before accepting)</span></label>
+                    <input type="text" id="transactionId" class="form-control" placeholder="Enter UPI Transaction ID / UTR after payment">
+                    <span id="txnExtractedBadge" style="display:none;font-size:0.7rem;color:#16a34a;margin-top:4px;">
+                        <i class="bi bi-check-circle-fill"></i> Extracted via OCR
+                    </span>
+                </div>
+                
+                <div class="col-md-6">
+                    <label class="form-label">Sender UPI ID <span style="color:#dc2626;font-size:0.7rem;">(OCR-assisted — verify before accepting)</span></label>
+                    <input type="text" id="senderUpiId" class="form-control" placeholder="Enter your UPI ID (optional)">
+                    <span id="upiExtractedBadge" style="display:none;font-size:0.7rem;color:#16a34a;margin-top:4px;">
+                        <i class="bi bi-check-circle-fill"></i> Extracted via OCR
+                    </span>
+                </div>
+
+                <div class="col-12" id="paymentProofSection">
+                    <label class="form-label">Payment Screenshot <span style="font-size:0.7rem;color:#64748b;">(Upload to extract Transaction ID & Sender UPI ID)</span></label>
+                    <input type="file" id="paymentScreenshot" class="form-control" accept="image/*">
+                    <div style="font-size:0.75rem;color:#64748b;margin-top:6px;">
+                        <i class="bi bi-info-circle"></i> Upload screenshot from your UPI app. OCR will extract candidates from the screenshot. Verify them against the screenshot before accepting.
+                    </div>
+                    
+                    <!-- OCR Progress -->
+                    <div id="ocrProgress" class="ocr-progress" style="display:none;">
+                        <div class="ocr-status">
+                            <i class="bi bi-arrow-repeat" id="ocrSpinner"></i> 
+                            <span id="ocrStatusText">Processing image with OCR...</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="ocrProgressFill" style="width:0%;"></div>
+                        </div>
+                        <div style="font-size:0.7rem;color:#94a3b8;margin-top:4px;" id="ocrPercentage">0%</div>
+                    </div>
+                    
+                    <!-- Extracted Results Display -->
+                    <div id="extractedResults">
+                        <div class="extracted-header">
+                            <i class="bi bi-check-circle-fill icon"></i>
+                            <span class="title">Extracted Details</span>
+                            <span class="time" id="extractionTime"></span>
+                        </div>
+                        <div class="extracted-grid">
+                            <div>
+                                <div class="field-label">📋 Transaction ID</div>
+                                <div class="field-value" id="extractedTxnDisplay">—</div>
+                            </div>
+                            <div>
+                                <div class="field-label">👤 Sender UPI ID</div>
+                                <div class="field-value" id="extractedUpiDisplay">—</div>
+                            </div>
+                        </div>
+                        <div class="extracted-actions">
+                            <button type="button" class="btn btn-success-custom" id="acceptExtractedBtn" style="padding:4px 16px;font-size:0.8rem;">
+                                <i class="bi bi-check2"></i> Accept & Fill
+                            </button>
+                            <button type="button" class="btn btn-secondary-custom" id="rejectExtractedBtn" style="padding:4px 16px;font-size:0.8rem;background:#94a3b8;">
+                                <i class="bi bi-x"></i> Reject & Enter Manually
+                            </button>
+                        </div>
+                        <div class="extracted-info">
+                            <i class="bi bi-info-circle"></i> OCR is assistive. Compare both values with the screenshot before clicking Accept & Fill.
+                        </div>
+                    </div>
+                    
+                    <!-- Manual Entry Hint -->
+                    <div class="manual-entry-hint" id="manualEntryHint">
+                        <i class="bi bi-info-circle"></i> 
+                        <strong>OCR failed or no details found.</strong> Please enter the Transaction ID and Sender UPI ID manually below.
+                    </div>
+                    
+                    <div id="screenshotPreview" style="display:none;margin-top:10px;text-align:center;">
+                        <img id="screenshotPreviewImg" alt="Payment screenshot preview" style="max-width:100%;max-height:300px;border-radius:10px;border:1px solid #e2e8f0;">
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <label class="form-label required">Amount (₹)</label>
+                    <input type="number" id="amount" class="form-control" readonly step="0.01" min="0">
+                </div>
+                
+                <div class="col-md-6">
+                    <label class="form-label required">Receipt Amount (₹)</label>
+                    <input type="number" id="receiptAmount" class="form-control" step="0.01" min="0" placeholder="Enter receipt amount">
+                    <div class="invalid-feedback-custom" id="receiptAmountError">Please enter a valid amount.</div>
+                </div>
+                
+                <div class="col-md-6">
+                    <label class="form-label">Balance (₹)</label>
+                    <input type="number" id="balance" class="form-control" readonly step="0.01" min="0">
+                </div>
+                
+                <div class="col-12">
+                    <label class="form-label">Remarks</label>
+                    <textarea id="remarks" class="form-control" rows="2" placeholder="Optional remarks"></textarea>
+                </div>
+            </div>
+        </form>
+        
+        <div class="section-divider"></div>
+        
+        <!-- Payment Info Box -->
+        <div class="payment-info-box" id="paymentInfoBox">
+            <div style="font-size:0.8rem;color:#64748b;margin-bottom:8px;">
+                <i class="bi bi-credit-card"></i> Pay to this UPI ID
+            </div>
+            <div class="upi-id" id="upiIdDisplay">
+                <span id="upiIdValue">—</span>
+                <button class="copy-btn" onclick="copyUpiId()"><i class="bi bi-clipboard"></i> Copy</button>
+            </div>
+            <div style="margin:10px 0;">
+                <span style="font-size:0.8rem;color:#64748b;">Amount</span>
+                <div class="amount-display" id="amountDisplay">₹0.00</div>
+            </div>
+            <div style="font-size:0.75rem;color:#94a3b8;">
+                <i class="bi bi-info-circle"></i> Click "Pay Now" to open your UPI app
+            </div>
+        </div>
+        
+        <!-- Dynamic UPI QR Code -->
+        <div id="qrCodeContainer" style="display:none;">
+            <div style="font-size:0.85rem;font-weight:600;color:#0f3b6a;margin-bottom:10px;">
+                <i class="bi bi-qr-code"></i> Scan to Pay
+            </div>
+            <div class="qr-code-wrapper" id="qrCodeWrapper">
+                <div class="qr-placeholder" id="qrPlaceholder">
+                    <i class="bi bi-qr-code"></i>
+                    <span>Loading QR...</span>
+                </div>
+            </div>
+            <div style="font-size:0.75rem;color:#64748b;margin-top:8px;">
+                <i class="bi bi-info-circle"></i> Scan this QR code with any UPI app (BHIM, Google Pay, PhonePe, Paytm)
+            </div>
+            <div class="qr-actions-small">
+                <button type="button" id="qrDownloadBtn" class="btn btn-outline-success-custom" style="padding:4px 12px;font-size:0.75rem;">
+                    <i class="bi bi-download"></i> Save QR
+                </button>
+                <button type="button" id="qrRefreshBtn" class="btn btn-outline-primary-custom" style="padding:4px 12px;font-size:0.75rem;">
+                    <i class="bi bi-arrow-repeat"></i> Refresh QR
+                </button>
+                <button type="button" id="qrPaidBtn" class="btn btn-success-custom" style="padding:4px 16px;font-size:0.75rem;">
+                    <i class="bi bi-check-circle"></i> I Paid — Upload Screenshot
+                </button>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+            <button type="button" id="payNowBtn" class="btn btn-success-custom">
+                <i class="bi bi-upc-scan"></i> Pay Now
+            </button>
+            <button type="button" id="showQrBtn" class="btn btn-primary-custom">
+                <i class="bi bi-qr-code"></i> Show QR
+            </button>
+            <button type="button" id="resetBtn" class="btn btn-secondary-custom">
+                <i class="bi bi-arrow-counterclockwise"></i> Reset
+            </button>
+        </div>
+        
+        <!-- Save Button -->
+        <div style="margin-top:12px;text-align:center;">
+            <button type="button" id="saveBtn" class="btn btn-outline-primary-custom" style="font-size:0.7rem;">
+                <i class="bi bi-save"></i> Save Receipt (Record Only)
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Message -->
+<div id="liveToast" class="toast-custom"><i class="bi me-2" id="toastIcon"></i><span id="toastMsg"></span></div>
+
+<script src="../js/jquery.min.js"></script>
+<script src="../js/bootstrap.bundle.min.js"></script>
+<script src="../js/select2.min.js"></script>
+<script src="../js/sweetalert2.all.min.js"></script>
+
+<!-- Tesseract.js OCR engine -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+
+<script>
+    // ================= CONFIGURATION =================
+    const CONFIG = (function() {
+        const _s = '1FKCX4TODUcQ_0o8xP14fGENYT17k4Mcm_rJe6eFSTjE';
+        const _k = 'AIzaSyDc8tegwi2rgHyDFYm7uWBqVqQ7Fwb3uWM';
+        const _url = 'https://script.google.com/macros/s/AKfycbxCZAlP8EWZWBN91j-VNN1XpSKR2Ab4WxQBzEmPEeO2ApeQBEp4c9S_o35WVbkrkUYZmw/exec';
+        
+        return {
+            get SPREADSHEET_ID() { return _s; },
+            get API_KEY() { return _k; },
+            get APPS_SCRIPT_URL() { return _url; }
+        };
+    })();
+
+    let branchId = '';
+    let homeId = '';
+    let memberName = '';
+    let receiptCategories = [];
+    let financialYears = [];
+    let receiptUpiId = '';
+    let receiptBankingName = '';
+    let selectedCategoryAmount = 0;
+    let isSubmitting = false;
+    let qrVisible = false;
+    let qrCodeInstance = null;
+    let extractedData = { transactionId: '', senderUpiId: '', confidence: { transaction: 0, senderUpi: 0 }, evidence: {} };
+    let screenshotDataUrl = null;
+    let ocrInProgress = false;
+
+    // ================= SECURITY: GET SESSION =================
+    function getSessionFromStorage() {
+        let session = localStorage.getItem('memberSession');
+        if (session) {
+            try { return JSON.parse(session); } catch(e) {}
+        }
+        session = sessionStorage.getItem('memberSession');
+        if (session) {
+            try { return JSON.parse(session); } catch(e) {}
+        }
+        return null;
+    }
+
+    function isValidSession(session) {
+        if (!session) return false;
+        if (!session.branchId || !session.homeId) return false;
+        if (!session.isMember) return false;
+        return true;
+    }
+
+    // ================= HELPER FUNCTIONS =================
+    function showToast(msg, type = 'info') {
+        const toast = document.getElementById('liveToast');
+        const msgSpan = document.getElementById('toastMsg');
+        const icon = document.getElementById('toastIcon');
+        
+        msgSpan.innerText = msg;
+        toast.className = 'toast-custom';
+        
+        if (type === 'error') {
+            toast.classList.add('error');
+            icon.className = 'bi bi-exclamation-circle-fill me-2';
+        } else if (type === 'success') {
+            toast.classList.add('success');
+            icon.className = 'bi bi-check-circle-fill me-2';
+        } else {
+            icon.className = 'bi bi-info-circle-fill me-2';
+        }
+        
+        toast.classList.add('show');
+        clearTimeout(toast._timeout);
+        toast._timeout = setTimeout(() => {
+            toast.classList.remove('show');
+        }, 3000);
+    }
+
+    function showLoading(show, text = 'Loading...') {
+        const overlay = document.getElementById('loadingOverlay');
+        const textEl = document.getElementById('loadingText');
+        if (show) {
+            textEl.textContent = text;
+            overlay.classList.add('active');
+        } else {
+            overlay.classList.remove('active');
+        }
+    }
+
+    function escapeHtml(str) { 
+        if (!str) return ''; 
+        return str.replace(/[&<>]/g, m => m==='&'?'&amp;':m==='<'?'&lt;':m==='>'?'&gt;':m); 
+    }
+
+    function padZero(num) {
+        return num.toString().padStart(2, '0');
+    }
+
+    function getCurrentMonth() {
+        return padZero(new Date().getMonth() + 1);
+    }
+
+    function getCurrentDay() {
+        return padZero(new Date().getDate());
+    }
+
+    function goBackToDashboard() {
+        window.location.href = 'member-dashboard.html';
+    }
+
+    // ================= FETCH DATA FROM SHEET =================
+    async function fetchReceiptCategories() {
+        try {
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values/'Receipt Category and Amount'!A:C?key=${CONFIG.API_KEY}&_=${Date.now()}`;
+            const response = await fetch(url);
+            const data = await response.json();
+            const rows = data.values || [];
+            
+            const categories = [];
+            for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
+                if (row.length >= 3) {
+                    categories.push({
+                        id: row[0] || '',
+                        category: row[1] || '',
+                        amount: parseFloat(row[2]) || 0
+                    });
+                }
+            }
+            return categories;
+        } catch (e) {
+            console.error('Error fetching receipt categories:', e);
+            return [];
+        }
+    }
+
+    async function fetchFinancialYears() {
+        try {
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values/'Financial Years'!A:A?key=${CONFIG.API_KEY}&_=${Date.now()}`;
+            const response = await fetch(url);
+            const data = await response.json();
+            const rows = data.values || [];
+            
+            const years = [];
+            for (let i = 1; i < rows.length; i++) {
+                if (rows[i] && rows[i][0]) {
+                    years.push(rows[i][0]);
+                }
+            }
+            return years;
+        } catch (e) {
+            console.error('Error fetching financial years:', e);
+            return [];
+        }
+    }
+
+    async function fetchUpiDetails() {
+        try {
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values/'Receipt UPI ID'!A1:B2?key=${CONFIG.API_KEY}&_=${Date.now()}`;
+            const response = await fetch(url);
+            const data = await response.json();
+            const rows = data.values || [];
+            
+            let upiId = '';
+            let bankingName = '';
+            
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                if (row.length >= 2) {
+                    const colA = (row[0] || '').trim();
+                    const colB = (row[1] || '').trim();
+                    
+                    if (colA && colA.includes('@') && !colA.toLowerCase().includes('upi')) {
+                        upiId = colA;
+                        bankingName = colB || '';
+                    }
+                    if (i === 1 && row.length >= 2) {
+                        if (!upiId && row[0] && row[0].includes('@')) {
+                            upiId = row[0];
+                            bankingName = row[1] || '';
+                        }
+                    }
+                }
+            }
+            
+            if (!upiId) {
+                const urlA2 = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values/'Receipt UPI ID'!A2?key=${CONFIG.API_KEY}&_=${Date.now()}`;
+                const respA2 = await fetch(urlA2);
+                const dataA2 = await respA2.json();
+                if (dataA2.values && dataA2.values.length > 0 && dataA2.values[0][0]) {
+                    upiId = dataA2.values[0][0].trim();
+                }
+                
+                const urlB2 = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values/'Receipt UPI ID'!B2?key=${CONFIG.API_KEY}&_=${Date.now()}`;
+                const respB2 = await fetch(urlB2);
+                const dataB2 = await respB2.json();
+                if (dataB2.values && dataB2.values.length > 0 && dataB2.values[0][0]) {
+                    bankingName = dataB2.values[0][0].trim();
+                }
+            }
+            
+            console.log('Fetched UPI ID:', upiId);
+            console.log('Fetched Banking Name:', bankingName);
+            
+            return { upiId, bankingName };
+        } catch (e) {
+            console.error('Error fetching UPI details:', e);
+            return { upiId: '', bankingName: '' };
+        }
+    }
+
+    // ================= GENERATE RECEIPT ID =================
+    function generateReceiptId() {
+        const branch = branchId || 'NA';
+        const home = homeId || 'NA';
+        const month = getCurrentMonth();
+        const day = getCurrentDay();
+        
+        const categorySelect = document.getElementById('receiptCategory');
+        const selectedCategory = categorySelect.options[categorySelect.selectedIndex];
+        const categoryId = selectedCategory ? selectedCategory.value : 'XX';
+        
+        const yearSelect = document.getElementById('financialYear');
+        const selectedYear = yearSelect.options[yearSelect.selectedIndex];
+        const yearValue = selectedYear ? selectedYear.value : '2425';
+        
+        const receiptId = `SN${branch}${home}${categoryId}${month}${day}${yearValue}`;
+        return receiptId;
+    }
+
+    function updateReceiptId() {
+        const receiptId = generateReceiptId();
+        document.getElementById('receiptIdValue').textContent = receiptId;
+        return receiptId;
+    }
+
+    // ================= UPDATE AMOUNT =================
+    function updateAmount() {
+        const categorySelect = document.getElementById('receiptCategory');
+        const selectedCategory = categorySelect.options[categorySelect.selectedIndex];
+        const categoryId = selectedCategory ? selectedCategory.value : '';
+        
+        const category = receiptCategories.find(c => c.id === categoryId);
+        if (category) {
+            document.getElementById('amount').value = category.amount.toFixed(2);
+            selectedCategoryAmount = category.amount;
+            document.getElementById('receiptAmount').value = category.amount.toFixed(2);
+            calculateBalance();
+            updatePaymentDisplay();
+        } else {
+            document.getElementById('amount').value = '';
+            selectedCategoryAmount = 0;
+            document.getElementById('receiptAmount').value = '';
+            document.getElementById('balance').value = '';
+            updatePaymentDisplay();
+        }
+        updateReceiptId();
+    }
+
+    // ================= CALCULATE BALANCE =================
+    function calculateBalance() {
+        const amount = parseFloat(document.getElementById('amount').value) || 0;
+        const receiptAmount = parseFloat(document.getElementById('receiptAmount').value) || 0;
+        
+        const balance = amount - receiptAmount;
+        document.getElementById('balance').value = balance >= 0 ? balance.toFixed(2) : '0.00';
+        
+        const errorEl = document.getElementById('receiptAmountError');
+        const input = document.getElementById('receiptAmount');
+        
+        if (receiptAmount <= 0) {
+            errorEl.textContent = 'Receipt amount must be greater than zero.';
+            errorEl.classList.add('show');
+            input.classList.add('is-invalid');
+            updatePaymentDisplay();
+            return false;
+        }
+        
+        if (receiptAmount > amount) {
+            errorEl.textContent = `Receipt amount cannot exceed ₹${amount.toFixed(2)}.`;
+            errorEl.classList.add('show');
+            input.classList.add('is-invalid');
+            updatePaymentDisplay();
+            return false;
+        }
+        
+        if (receiptAmount % 1 !== 0) {
+            errorEl.textContent = 'Receipt amount must be a whole number (no decimals).';
+            errorEl.classList.add('show');
+            input.classList.add('is-invalid');
+            updatePaymentDisplay();
+            return false;
+        }
+        
+        errorEl.classList.remove('show');
+        input.classList.remove('is-invalid');
+        updatePaymentDisplay();
+        return true;
+    }
+
+    // ================= UPDATE PAYMENT DISPLAY =================
+    function updatePaymentDisplay() {
+        const amount = parseFloat(document.getElementById('receiptAmount').value) || 0;
+        document.getElementById('upiIdValue').textContent = receiptUpiId || '—';
+        document.getElementById('amountDisplay').textContent = `₹${amount.toFixed(2)}`;
+    }
+
+    function updateUpiInfoDisplay() {
+        document.getElementById('displayUpiId').textContent = receiptUpiId || '—';
+        document.getElementById('displayBankingName').textContent = receiptBankingName || '—';
+    }
+
+    // ================= POPULATE DROPDOWNS =================
+    function populateReceiptCategories(categories) {
+        const select = document.getElementById('receiptCategory');
+        select.innerHTML = '<option value="">Select Category</option>';
+        categories.forEach(cat => {
+            const option = document.createElement('option');
+            option.value = cat.id;
+            option.textContent = cat.category;
+            option.dataset.amount = cat.amount;
+            select.appendChild(option);
+        });
+        
+        $('#receiptCategory').select2({
+            theme: 'bootstrap-5',
+            placeholder: 'Select Category',
+            allowClear: true,
+            width: '100%'
+        });
+        
+        $('#receiptCategory').on('change', function() {
+            updateAmount();
+            if (qrVisible) {
+                generateDynamicQR();
+            }
+        });
+    }
+
+    function populateFinancialYears(years) {
+        const select = document.getElementById('financialYear');
+        select.innerHTML = '<option value="">Select Financial Year</option>';
+        
+        const sortedYears = [...years].sort((a, b) => {
+            const aStart = parseInt(a.split('-')[0]);
+            const bStart = parseInt(b.split('-')[0]);
+            return bStart - aStart;
+        });
+        
+        sortedYears.forEach(year => {
+            const option = document.createElement('option');
+            option.value = year.replace('-', '');
+            option.textContent = year;
+            select.appendChild(option);
+        });
+        
+        if (sortedYears.length > 0) {
+            select.value = sortedYears[0].replace('-', '');
+        }
+        
+        $('#financialYear').select2({
+            theme: 'bootstrap-5',
+            placeholder: 'Select Financial Year',
+            allowClear: true,
+            width: '100%'
+        });
+        
+        $('#financialYear').on('change', function() {
+            updateReceiptId();
+            if (qrVisible) {
+                generateDynamicQR();
+            }
+        });
+    }
+
+    // ================= GENERATE DYNAMIC QR CODE =================
+    function generateDynamicQR() {
+        const upiId = receiptUpiId;
+        const bankingName = receiptBankingName || 'Payee';
+        const amount = parseFloat(document.getElementById('receiptAmount').value) || 0;
+        const receiptNo = document.getElementById('receiptIdValue').textContent.trim();
+        
+        if (!upiId) {
+            showToast('UPI ID not available.', 'error');
+            return false;
+        }
+        
+        if (amount <= 0) {
+            showToast('Please enter a valid amount.', 'error');
+            return false;
+        }
+
+        const upiString = 
+            `upi://pay?pa=${encodeURIComponent(upiId)}` +
+            `&pn=${encodeURIComponent(bankingName)}` +
+            `&am=${amount.toFixed(2)}` +
+            `&cu=INR` +
+            `&mc=0000` +
+            `&tn=${encodeURIComponent(receiptNo || 'Payment')}` +
+            `&tr=${encodeURIComponent('TXN' + Date.now())}` +
+            `&mam=${encodeURIComponent(bankingName)}` +
+            `&mcity=INDIA`;
+
+        console.log('Generated UPI String:', upiString);
+        
+        const wrapper = document.getElementById('qrCodeWrapper');
+        wrapper.innerHTML = '';
+        
+        try {
+            qrCodeInstance = new QRCode(wrapper, {
+                text: upiString,
+                width: 220,
+                height: 220,
+                colorDark: "#0b2b44",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+            
+            document.getElementById('qrCodeContainer').style.display = 'block';
+            qrVisible = true;
+            document.getElementById('showQrBtn').innerHTML = '<i class="bi bi-qr-code"></i> Hide QR';
+            
+            return true;
+            
+        } catch (error) {
+            console.error('QR Generation Error:', error);
+            wrapper.innerHTML = `
+                <div class="qr-placeholder">
+                    <i class="bi bi-exclamation-triangle" style="color:#dc2626;"></i>
+                    <span style="color:#dc2626;">Failed to generate QR</span>
+                    <span style="font-size:0.7rem;color:#94a3b8;">${error.message}</span>
+                </div>
+            `;
+            showToast('Failed to generate QR code.', 'error');
+            return false;
+        }
+    }
+
+    // ================= DOWNLOAD QR CODE =================
+    function downloadQR() {
+        const wrapper = document.getElementById('qrCodeWrapper');
+        const canvas = wrapper.querySelector('canvas');
+        
+        if (!canvas) {
+            showToast('QR code not generated yet. Please generate QR first.', 'error');
+            return;
+        }
+        
+        try {
+            const link = document.createElement('a');
+            link.download = 'eshaka-QR.jpg';
+            
+            const padding = 20;
+            const size = 220 + (padding * 2);
+            const newCanvas = document.createElement('canvas');
+            newCanvas.width = size;
+            newCanvas.height = size;
+            const ctx = newCanvas.getContext('2d');
+            
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, size, size);
+            
+            ctx.drawImage(canvas, padding, padding, 220, 220);
+            
+            ctx.strokeStyle = '#E2E8F0';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(padding - 2, padding - 2, 224, 224);
+            
+            link.href = newCanvas.toDataURL('image/jpeg', 0.95);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('QR code saved as eshaka-QR.jpg', 'success');
+        } catch (error) {
+            console.error('Download error:', error);
+            showToast('Failed to download QR code.', 'error');
+        }
+    }
+
+    function toggleQrCode() {
+        const container = document.getElementById('qrCodeContainer');
+        const btn = document.getElementById('showQrBtn');
+        
+        if (qrVisible) {
+            container.style.display = 'none';
+            btn.innerHTML = '<i class="bi bi-qr-code"></i> Show QR';
+            qrVisible = false;
+        } else {
+            const success = generateDynamicQR();
+            if (!success) {
+                const wrapper = document.getElementById('qrCodeWrapper');
+                wrapper.innerHTML = `
+                    <div class="qr-placeholder">
+                        <i class="bi bi-exclamation-triangle" style="color:#dc2626;"></i>
+                        <span style="color:#dc2626;">Cannot generate QR</span>
+                        <span style="font-size:0.7rem;color:#94a3b8;">Check amount and UPI ID</span>
+                    </div>
+                `;
+                container.style.display = 'block';
+                btn.innerHTML = '<i class="bi bi-qr-code"></i> Hide QR';
+                qrVisible = true;
+            }
+        }
+    }
+
+    // ================= ROBUST OCR ENGINE =================
+    const OCR_CONFIG = {
+        maxDimension: 2400,
+        minScale: 1.35,
+        passTimeoutMs: 45000,
+        language: 'eng'
+    };
+
+    function loadImage(dataUrl) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = () => reject(new Error('Unable to load the screenshot.'));
+            img.src = dataUrl;
+        });
+    }
+
+    function canvasToDataUrl(canvas, quality = 0.92) {
+        return canvas.toDataURL('image/jpeg', quality);
+    }
+
+    function buildOcrImage(img, mode = 'enhanced') {
+        const sourceW = img.naturalWidth || img.width;
+        const sourceH = img.naturalHeight || img.height;
+        const largest = Math.max(sourceW, sourceH);
+        const scale = Math.max(OCR_CONFIG.minScale, Math.min(2.2, OCR_CONFIG.maxDimension / largest));
+        const width = Math.max(1, Math.round(sourceW * scale));
+        const height = Math.max(1, Math.round(sourceH * scale));
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+
+        if (mode === 'original') return canvasToDataUrl(canvas);
+
+        const imageData = ctx.getImageData(0, 0, width, height);
+        const data = imageData.data;
+
+        // Grayscale + contrast enhancement. This helps screenshots with grey text,
+        // compression artifacts, dark mode elements and light backgrounds.
+        for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            let gray = (0.299 * r) + (0.587 * g) + (0.114 * b);
+
+            if (mode === 'threshold') {
+                // Keep a little anti-aliasing instead of using a harsh binary image.
+                gray = gray < 155 ? 25 : 245;
+            } else {
+                // Contrast stretch around the middle of the luminance range.
+                gray = ((gray - 128) * 1.35) + 128;
+                gray = Math.max(0, Math.min(255, gray));
+            }
+
+            data[i] = gray;
+            data[i + 1] = gray;
+            data[i + 2] = gray;
+        }
+        ctx.putImageData(imageData, 0, 0);
+        return canvasToDataUrl(canvas, 0.94);
+    }
+
+    function normalizeOcrText(text) {
+        if (!text) return '';
+
+        let value = String(text)
+            .replace(/\r/g, '')
+            .replace(/[|¦]/g, 'I')
+            .replace(/[“”„]/g, '"')
+            .replace(/[‘’]/g, "'")
+            .replace(/[‐‑‒–—]/g, '-')
+            .replace(/[\u00a0\t]+/g, ' ');
+
+        // Common OCR label errors. Do not globally replace digits/letters because
+        // that can corrupt transaction IDs and UPI IDs.
+        value = value
+            .replace(/\bUPI\s*[lI1]\s*D\b/gi, 'UPI ID')
+            .replace(/\bUPl\s*ID\b/gi, 'UPI ID')
+            .replace(/\bTransactlon\b/gi, 'Transaction')
+            .replace(/\bTransactlon\s*lD\b/gi, 'Transaction ID')
+            .replace(/\bTransactlon\s*ID\b/gi, 'Transaction ID')
+            .replace(/\bTxn\s*lD\b/gi, 'Txn ID')
+            .replace(/\bUTR\s*No\.?\b/gi, 'UTR')
+            .replace(/\bReference\s*lD\b/gi, 'Reference ID')
+            .replace(/\bRef\s*No\.?\b/gi, 'Ref No')
+            .replace(/\bFrom\s*UPl\b/gi, 'From UPI')
+            .replace(/\bSender\s*UPl\b/gi, 'Sender UPI')
+            .replace(/\bPaid\s*b[yv]\b/gi, 'Paid by')
+            .replace(/\bP[ae]id\s*to\b/gi, 'Paid to');
+
+        // Normalize spaces around the @ in UPI IDs while retaining line structure.
+        value = value.replace(/([A-Za-z0-9._-])\s*@\s*([A-Za-z0-9._-])/g, '$1@$2');
+        value = value.replace(/[ ]{2,}/g, ' ');
+        return value;
+    }
+
+    function getOcrLines(text) {
+        return normalizeOcrText(text)
+            .split('\n')
+            .map(line => line.trim())
+            .filter(Boolean);
+    }
+
+    function normalizeUpiCandidate(value) {
+        if (!value) return '';
+        return value
+            .replace(/[\s|]+/g, '')
+            .replace(/[;,]+$/g, '')
+            .replace(/^[:=\-]+/, '')
+            .trim();
+    }
+
+    function isValidUpi(value) {
+        return /^[a-zA-Z0-9][a-zA-Z0-9._-]{1,80}@[a-zA-Z][a-zA-Z0-9._-]{1,40}$/.test(value);
+    }
+
+    function isSameUpi(a, b) {
+        return !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
+    }
+
+    function collectUpiCandidates(text) {
+        const lines = getOcrLines(text);
+        const combined = lines.join('\n');
+        const regex = /[a-zA-Z0-9][a-zA-Z0-9._-]{1,80}\s*@\s*[a-zA-Z][a-zA-Z0-9._-]{1,40}/g;
+        const candidates = [];
+        const seen = new Set();
+
+        function addCandidate(raw, score, reason, lineIndex) {
+            const upi = normalizeUpiCandidate(raw);
+            if (!isValidUpi(upi)) return;
+            const key = upi.toLowerCase();
+            if (!seen.has(key)) {
+                seen.add(key);
+                candidates.push({ value: upi, score, reason, lineIndex });
+            } else {
+                const existing = candidates.find(c => c.value.toLowerCase() === key);
+                if (existing && score > existing.score) {
+                    existing.score = score;
+                    existing.reason = reason;
+                    existing.lineIndex = lineIndex;
+                }
+            }
+        }
+
+        lines.forEach((line, index) => {
+            const matches = line.match(regex) || [];
+            const lower = line.toLowerCase();
+            const senderContext = /\b(from|sender|payer|paid\s*by|debited\s*from|your\s*upi|paid\s*using)\b/i.test(line);
+            const payeeContext = /\b(to|payee|merchant|receiver|credited\s*to|paid\s*to)\b/i.test(line);
+
+            matches.forEach(m => {
+                let score = 20;
+                let reason = 'UPI ID pattern';
+                if (senderContext) { score += 70; reason = 'sender-context label'; }
+                if (payeeContext) { score -= 65; reason = 'payee-context label'; }
+                if (/\b(from\s+upi\s*id|sender\s+upi\s*id|payer\s+upi\s*id)\b/i.test(line)) score += 25;
+                if (/\b(upi\s*id|vpa)\b/i.test(line)) score += 10;
+                addCandidate(m, score, reason, index);
+            });
+        });
+
+        // Context can be on the line immediately before/after the UPI value.
+        lines.forEach((line, index) => {
+            const matches = line.match(regex) || [];
+            if (!matches.length) return;
+            for (let offset = -2; offset <= 2; offset++) {
+                if (offset === 0) continue;
+                const n = index + offset;
+                if (n < 0 || n >= lines.length) continue;
+                const ctx = lines[n].toLowerCase();
+                const sender = /\b(from|sender|payer|paid\s*by|debited\s*from|your\s*upi)\b/i.test(ctx);
+                const payee = /\b(to|payee|merchant|receiver|credited\s*to|paid\s*to)\b/i.test(ctx);
+                matches.forEach(m => {
+                    if (sender) addCandidate(m, 75 - Math.abs(offset) * 10, 'near sender label', index);
+                    if (payee) addCandidate(m, 5, 'near payee label', index);
+                });
+            }
+        });
+
+        return candidates.sort((a, b) => b.score - a.score);
+    }
+
+    function collectTransactionCandidates(text) {
+        const lines = getOcrLines(text);
+        const candidates = [];
+        const seen = new Set();
+
+        const labeledPatterns = [
+            { re: /(?:transaction\s*(?:id|no|number)|txn\s*(?:id|no|number)|utr(?:\s*(?:no|number))?|reference\s*(?:id|no|number)|ref\s*(?:no|number)|rrn)\s*[:#=\-]?\s*([A-Z0-9][A-Z0-9\-]{5,29})/i, score: 100 },
+            { re: /(?:transaction|txn|utr|rrn|reference|ref)\s*[:#=\-]?\s*([A-Z0-9][A-Z0-9\-]{5,29})/i, score: 85 }
+        ];
+
+        function add(raw, score, reason, lineIndex) {
+            if (!raw) return;
+            const clean = raw.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+            if (clean.length < 6 || clean.length > 30) return;
+            if (/^(?:AMOUNT|PAYMENT|SUCCESS|FAILED|PENDING|DATE|TIME|MOBILE|PHONE|ACCOUNT|UPI|TRANSACTION|REFERENCE|NUMBER|STATUS)$/i.test(clean)) return;
+            if (/^\d{1,8}(?:\.\d{1,2})?$/.test(clean)) return;
+
+            const key = clean;
+            const existing = candidates.find(c => c.value === key);
+            if (existing) {
+                existing.score = Math.max(existing.score, score);
+                return;
+            }
+            if (!seen.has(key)) {
+                seen.add(key);
+                candidates.push({ value: clean, score, reason, lineIndex });
+            }
+        }
+
+        lines.forEach((line, index) => {
+            for (const item of labeledPatterns) {
+                const match = line.match(item.re);
+                if (match) add(match[1], item.score, 'explicit transaction label', index);
+            }
+
+            // OCR sometimes inserts spaces/newlines between the label and value.
+            if (/\b(transaction|txn|utr|rrn|reference|ref)\b/i.test(line)) {
+                const nearby = line.match(/\b[A-Z0-9]{8,30}\b/gi) || [];
+                nearby.forEach(v => {
+                    let score = 60;
+                    if (/\d/.test(v) && /[A-Z]/i.test(v)) score += 10;
+                    add(v, score, 'transaction-like value near label', index);
+                });
+            }
+        });
+
+        // Common Indian UPI references are often 12-18 digits. Only accept them
+        // when they appear close to a transaction/reference label, avoiding amounts,
+        // dates and phone numbers elsewhere in the screenshot.
+        lines.forEach((line, index) => {
+            if (!/\b(transaction|txn|utr|rrn|reference|ref)\b/i.test(line)) return;
+            const numeric = line.match(/\b\d{10,20}\b/g) || [];
+            numeric.forEach(v => add(v, 92, 'numeric reference near transaction label', index));
+        });
+
+        return candidates.sort((a, b) => b.score - a.score);
+    }
+
+    function parseUPIDetails(text) {
+        const normalized = normalizeOcrText(text || '');
+        const upiCandidates = collectUpiCandidates(normalized);
+        const txnCandidates = collectTransactionCandidates(normalized);
+
+        // Never blindly take the first UPI ID. The payee UPI is frequently the
+        // first/only UPI value visible in a payment screenshot.
+        const senderCandidates = upiCandidates.map(c => {
+            let score = c.score;
+            if (isSameUpi(c.value, receiptUpiId)) score -= 120;
+            if (/\b(to|payee|merchant|receiver|credited\s*to|paid\s*to)\b/i.test(c.reason)) score -= 50;
+            return { ...c, score };
+        }).sort((a, b) => b.score - a.score);
+
+        const bestSender = senderCandidates.find(c => c.score >= 50 && !isSameUpi(c.value, receiptUpiId));
+        const bestTxn = txnCandidates.find(c => c.score >= 60);
+
+        const result = {
+            transactionId: bestTxn ? bestTxn.value : '',
+            senderUpiId: bestSender ? bestSender.value : '',
+            confidence: {
+                transaction: bestTxn ? Math.min(99, bestTxn.score) : 0,
+                senderUpi: bestSender ? Math.min(99, bestSender.score) : 0
+            },
+            evidence: {
+                transactionCandidates: txnCandidates.slice(0, 5),
+                upiCandidates: upiCandidates.slice(0, 8)
+            }
+        };
+
+        console.log('OCR parser candidates:', result.evidence);
+        console.log('OCR parser result:', result);
+        return result;
+    }
+
+    async function runTesseractPass(worker, imageDataUrl, psm, label, startPercent, endPercent) {
+        await worker.setParameters({
+            tessedit_pageseg_mode: String(psm),
+            preserve_interword_spaces: '1'
+        });
+
+        const timeout = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error(`${label} timed out`)), OCR_CONFIG.passTimeoutMs);
+        });
+
+        const promise = worker.recognize(imageDataUrl);
+        const result = await Promise.race([promise, timeout]);
+        updateOCRStatus(`📖 ${label}...`, endPercent, `${endPercent}%`);
+        return result?.data?.text || '';
+    }
+
+    async function performOCR(imageDataUrl) {
+        if (ocrInProgress) {
+            showToast('OCR already in progress...', 'info');
+            return null;
+        }
+
+        ocrInProgress = true;
+        const ocrProgress = document.getElementById('ocrProgress');
+        const ocrStatusText = document.getElementById('ocrStatusText');
+        const ocrProgressFill = document.getElementById('ocrProgressFill');
+        const ocrPercentage = document.getElementById('ocrPercentage');
+        const ocrSpinner = document.getElementById('ocrSpinner');
+        const manualHint = document.getElementById('manualEntryHint');
+        const resultsDiv = document.getElementById('extractedResults');
+
+        ocrProgress.style.display = 'block';
+        ocrStatusText.textContent = '🔍 Initializing OCR engine...';
+        ocrProgressFill.style.width = '5%';
+        ocrPercentage.textContent = '5%';
+        ocrSpinner.className = 'bi bi-arrow-repeat spinner-border spinner-border-sm';
+        manualHint.classList.remove('show');
+        resultsDiv.style.display = 'none';
+
+        let worker = null;
+        try {
+            if (typeof Tesseract === 'undefined') {
+                throw new Error('Tesseract.js is not loaded.');
+            }
+
+            updateOCRStatus('📷 Preparing original image...', 10, '10%');
+            const img = await loadImage(imageDataUrl);
+            const original = buildOcrImage(img, 'original');
+            const enhanced = buildOcrImage(img, 'enhanced');
+            const threshold = buildOcrImage(img, 'threshold');
+
+            updateOCRStatus('⚙️ Starting OCR engine...', 15, '15%');
+            worker = await Tesseract.createWorker(OCR_CONFIG.language, 1, {
+                logger: m => {
+                    if (m.status === 'recognizing text') {
+                        const p = Math.round(m.progress * 100);
+                        updateOCRStatus(`📖 Reading screenshot... ${p}%`, Math.min(95, 15 + p * 0.75), `${Math.min(95, Math.round(15 + p * 0.75))}%`);
+                    }
+                }
+            });
+
+            // Pass 1: original screenshot, block layout.
+            const text1 = await runTesseractPass(worker, original, 6, 'Reading original screenshot', 15, 40);
+            // Pass 2: enlarged grayscale/contrast version, block layout.
+            const text2 = await runTesseractPass(worker, enhanced, 6, 'Reading enhanced screenshot', 40, 65);
+            // Pass 3: thresholded image, sparse layout for isolated labels/IDs.
+            const text3 = await runTesseractPass(worker, threshold, 11, 'Reading sparse text', 65, 85);
+
+            const combined = [text1, text2, text3].filter(Boolean).join('\n');
+            console.log('=== OCR PASS 1: ORIGINAL ===\n', text1);
+            console.log('=== OCR PASS 2: ENHANCED ===\n', text2);
+            console.log('=== OCR PASS 3: THRESHOLD / SPARSE ===\n', text3);
+            console.log('=== OCR COMBINED TEXT ===\n', combined);
+
+            updateOCRStatus('🔎 Scoring Transaction ID and Sender UPI candidates...', 90, '90%');
+            const extracted = parseUPIDetails(combined);
+            extractedData = extracted;
+            screenshotDataUrl = imageDataUrl;
+
+            showExtractedResults(extracted);
+            updateOCRStatus('✅ OCR extraction complete — verify the values before accepting.', 100, '100%');
+
+            if (extracted.transactionId && extracted.senderUpiId) {
+                ocrStatusText.innerHTML = '✅ <strong>Both fields found. Please verify them and click “Accept & Fill”.</strong>';
+                manualHint.classList.remove('show');
+            } else if (extracted.transactionId || extracted.senderUpiId) {
+                ocrStatusText.innerHTML = '⚠️ <strong>Partial extraction. Verify the detected field and enter the missing value manually.</strong>';
+                manualHint.classList.add('show');
+            } else {
+                ocrStatusText.innerHTML = '❌ <strong>No reliable payment identifiers found. Please enter them manually.</strong>';
+                manualHint.classList.add('show');
+                resultsDiv.style.borderColor = '#dc2626';
+                resultsDiv.style.background = '#fef2f2';
+            }
+
+            setTimeout(() => { ocrProgress.style.display = 'none'; }, 2500);
+            return extracted;
+        } catch (error) {
+            console.error('OCR Error:', error);
+            screenshotDataUrl = imageDataUrl;
+            updateOCRStatus('❌ OCR failed — enter details manually.', 100, '100%');
+            ocrSpinner.className = 'bi bi-exclamation-circle';
+            manualHint.classList.add('show');
+            resultsDiv.style.display = 'block';
+            resultsDiv.style.borderColor = '#dc2626';
+            resultsDiv.style.background = '#fef2f2';
+            document.getElementById('extractedTxnDisplay').textContent = '❌ OCR failed';
+            document.getElementById('extractedUpiDisplay').textContent = '❌ OCR failed';
+            document.getElementById('extractionTime').textContent = error.message || 'OCR error';
+            showToast('OCR could not process this screenshot. You can enter the details manually.', 'error');
+            return null;
+        } finally {
+            if (worker) {
+                try { await worker.terminate(); } catch (e) { console.warn('Tesseract terminate warning:', e); }
+            }
+            ocrInProgress = false;
+        }
+    }
+
+    function updateOCRStatus(status, percentage, percentageText) {
+        document.getElementById('ocrStatusText').textContent = status;
+        document.getElementById('ocrProgressFill').style.width = percentageText || `${percentage}%`;
+        document.getElementById('ocrPercentage').textContent = percentageText || `${percentage}%`;
+    }
+
+    function showExtractedResults(extracted) {
+        const resultsDiv = document.getElementById('extractedResults');
+        resultsDiv.style.display = 'block';
+        resultsDiv.style.borderColor = '#16a34a';
+        resultsDiv.style.background = '#f0fdf4';
+
+        document.getElementById('extractedTxnDisplay').textContent = extracted.transactionId || '❌ Not found';
+        document.getElementById('extractedUpiDisplay').textContent = extracted.senderUpiId || '❌ Not found';
+
+        const txnScore = extracted.confidence?.transaction || 0;
+        const upiScore = extracted.confidence?.senderUpi || 0;
+        document.getElementById('extractionTime').textContent =
+            `Transaction confidence: ${txnScore}% • Sender UPI confidence: ${upiScore}% • ${new Date().toLocaleTimeString()}`;
+
+        // Add a compact candidate hint for debugging without exposing raw OCR text.
+        let confidenceNote = resultsDiv.querySelector('.ocr-confidence-note');
+        if (!confidenceNote) {
+            confidenceNote = document.createElement('div');
+            confidenceNote.className = 'ocr-confidence-note';
+            resultsDiv.appendChild(confidenceNote);
+        }
+        confidenceNote.textContent = 'OCR is assistive only. Always compare the detected values with the screenshot before accepting.';
+    }
+
+    function applyExtractedValue(elementId, badgeId, value) {
+        if (!value) return false;
+        const el = document.getElementById(elementId);
+        el.value = value;
+        el.style.borderColor = '#16a34a';
+        el.style.background = '#f0fdf4';
+        document.getElementById(badgeId).style.display = 'inline';
+        return true;
+    }
+
+    function acceptExtractedDetails() {
+        if (!extractedData || (!extractedData.transactionId && !extractedData.senderUpiId)) {
+            showToast('No reliable OCR values are available to accept.', 'error');
+            return;
+        }
+
+        const txnApplied = applyExtractedValue('transactionId', 'txnExtractedBadge', extractedData.transactionId);
+        const upiApplied = applyExtractedValue('senderUpiId', 'upiExtractedBadge', extractedData.senderUpiId);
+
+        document.getElementById('extractedResults').style.borderColor = '#16a34a';
+        document.getElementById('extractedResults').style.background = '#d1fae5';
+        document.getElementById('acceptExtractedBtn').style.display = 'none';
+        document.getElementById('rejectExtractedBtn').style.display = 'none';
+        document.getElementById('manualEntryHint').classList.remove('show');
+
+        showToast(
+            txnApplied && upiApplied ? 'Transaction ID and Sender UPI ID accepted.' : 'Detected OCR value accepted. Please complete the missing field manually.',
+            'success'
+        );
+    }
+
+    // ================= SCREENSHOT HANDLING =================
+    document.getElementById('paymentScreenshot').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        if (!file.type.startsWith('image/')) {
+            showToast('Please select an image file.', 'error');
+            this.value = '';
+            return;
+        }
+        
+        // Reset extracted results state
+        document.getElementById('extractedResults').style.display = 'none';
+        document.getElementById('extractedResults').style.borderColor = '#16a34a';
+        document.getElementById('extractedResults').style.background = '#f0fdf4';
+        document.getElementById('acceptExtractedBtn').style.display = 'inline-block';
+        document.getElementById('rejectExtractedBtn').style.display = 'inline-block';
+        document.getElementById('manualEntryHint').classList.remove('show');
+        
+        // Remove old auto-accept message
+        const oldMsg = document.querySelector('.auto-accept-msg');
+        if (oldMsg) oldMsg.remove();
+        
+        // Show preview
+        const reader = new FileReader();
+        reader.onload = async function(event) {
+            const imageDataUrl = event.target.result;
+            const preview = document.getElementById('screenshotPreview');
+            const previewImg = document.getElementById('screenshotPreviewImg');
+            previewImg.src = imageDataUrl;
+            preview.style.display = 'block';
+            
+            // Perform OCR
+            await performOCR(imageDataUrl);
+        };
+        reader.readAsDataURL(file);
+    });
+
+    function copyUpiId() {
+        const upiId = document.getElementById('upiIdValue').textContent;
+        if (upiId === '—') {
+            showToast('No UPI ID available.', 'error');
+            return;
+        }
+        
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(upiId).then(() => {
+                showToast('UPI ID copied!', 'success');
+            }).catch(() => {
+                fallbackCopy(upiId);
+            });
+        } else {
+            fallbackCopy(upiId);
+        }
+    }
+
+    function fallbackCopy(text) {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            showToast('UPI ID copied!', 'success');
+        } catch (e) {
+            showToast('Failed to copy.', 'error');
+        }
+        document.body.removeChild(textArea);
+    }
+
+    // ================= UPI PAYMENT FLOW =================
+    let upiPaymentStarted = false;
+    let upiReturnTimer = null;
+
+    function openUpiApp() {
+        const upiId = receiptUpiId;
+        const bankingName = receiptBankingName || 'Payee';
+        const amount = parseFloat(document.getElementById('receiptAmount').value) || 0;
+        const receiptNo = document.getElementById('receiptIdValue').textContent.trim();
+
+        if (!upiId || amount <= 0) {
+            showToast('Please enter a valid payment amount.', 'error');
+            return;
+        }
+
+        const upiIntent = 
+            `upi://pay?pa=${encodeURIComponent(upiId)}` +
+            `&pn=${encodeURIComponent(bankingName)}` +
+            `&am=${amount.toFixed(2)}` +
+            `&cu=INR` +
+            `&mc=0000` +
+            `&tn=${encodeURIComponent(receiptNo || 'Payment')}` +
+            `&tr=${encodeURIComponent('TXN' + Date.now())}` +
+            `&mam=${encodeURIComponent(bankingName)}` +
+            `&mcity=INDIA`;
+
+        upiPaymentStarted = true;
+        sessionStorage.setItem('upiPaymentPending', JSON.stringify({
+            receiptNo: receiptNo,
+            amount: amount.toFixed(2),
+            startedAt: Date.now()
+        }));
+
+        showToast('Opening your UPI app. Complete the payment there.', 'info');
+
+        try {
+            const link = document.createElement('a');
+            link.href = upiIntent;
+            link.target = '_blank';
+            link.rel = 'noopener';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (e) {
+            window.location.href = upiIntent;
+        }
+
+        clearTimeout(upiReturnTimer);
+        upiReturnTimer = setTimeout(showPaymentReturnDialog, 2500);
+    }
+
+    async function showPaymentReturnDialog() {
+        if (!upiPaymentStarted) return;
+
+        const receiptNo = document.getElementById('receiptIdValue').textContent.trim();
+        const amount = parseFloat(document.getElementById('receiptAmount').value) || 0;
+
+        const result = await Swal.fire({
+            title: 'Payment status',
+            html: `
+                <div style="text-align:left;font-size:0.92rem;">
+                    <p><strong>Amount:</strong> ₹${amount.toFixed(2)}</p>
+                    <p><strong>Reference:</strong> ${escapeHtml(receiptNo)}</p>
+                    <hr>
+                    <p style="margin-bottom:0;color:#475569;">
+                        Did the UPI app show that your payment was successful?
+                    </p>
+                </div>
+            `,
+            icon: 'question',
+            showDenyButton: true,
+            showCancelButton: true,
+            confirmButtonText: 'Payment Successful',
+            denyButtonText: 'Payment Not Successful',
+            cancelButtonText: 'Close',
+            confirmButtonColor: '#16a34a',
+            denyButtonColor: '#dc2626',
+            cancelButtonColor: '#64748b'
+        });
+
+        if (result.isConfirmed) {
+            upiPaymentStarted = false;
+            sessionStorage.removeItem('upiPaymentPending');
+            await showSuccessProofDialog();
+        } else if (result.isDenied) {
+            upiPaymentStarted = false;
+            sessionStorage.removeItem('upiPaymentPending');
+            toggleQrCode();
+            Swal.fire({
+                title: 'Use QR to Pay',
+                html: `
+                    <p style="font-size:0.9rem;color:#475569;">
+                        The previous payment was not successful.<br>
+                        Scan the QR code below with your UPI app and try again.
+                    </p>
+                `,
+                confirmButtonText: 'Show QR & Try Again',
+                confirmButtonColor: '#0f3b6a'
+            }).then(() => {
+                toggleQrCode();
+            });
+        }
+    }
+
+    async function showSuccessProofDialog() {
+        const result = await Swal.fire({
+            title: 'Upload payment proof',
+            html: `
+                <div style="text-align:left;font-size:0.9rem;">
+                    <p style="color:#475569;">
+                        Please upload the screenshot from your UPI app showing the successful payment.
+                        OCR can assist with extracting Transaction ID and Sender UPI ID. Please verify the values against the screenshot.
+                    </p>
+                    <input id="swalPaymentScreenshot" type="file" accept="image/*"
+                           class="swal2-file" style="width:100%;">
+                    <div id="swalOcrProgress" style="display:none;margin-top:10px;padding:10px;background:#f1f5f9;border-radius:8px;">
+                        <span id="swalOcrStatus">Processing OCR...</span>
+                        <div style="height:4px;background:#e2e8f0;border-radius:2px;margin-top:6px;overflow:hidden;">
+                            <div id="swalOcrFill" style="height:100%;background:#0f3b6a;width:0%;transition:width 0.3s;"></div>
+                        </div>
+                    </div>
+                    <input id="swalTransactionId" class="swal2-input"
+                           placeholder="UTR / Transaction ID">
+                    <input id="swalSenderUpiId" class="swal2-input"
+                           placeholder="Your UPI ID">
+                </div>
+            `,
+            icon: 'success',
+            showCancelButton: true,
+            confirmButtonText: 'Submit Payment Proof',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#16a34a',
+            width: '90%',
+            preConfirm: async () => {
+                const file = document.getElementById('swalPaymentScreenshot').files[0];
+                
+                if (!file) {
+                    Swal.showValidationMessage('Please upload the successful payment screenshot.');
+                    return false;
+                }
+
+                if (!file.type.startsWith('image/')) {
+                    Swal.showValidationMessage('Please select an image file.');
+                    return false;
+                }
+
+                const transactionId = document.getElementById('swalTransactionId').value.trim() || extractedData.transactionId || '';
+                const senderUpiId = document.getElementById('swalSenderUpiId').value.trim() || extractedData.senderUpiId || '';
+
+                Swal.showLoading();
+                
+                const screenshotBase64 = await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.readAsDataURL(file);
+                });
+
+                return {
+                    transactionId,
+                    senderUpiId,
+                    screenshotBase64,
+                    screenshotName: file.name,
+                    screenshotMimeType: file.type
+                };
+            }
+        });
+
+        if (result.isConfirmed && result.value) {
+            document.getElementById('transactionId').value = result.value.transactionId || extractedData.transactionId || '';
+            document.getElementById('senderUpiId').value = result.value.senderUpiId || extractedData.senderUpiId || '';
+            
+            let shouldStoreScreenshot = true;
+            if (result.value.transactionId && result.value.senderUpiId) {
+                shouldStoreScreenshot = false;
+                showToast('✅ Transaction ID and UPI ID extracted! Screenshot will NOT be stored.', 'success');
+            } else if (result.value.transactionId || result.value.senderUpiId) {
+                shouldStoreScreenshot = true;
+                showToast('⚠️ Partial extraction. Screenshot will be stored for verification.', 'info');
+            }
+            
+            await saveReceipt({
+                screenshotBase64: shouldStoreScreenshot ? result.value.screenshotBase64 : null,
+                screenshotName: shouldStoreScreenshot ? result.value.screenshotName : '',
+                screenshotMimeType: shouldStoreScreenshot ? result.value.screenshotMimeType : '',
+                paymentMethod: 'UPI',
+                transactionId: result.value.transactionId || extractedData.transactionId || '',
+                senderUpiId: result.value.senderUpiId || extractedData.senderUpiId || '',
+                storeScreenshot: shouldStoreScreenshot
+            });
+        }
+    }
+
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'visible' && upiPaymentStarted) {
+            clearTimeout(upiReturnTimer);
+            upiReturnTimer = setTimeout(showPaymentReturnDialog, 700);
+        }
+    });
+
+    window.addEventListener('pageshow', function() {
+        const pending = sessionStorage.getItem('upiPaymentPending');
+        if (pending && !upiPaymentStarted) {
+            try {
+                const data = JSON.parse(pending);
+                if (Date.now() - data.startedAt < 30 * 60 * 1000) {
+                    upiPaymentStarted = true;
+                } else {
+                    sessionStorage.removeItem('upiPaymentPending');
+                }
+            } catch (e) {
+                sessionStorage.removeItem('upiPaymentPending');
+            }
+        }
+    });
+
+    // ================= SAVE RECEIPT =================
+    async function saveReceipt(proof = null) {
+        if (isSubmitting) return;
+        
+        if (!calculateBalance()) {
+            showToast('Please fix the amount error.', 'error');
+            return;
+        }
+        
+        const receiptNo = document.getElementById('receiptIdValue').textContent;
+        const category = document.getElementById('receiptCategory');
+        const categoryText = category.options[category.selectedIndex]?.text || '';
+        const year = document.getElementById('financialYear');
+        const yearText = year.options[year.selectedIndex]?.text || '';
+        const amount = parseFloat(document.getElementById('amount').value) || 0;
+        const receiptAmount = parseFloat(document.getElementById('receiptAmount').value) || 0;
+        const remarks = document.getElementById('remarks').value.trim();
+        
+        let transactionId = '';
+        let senderUpiId = '';
+        
+        if (proof && proof.transactionId) {
+            transactionId = proof.transactionId;
+        } else {
+            transactionId = document.getElementById('transactionId').value.trim() || extractedData.transactionId || '';
+        }
+        
+        if (proof && proof.senderUpiId) {
+            senderUpiId = proof.senderUpiId;
+        } else {
+            senderUpiId = document.getElementById('senderUpiId').value.trim() || extractedData.senderUpiId || '';
+        }
+        
+        if (!category.value) {
+            showToast('Please select a receipt category.', 'error');
+            return;
+        }
+        
+        if (!year.value) {
+            showToast('Please select a financial year.', 'error');
+            return;
+        }
+        
+        if (receiptAmount <= 0) {
+            showToast('Receipt amount must be greater than zero.', 'error');
+            return;
+        }
+        
+        isSubmitting = true;
+        const btn = document.getElementById('saveBtn');
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Saving...';
+        btn.disabled = true;
+        showLoading(true, 'Saving receipt...');
+        
+        try {
+            const storeScreenshot = proof?.storeScreenshot !== false;
+            
+            const receiptData = {
+                branchId: branchId,
+                homeId: homeId,
+                receiptNo: receiptNo,
+                transactionId: transactionId,
+                receiptCategory: categoryText,
+                financialYear: yearText,
+                senderUpiId: senderUpiId,
+                amount: amount,
+                receiptAmount: receiptAmount,
+                balance: amount - receiptAmount,
+                remarks: remarks
+            };
+            
+            let screenshotDataUrl = '';
+            if (storeScreenshot && proof?.screenshotBase64) {
+                const jpegDataUrl = await convertToJpegDataUrl(
+                    proof.screenshotBase64,
+                    proof.screenshotMimeType || 'image/jpeg'
+                );
+                screenshotDataUrl = jpegDataUrl;
+            }
+            
+            const payload = {
+                action: 'ADD_RECEIPT',
+                branchId: receiptData.branchId,
+                homeId: receiptData.homeId,
+                receiptNo: receiptData.receiptNo,
+                transactionId: receiptData.transactionId || '',
+                receiptCategory: receiptData.receiptCategory,
+                financialYear: receiptData.financialYear,
+                senderUpiId: receiptData.senderUpiId || '',
+                amount: receiptData.amount,
+                receiptAmount: receiptData.receiptAmount,
+                balance: receiptData.balance,
+                remarks: receiptData.remarks || '',
+                paymentMethod: proof?.paymentMethod || 'UPI',
+                screenshotDataUrl: screenshotDataUrl
+            };
+            
+            console.log('Saving receipt with payload:', {
+                ...payload,
+                screenshotDataUrl: screenshotDataUrl ? 'Present (length: ' + screenshotDataUrl.length + ')' : 'Not stored (both fields extracted)'
+            });
+            
+            try {
+                await fetch(CONFIG.APPS_SCRIPT_URL, {
+                    method: "POST",
+                    mode: "no-cors",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+            } catch (fetchError) {
+                console.error('Fetch error (might be CORS):', fetchError);
+            }
+            
+            showLoading(false);
+            showToast('Receipt saved successfully!', 'success');
+            
+            let screenshotStatus = '';
+            if (!storeScreenshot) {
+                screenshotStatus = '<p style="font-size:0.85rem;color:#16a34a;"><i class="bi bi-check-circle"></i> Both Transaction ID and UPI ID extracted via OCR. Screenshot not stored.</p>';
+            } else if (screenshotDataUrl) {
+                screenshotStatus = '<p style="font-size:0.85rem;color:#d97706;"><i class="bi bi-image"></i> Screenshot stored for manual verification.</p>';
+            }
+            
+            await Swal.fire({
+                title: '✅ Receipt Saved',
+                html: `
+                    <p style="font-size:0.9rem;">
+                        Receipt No: <strong>${escapeHtml(receiptNo)}</strong>
+                    </p>
+                    <p style="font-size:0.9rem;">
+                        Amount: <strong>₹${receiptAmount.toFixed(2)}</strong>
+                    </p>
+                    ${transactionId ? `<p style="font-size:0.85rem;">Transaction ID: <strong>${escapeHtml(transactionId)}</strong></p>` : ''}
+                    ${senderUpiId ? `<p style="font-size:0.85rem;">Sender UPI ID: <strong>${escapeHtml(senderUpiId)}</strong></p>` : ''}
+                    ${screenshotStatus}
+                    <p style="font-size:0.85rem;color:#64748b;margin-top:10px;">
+                        Status: <strong style="color:#d97706;">Pending Verification</strong>
+                    </p>
+                    <p style="font-size:0.8rem;color:#94a3b8;margin-top:10px;">
+                        Admin will verify the payment.
+                    </p>
+                `,
+                icon: 'success',
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#0f3b6a'
+            });
+            
+        } catch (err) {
+            showLoading(false);
+            console.error('Error saving receipt:', err);
+            showToast('Failed to save receipt. Please try again.', 'error');
+        } finally {
+            isSubmitting = false;
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
+    }
+
+    function convertToJpegDataUrl(base64Data, mimeType) {
+        return new Promise((resolve, reject) => {
+            try {
+                const img = new Image();
+                const fullDataUrl = `data:${mimeType || 'image/jpeg'};base64,${base64Data}`;
+                
+                img.onload = function() {
+                    try {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.fillStyle = '#FFFFFF';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(img, 0, 0);
+                        const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                        resolve(jpegDataUrl);
+                    } catch (canvasError) {
+                        reject(new Error('Canvas conversion error: ' + canvasError.message));
+                    }
+                };
+                img.onerror = function() {
+                    reject(new Error('Failed to load image for conversion'));
+                };
+                img.src = fullDataUrl;
+            } catch (error) {
+                reject(new Error('Image conversion error: ' + error.message));
+            }
+        });
+    }
+
+    // ================= PAY NOW =================
+    function handlePayNow() {
+        if (!calculateBalance()) {
+            showToast('Please fix the amount error.', 'error');
+            return;
+        }
+        
+        const amount = parseFloat(document.getElementById('receiptAmount').value) || 0;
+        
+        if (amount <= 0) {
+            showToast('Please enter a valid amount.', 'error');
+            return;
+        }
+        
+        Swal.fire({
+            title: 'Pay Now',
+            html: `
+                <div style="text-align:left;">
+                    <p><strong>UPI ID:</strong> ${escapeHtml(receiptUpiId)}</p>
+                    <p><strong>Banking Name:</strong> ${escapeHtml(receiptBankingName || 'N/A')}</p>
+                    <p><strong>Amount:</strong> ₹${amount.toFixed(2)}</p>
+                    <p><strong>Reference:</strong> ${escapeHtml(document.getElementById('receiptIdValue').textContent)}</p>
+                </div>
+                <hr>
+                <p style="font-size:0.9rem;color:#64748b;">
+                    This will open your UPI app to complete the payment.
+                </p>
+            `,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#16a34a',
+            cancelButtonColor: '#64748b',
+            confirmButtonText: '<i class="bi bi-upc-scan"></i> Open UPI App',
+            cancelButtonText: 'Cancel'
+        }).then(result => {
+            if (result.isConfirmed) {
+                openUpiApp();
+            }
+        });
+    }
+
+    // ================= RESET FORM =================
+    function resetForm() {
+        document.getElementById('receiptCategory').value = '';
+        $('#receiptCategory').trigger('change');
+        
+        const yearSelect = document.getElementById('financialYear');
+        const options = yearSelect.options;
+        if (options.length > 1) {
+            yearSelect.value = options[1].value;
+        }
+        $('#financialYear').trigger('change');
+        
+        document.getElementById('transactionId').value = '';
+        document.getElementById('senderUpiId').value = '';
+        document.getElementById('amount').value = '';
+        document.getElementById('receiptAmount').value = '';
+        document.getElementById('balance').value = '';
+        document.getElementById('remarks').value = '';
+        document.getElementById('receiptAmountError').classList.remove('show');
+        document.getElementById('receiptAmount').classList.remove('is-invalid');
+        document.getElementById('screenshotPreview').style.display = 'none';
+        document.getElementById('paymentScreenshot').value = '';
+        document.getElementById('txnExtractedBadge').style.display = 'none';
+        document.getElementById('upiExtractedBadge').style.display = 'none';
+        document.getElementById('transactionId').style.borderColor = '';
+        document.getElementById('transactionId').style.backgroundColor = '';
+        document.getElementById('senderUpiId').style.borderColor = '';
+        document.getElementById('senderUpiId').style.backgroundColor = '';
+        document.getElementById('extractedResults').style.display = 'none';
+        document.getElementById('ocrProgress').style.display = 'none';
+        document.getElementById('manualEntryHint').classList.remove('show');
+        
+        // Remove auto-accept message
+        const oldMsg = document.querySelector('.auto-accept-msg');
+        if (oldMsg) oldMsg.remove();
+        document.getElementById('acceptExtractedBtn').style.display = 'inline-block';
+        document.getElementById('rejectExtractedBtn').style.display = 'inline-block';
+        
+        extractedData = { transactionId: '', senderUpiId: '', confidence: { transaction: 0, senderUpi: 0 }, evidence: {} };
+        screenshotDataUrl = null;
+        
+        document.getElementById('qrCodeContainer').style.display = 'none';
+        qrVisible = false;
+        document.getElementById('showQrBtn').innerHTML = '<i class="bi bi-qr-code"></i> Show QR';
+        
+        updateAmount();
+        updateReceiptId();
+    }
+
+    // ================= INIT =================
+    async function init() {
+        const session = getSessionFromStorage();
+        if (!isValidSession(session)) {
+            document.getElementById('accessDeniedOverlay').classList.add('active');
+            return;
+        }
+        
+        branchId = session.branchId;
+        homeId = session.homeId;
+        memberName = session.name || 'Member';
+        
+        document.getElementById('mainContent').style.display = 'block';
+        document.getElementById('accessDeniedOverlay').classList.remove('active');
+        
+        document.getElementById('displayBranchId').textContent = branchId;
+        document.getElementById('displayHomeId').textContent = homeId;
+        document.getElementById('displayMemberName').textContent = memberName;
+        document.getElementById('branchId').value = branchId;
+        document.getElementById('homeId').value = homeId;
+        
+        showLoading(true, 'Loading data...');
+        
+        try {
+            const [categories, years, upiDetails] = await Promise.all([
+                fetchReceiptCategories(),
+                fetchFinancialYears(),
+                fetchUpiDetails()
+            ]);
+            
+            receiptCategories = categories;
+            financialYears = years;
+            receiptUpiId = upiDetails.upiId;
+            receiptBankingName = upiDetails.bankingName;
+            
+            updateUpiInfoDisplay();
+            
+            populateReceiptCategories(categories);
+            populateFinancialYears(years);
+            
+            updateReceiptId();
+            updatePaymentDisplay();
+            
+            if (categories.length > 0) {
+                document.getElementById('receiptCategory').value = categories[0].id;
+                $('#receiptCategory').trigger('change');
+            }
+            
+            console.log('Initialization complete. UPI ID:', receiptUpiId, 'Banking Name:', receiptBankingName);
+            
+        } catch (e) {
+            console.error('Error initializing:', e);
+            showToast('Failed to load data. Please refresh.', 'error');
+        }
+        
+        showLoading(false);
+        
+        // Event listeners
+        document.getElementById('payNowBtn').addEventListener('click', handlePayNow);
+        document.getElementById('showQrBtn').addEventListener('click', toggleQrCode);
+        document.getElementById('qrDownloadBtn').addEventListener('click', downloadQR);
+        document.getElementById('qrRefreshBtn').addEventListener('click', function() {
+            if (qrVisible) {
+                generateDynamicQR();
+                showToast('QR code refreshed!', 'success');
+            }
+        });
+        document.getElementById('qrPaidBtn').addEventListener('click', showSuccessProofDialog);
+        document.getElementById('resetBtn').addEventListener('click', resetForm);
+        document.getElementById('saveBtn').addEventListener('click', saveReceipt);
+        document.getElementById('receiptAmount').addEventListener('input', function() {
+            calculateBalance();
+            if (qrVisible) {
+                generateDynamicQR();
+            }
+        });
+        
+        // Accept extracted details button
+        document.getElementById('acceptExtractedBtn').addEventListener('click', acceptExtractedDetails);
+        
+        // Reject extracted details button
+        document.getElementById('rejectExtractedBtn').addEventListener('click', function() {
+            document.getElementById('extractedResults').style.display = 'none';
+            document.getElementById('manualEntryHint').classList.add('show');
+            showToast('You can enter details manually.', 'info');
+        });
+    }
+
+    // ================= START =================
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof $.fn.select2 !== 'undefined') {
+            init();
+        } else {
+            const checkSelect2 = setInterval(function() {
+                if (typeof $.fn.select2 !== 'undefined') {
+                    clearInterval(checkSelect2);
+                    init();
+                }
+            }, 100);
+        }
+    });
+</script>
+</body>
+</html>
