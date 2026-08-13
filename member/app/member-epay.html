@@ -16,6 +16,9 @@
     <!-- Common Styles -->
     <link rel="stylesheet" href="../css/common.css">
     
+    <!-- QRCode.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
     <style>
         * { box-sizing: border-box; }
         body {
@@ -355,22 +358,64 @@
             text-decoration: underline;
         }
         
-        /* QR Code */
+        /* QR Code Container */
         #qrCodeContainer {
             display: none;
             text-align: center;
             margin: 15px 0;
-            padding: 15px;
+            padding: 20px;
             background: white;
             border-radius: 12px;
-            border: 1px solid #e2e8f0;
+            border: 2px solid #0f3b6a;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
         }
-        #qrCodeContainer .qr-code-img {
-            width: 180px;
-            height: 180px;
-            margin: 0 auto;
+        #qrCodeContainer .qr-code-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 220px;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        #qrCodeContainer .qr-code-wrapper img,
+        #qrCodeContainer .qr-code-wrapper canvas {
+            width: 220px !important;
+            height: 220px !important;
             border-radius: 8px;
             border: 2px solid #e2e8f0;
+        }
+        #qrCodeContainer .qr-code-wrapper .qr-placeholder {
+            width: 220px;
+            height: 220px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #f8fafc;
+            border-radius: 8px;
+            color: #94a3b8;
+            border: 2px dashed #cbd5e1;
+        }
+        #qrCodeContainer .qr-code-wrapper .qr-placeholder i {
+            font-size: 3rem;
+            margin-bottom: 8px;
+            color: #cbd5e1;
+        }
+        #qrCodeContainer .qr-code-wrapper .qr-placeholder span {
+            font-size: 0.8rem;
+        }
+        #qrCodeContainer .qr-actions-small {
+            margin-top: 12px;
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        #qrCodeContainer .qr-actions-small .btn {
+            padding: 6px 16px;
+            font-size: 0.8rem;
+            border-radius: 30px;
         }
         
         /* Toast */
@@ -416,7 +461,15 @@
             .action-buttons { flex-direction: column; }
             .action-buttons .btn { width: 100%; }
             .receipt-id-display { font-size: 0.8rem; padding: 10px; }
-            #qrCodeContainer .qr-code-img { width: 150px; height: 150px; }
+            #qrCodeContainer .qr-code-wrapper img,
+            #qrCodeContainer .qr-code-wrapper canvas {
+                width: 180px !important;
+                height: 180px !important;
+            }
+            #qrCodeContainer .qr-code-wrapper .qr-placeholder {
+                width: 180px;
+                height: 180px;
+            }
             .payment-info-box .amount-display { font-size: 1.4rem; }
             .payment-info-box .upi-id { font-size: 1rem; }
         }
@@ -566,21 +619,28 @@
             </div>
         </div>
         
-        <!-- Hosted UPI QR -->
+        <!-- Dynamic UPI QR Code -->
         <div id="qrCodeContainer" style="display:none;">
             <div style="font-size:0.85rem;font-weight:600;color:#0f3b6a;margin-bottom:10px;">
                 <i class="bi bi-qr-code"></i> Scan to Pay
             </div>
-            <img id="upiQrImage"
-                 src="https://sndpeshaka.github.io/member/app/upi/upi.png"
-                 alt="UPI QR Code"
-                 style="width:min(320px,90vw);height:auto;border:1px solid #e2e8f0;border-radius:14px;padding:10px;background:#fff;">
-            <p style="font-size:0.8rem;color:#64748b;margin-top:8px;">
-                Scan this QR code with any UPI app and complete the payment.
-            </p>
-            <button type="button" id="qrPaidBtn" class="btn btn-success-custom" style="margin-top:4px;">
-                <i class="bi bi-check-circle"></i> I Paid — Upload Screenshot
-            </button>
+            <div class="qr-code-wrapper" id="qrCodeWrapper">
+                <div class="qr-placeholder" id="qrPlaceholder">
+                    <i class="bi bi-qr-code"></i>
+                    <span>Loading QR...</span>
+                </div>
+            </div>
+            <div style="font-size:0.75rem;color:#64748b;margin-top:8px;">
+                <i class="bi bi-info-circle"></i> Scan this QR code with any UPI app (BHIM, Google Pay, PhonePe, Paytm)
+            </div>
+            <div class="qr-actions-small">
+                <button type="button" id="qrRefreshBtn" class="btn btn-outline-primary-custom" style="padding:4px 12px;font-size:0.75rem;">
+                    <i class="bi bi-arrow-repeat"></i> Refresh QR
+                </button>
+                <button type="button" id="qrPaidBtn" class="btn btn-success-custom" style="padding:4px 16px;font-size:0.75rem;">
+                    <i class="bi bi-check-circle"></i> I Paid — Upload Screenshot
+                </button>
+            </div>
         </div>
 
         <!-- Action Buttons -->
@@ -636,6 +696,7 @@
     let selectedCategoryAmount = 0;
     let isSubmitting = false;
     let qrVisible = false;
+    let qrCodeInstance = null;
 
     // ================= SECURITY: GET SESSION =================
     function getSessionFromStorage() {
@@ -895,6 +956,10 @@
         
         $('#receiptCategory').on('change', function() {
             updateAmount();
+            // Regenerate QR when category changes
+            if (qrVisible) {
+                generateDynamicQR();
+            }
         });
     }
 
@@ -928,15 +993,81 @@
         
         $('#financialYear').on('change', function() {
             updateReceiptId();
+            if (qrVisible) {
+                generateDynamicQR();
+            }
         });
     }
 
-    // ================= GENERATE QR CODE =================
-    function generateUpiQR(upiId, amount, receiptNo) {
-        const upiString = `upi://pay?pa=${encodeURIComponent(upiId)}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(receiptNo)}`;
-        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiString)}`;
+    // ================= GENERATE DYNAMIC QR CODE =================
+    function generateDynamicQR() {
+        const upiId = receiptUpiId;
+        const amount = parseFloat(document.getElementById('receiptAmount').value) || 0;
+        const receiptNo = document.getElementById('receiptIdValue').textContent.trim();
+        const payeeName = document.getElementById('displayMemberName').textContent || 'Member';
         
-        document.getElementById('qrCode').innerHTML = `<img src="${qrUrl}" alt="UPI QR Code" class="qr-code-img">`;
+        if (!upiId) {
+            showToast('UPI ID not available.', 'error');
+            return false;
+        }
+        
+        if (amount <= 0) {
+            showToast('Please enter a valid amount.', 'error');
+            return false;
+        }
+
+        // Build complete UPI deep link with all parameters for BHIM compatibility
+        const upiString = 
+            `upi://pay?pa=${encodeURIComponent(upiId)}` +
+            `&pn=${encodeURIComponent(payeeName)}` +
+            `&am=${amount.toFixed(2)}` +
+            `&cu=INR` +
+            `&mc=0000` +
+            `&tn=${encodeURIComponent(receiptNo || 'Payment')}` +
+            `&tr=${encodeURIComponent('TXN' + Date.now())}` +
+            `&mam=${encodeURIComponent(payeeName)}` +
+            `&mcity=INDIA`;
+
+        console.log('Generated UPI String:', upiString);
+        
+        const wrapper = document.getElementById('qrCodeWrapper');
+        wrapper.innerHTML = '';
+        
+        try {
+            // Create QR code using QRCode.js
+            qrCodeInstance = new QRCode(wrapper, {
+                text: upiString,
+                width: 220,
+                height: 220,
+                colorDark: "#0b2b44",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H  // High error correction
+            });
+            
+            // Store the UPI string for reference
+            wrapper.dataset.upiString = upiString;
+            
+            // Show QR container
+            document.getElementById('qrCodeContainer').style.display = 'block';
+            qrVisible = true;
+            
+            // Update button text
+            document.getElementById('showQrBtn').innerHTML = '<i class="bi bi-qr-code"></i> Hide QR';
+            
+            return true;
+            
+        } catch (error) {
+            console.error('QR Generation Error:', error);
+            wrapper.innerHTML = `
+                <div class="qr-placeholder">
+                    <i class="bi bi-exclamation-triangle" style="color:#dc2626;"></i>
+                    <span style="color:#dc2626;">Failed to generate QR</span>
+                    <span style="font-size:0.7rem;color:#94a3b8;">${error.message}</span>
+                </div>
+            `;
+            showToast('Failed to generate QR code.', 'error');
+            return false;
+        }
     }
 
     function toggleQrCode() {
@@ -944,27 +1075,27 @@
         const btn = document.getElementById('showQrBtn');
         
         if (qrVisible) {
+            // Hide QR
             container.style.display = 'none';
             btn.innerHTML = '<i class="bi bi-qr-code"></i> Show QR';
             qrVisible = false;
         } else {
-            const receiptAmount = parseFloat(document.getElementById('receiptAmount').value) || 0;
-            const receiptNo = document.getElementById('receiptIdValue').textContent;
-            
-            if (receiptAmount <= 0) {
-                showToast('Please enter a valid amount first.', 'error');
-                return;
+            // Show QR - generate fresh
+            const success = generateDynamicQR();
+            if (!success) {
+                // If generation failed, show error state
+                const wrapper = document.getElementById('qrCodeWrapper');
+                wrapper.innerHTML = `
+                    <div class="qr-placeholder">
+                        <i class="bi bi-exclamation-triangle" style="color:#dc2626;"></i>
+                        <span style="color:#dc2626;">Cannot generate QR</span>
+                        <span style="font-size:0.7rem;color:#94a3b8;">Check amount and UPI ID</span>
+                    </div>
+                `;
+                container.style.display = 'block';
+                btn.innerHTML = '<i class="bi bi-qr-code"></i> Hide QR';
+                qrVisible = true;
             }
-            
-            if (!receiptUpiId) {
-                showToast('UPI ID not available.', 'error');
-                return;
-            }
-            
-            generateUpiQR(receiptUpiId, receiptAmount, receiptNo);
-            container.style.display = 'block';
-            btn.innerHTML = '<i class="bi bi-qr-code"></i> Hide QR';
-            qrVisible = true;
         }
     }
 
@@ -1001,28 +1132,31 @@
     }
 
     // ================= UPI PAYMENT FLOW =================
-    const UPI_QR_URL = 'https://sndpeshaka.github.io/member/app/upi/upi.png';
     let upiPaymentStarted = false;
     let upiReturnTimer = null;
-
-    function showHostedQr() {
-        document.getElementById('qrCodeContainer').style.display = 'block';
-        document.getElementById('qrCodeContainer').scrollIntoView({behavior:'smooth', block:'center'});
-    }
-
-    function hideHostedQr() {
-        document.getElementById('qrCodeContainer').style.display = 'none';
-    }
 
     function openUpiApp() {
         const upiId = receiptUpiId;
         const amount = parseFloat(document.getElementById('receiptAmount').value) || 0;
         const receiptNo = document.getElementById('receiptIdValue').textContent.trim();
+        const payeeName = document.getElementById('displayMemberName').textContent || 'Member';
 
         if (!upiId || amount <= 0) {
             showToast('Please enter a valid payment amount.', 'error');
             return;
         }
+
+        // Build complete UPI intent with all parameters
+        const upiIntent = 
+            `upi://pay?pa=${encodeURIComponent(upiId)}` +
+            `&pn=${encodeURIComponent(payeeName)}` +
+            `&am=${amount.toFixed(2)}` +
+            `&cu=INR` +
+            `&mc=0000` +
+            `&tn=${encodeURIComponent(receiptNo || 'Payment')}` +
+            `&tr=${encodeURIComponent('TXN' + Date.now())}` +
+            `&mam=${encodeURIComponent(payeeName)}` +
+            `&mcity=INDIA`;
 
         upiPaymentStarted = true;
         sessionStorage.setItem('upiPaymentPending', JSON.stringify({
@@ -1030,10 +1164,6 @@
             amount: amount.toFixed(2),
             startedAt: Date.now()
         }));
-
-        const upiIntent =
-            `upi://pay?pa=${encodeURIComponent(upiId)}` +
-            `&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(receiptNo)}`;
 
         showToast('Opening your UPI app. Complete the payment there.', 'info');
 
@@ -1089,7 +1219,8 @@
         } else if (result.isDenied) {
             upiPaymentStarted = false;
             sessionStorage.removeItem('upiPaymentPending');
-            showHostedQr();
+            // Show QR for manual payment
+            toggleQrCode();
             Swal.fire({
                 title: 'Use QR to Pay',
                 html: `
@@ -1098,11 +1229,10 @@
                         Scan the QR code below with your UPI app and try again.
                     </p>
                 `,
-                imageUrl: UPI_QR_URL,
-                imageAlt: 'UPI QR Code',
-                imageWidth: 240,
                 confirmButtonText: 'Show QR & Try Again',
                 confirmButtonColor: '#0f3b6a'
+            }).then(() => {
+                toggleQrCode();
             });
         }
     }
@@ -1211,168 +1341,160 @@
     });
 
     // ================= SAVE RECEIPT (Record Only) =================
-   async function saveReceipt(proof = null) {
-    if (isSubmitting) return;
-    
-    if (!calculateBalance()) {
-        showToast('Please fix the amount error.', 'error');
-        return;
-    }
-    
-    const receiptNo = document.getElementById('receiptIdValue').textContent;
-    const category = document.getElementById('receiptCategory');
-    const categoryText = category.options[category.selectedIndex]?.text || '';
-    const year = document.getElementById('financialYear');
-    const yearText = year.options[year.selectedIndex]?.text || '';
-    const amount = parseFloat(document.getElementById('amount').value) || 0;
-    const receiptAmount = parseFloat(document.getElementById('receiptAmount').value) || 0;
-    const transactionId = document.getElementById('transactionId').value.trim();
-    const senderUpiId = document.getElementById('senderUpiId').value.trim();
-    const remarks = document.getElementById('remarks').value.trim();
-    
-    if (!category.value) {
-        showToast('Please select a receipt category.', 'error');
-        return;
-    }
-    
-    if (!year.value) {
-        showToast('Please select a financial year.', 'error');
-        return;
-    }
-    
-    if (receiptAmount <= 0) {
-        showToast('Receipt amount must be greater than zero.', 'error');
-        return;
-    }
-    
-    isSubmitting = true;
-    const btn = document.getElementById('saveBtn');
-    const originalHtml = btn.innerHTML;
-    btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Saving...';
-    btn.disabled = true;
-    showLoading(true, 'Saving receipt...');
-    
-    try {
-        const receiptData = {
-            branchId: branchId,
-            homeId: homeId,
-            receiptNo: receiptNo,
-            transactionId: transactionId,
-            receiptCategory: categoryText,
-            financialYear: yearText,
-            senderUpiId: senderUpiId,
-            amount: amount,
-            receiptAmount: receiptAmount,
-            balance: amount - receiptAmount,
-            remarks: remarks
-        };
+    async function saveReceipt(proof = null) {
+        if (isSubmitting) return;
         
-        // Process screenshot to JPEG data URL if provided
-        let screenshotDataUrl = '';
-        if (proof?.screenshotBase64) {
-            // Convert any image to JPEG format
-            screenshotDataUrl = await convertToJpegDataUrl(
-                proof.screenshotBase64,
-                proof.screenshotMimeType || 'image/jpeg'
-            );
+        if (!calculateBalance()) {
+            showToast('Please fix the amount error.', 'error');
+            return;
         }
         
-        const payload = {
-            action: 'ADD_RECEIPT',
-            branchId: receiptData.branchId,
-            homeId: receiptData.homeId,
-            receiptNo: receiptData.receiptNo,
-            transactionId: receiptData.transactionId || '',
-            receiptCategory: receiptData.receiptCategory,
-            financialYear: receiptData.financialYear,
-            senderUpiId: receiptData.senderUpiId || '',
-            amount: receiptData.amount,
-            receiptAmount: receiptData.receiptAmount,
-            balance: receiptData.balance,
-            remarks: receiptData.remarks || '',
-            paymentMethod: proof?.paymentMethod || 'UPI',
-            screenshotDataUrl: screenshotDataUrl  // Send as JPEG data URL
-        };
+        const receiptNo = document.getElementById('receiptIdValue').textContent;
+        const category = document.getElementById('receiptCategory');
+        const categoryText = category.options[category.selectedIndex]?.text || '';
+        const year = document.getElementById('financialYear');
+        const yearText = year.options[year.selectedIndex]?.text || '';
+        const amount = parseFloat(document.getElementById('amount').value) || 0;
+        const receiptAmount = parseFloat(document.getElementById('receiptAmount').value) || 0;
+        const transactionId = document.getElementById('transactionId').value.trim();
+        const senderUpiId = document.getElementById('senderUpiId').value.trim();
+        const remarks = document.getElementById('remarks').value.trim();
         
-        await fetch(CONFIG.APPS_SCRIPT_URL, {
-            method: "POST",
-            mode: "no-cors",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
+        if (!category.value) {
+            showToast('Please select a receipt category.', 'error');
+            return;
+        }
         
-        showLoading(false);
-        showToast('Receipt saved successfully!', 'success');
+        if (!year.value) {
+            showToast('Please select a financial year.', 'error');
+            return;
+        }
         
-        await Swal.fire({
-            title: '✅ Receipt Saved',
-            html: `
-                <p style="font-size:0.9rem;">
-                    Receipt No: <strong>${escapeHtml(receiptNo)}</strong>
-                </p>
-                <p style="font-size:0.9rem;">
-                    Amount: <strong>₹${receiptAmount.toFixed(2)}</strong>
-                </p>
-                <p style="font-size:0.85rem;color:#64748b;">
-                    Status: <strong style="color:#d97706;">Verification Pending</strong>
-                </p>
-                <p style="font-size:0.8rem;color:#94a3b8;margin-top:10px;">
-                    Admin will verify the payment.
-                </p>
-            `,
-            icon: 'success',
-            confirmButtonText: 'OK',
-            confirmButtonColor: '#0f3b6a'
-        });
+        if (receiptAmount <= 0) {
+            showToast('Receipt amount must be greater than zero.', 'error');
+            return;
+        }
         
-    } catch (err) {
-        showLoading(false);
-        console.error('Error:', err);
-        showToast('Failed to save receipt. Please try again.', 'error');
-    } finally {
-        isSubmitting = false;
-        btn.innerHTML = originalHtml;
-        btn.disabled = false;
-    }
-}
-function convertToJpegDataUrl(base64Data, mimeType) {
-    return new Promise((resolve, reject) => {
+        isSubmitting = true;
+        const btn = document.getElementById('saveBtn');
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Saving...';
+        btn.disabled = true;
+        showLoading(true, 'Saving receipt...');
+        
         try {
-            // Create an image from the base64 data
-            const img = new Image();
-            const fullDataUrl = `data:${mimeType || 'image/jpeg'};base64,${base64Data}`;
-            
-            img.onload = function() {
-                try {
-                    // Create canvas and draw image
-                    const canvas = document.createElement('canvas');
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    const ctx = canvas.getContext('2d');
-                    
-                    // White background for JPEG (handles transparency)
-                    ctx.fillStyle = '#FFFFFF';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    ctx.drawImage(img, 0, 0);
-                    
-                    // Convert to JPEG with quality 0.85
-                    const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.85);
-                    resolve(jpegDataUrl);
-                } catch (canvasError) {
-                    reject(new Error('Canvas conversion error: ' + canvasError.message));
-                }
+            const receiptData = {
+                branchId: branchId,
+                homeId: homeId,
+                receiptNo: receiptNo,
+                transactionId: transactionId,
+                receiptCategory: categoryText,
+                financialYear: yearText,
+                senderUpiId: senderUpiId,
+                amount: amount,
+                receiptAmount: receiptAmount,
+                balance: amount - receiptAmount,
+                remarks: remarks
             };
             
-            img.onerror = function() {
-                reject(new Error('Failed to load image for conversion'));
+            let screenshotDataUrl = '';
+            if (proof?.screenshotBase64) {
+                screenshotDataUrl = await convertToJpegDataUrl(
+                    proof.screenshotBase64,
+                    proof.screenshotMimeType || 'image/jpeg'
+                );
+            }
+            
+            const payload = {
+                action: 'ADD_RECEIPT',
+                branchId: receiptData.branchId,
+                homeId: receiptData.homeId,
+                receiptNo: receiptData.receiptNo,
+                transactionId: receiptData.transactionId || '',
+                receiptCategory: receiptData.receiptCategory,
+                financialYear: receiptData.financialYear,
+                senderUpiId: receiptData.senderUpiId || '',
+                amount: receiptData.amount,
+                receiptAmount: receiptData.receiptAmount,
+                balance: receiptData.balance,
+                remarks: receiptData.remarks || '',
+                paymentMethod: proof?.paymentMethod || 'UPI',
+                screenshotDataUrl: screenshotDataUrl
             };
             
-            img.src = fullDataUrl;
-        } catch (error) {
-            reject(new Error('Image conversion error: ' + error.message));
+            await fetch(CONFIG.APPS_SCRIPT_URL, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            
+            showLoading(false);
+            showToast('Receipt saved successfully!', 'success');
+            
+            await Swal.fire({
+                title: '✅ Receipt Saved',
+                html: `
+                    <p style="font-size:0.9rem;">
+                        Receipt No: <strong>${escapeHtml(receiptNo)}</strong>
+                    </p>
+                    <p style="font-size:0.9rem;">
+                        Amount: <strong>₹${receiptAmount.toFixed(2)}</strong>
+                    </p>
+                    <p style="font-size:0.85rem;color:#64748b;">
+                        Status: <strong style="color:#d97706;">Verification Pending</strong>
+                    </p>
+                    <p style="font-size:0.8rem;color:#94a3b8;margin-top:10px;">
+                        Admin will verify the payment.
+                    </p>
+                `,
+                icon: 'success',
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#0f3b6a'
+            });
+            
+        } catch (err) {
+            showLoading(false);
+            console.error('Error:', err);
+            showToast('Failed to save receipt. Please try again.', 'error');
+        } finally {
+            isSubmitting = false;
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
         }
-    });
-}
+    }
+
+    function convertToJpegDataUrl(base64Data, mimeType) {
+        return new Promise((resolve, reject) => {
+            try {
+                const img = new Image();
+                const fullDataUrl = `data:${mimeType || 'image/jpeg'};base64,${base64Data}`;
+                
+                img.onload = function() {
+                    try {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.fillStyle = '#FFFFFF';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(img, 0, 0);
+                        const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                        resolve(jpegDataUrl);
+                    } catch (canvasError) {
+                        reject(new Error('Canvas conversion error: ' + canvasError.message));
+                    }
+                };
+                img.onerror = function() {
+                    reject(new Error('Failed to load image for conversion'));
+                };
+                img.src = fullDataUrl;
+            } catch (error) {
+                reject(new Error('Image conversion error: ' + error.message));
+            }
+        });
+    }
+
     // ================= PAY NOW =================
     function handlePayNow() {
         if (!calculateBalance()) {
@@ -1498,12 +1620,22 @@ function convertToJpegDataUrl(base64Data, mimeType) {
         
         // Event listeners
         document.getElementById('payNowBtn').addEventListener('click', handlePayNow);
-        document.getElementById('showQrBtn').addEventListener('click', showHostedQr);
+        document.getElementById('showQrBtn').addEventListener('click', toggleQrCode);
+        document.getElementById('qrRefreshBtn').addEventListener('click', function() {
+            if (qrVisible) {
+                generateDynamicQR();
+                showToast('QR code refreshed!', 'success');
+            }
+        });
         document.getElementById('qrPaidBtn').addEventListener('click', showSuccessProofDialog);
         document.getElementById('resetBtn').addEventListener('click', resetForm);
         document.getElementById('saveBtn').addEventListener('click', saveReceipt);
         document.getElementById('receiptAmount').addEventListener('input', function() {
             calculateBalance();
+            // Regenerate QR if visible and amount changes
+            if (qrVisible) {
+                generateDynamicQR();
+            }
         });
     }
 
