@@ -19,6 +19,9 @@
     <!-- QRCode.js library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     
+    <!-- Tesseract.js for OCR -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+    
     <style>
         * { box-sizing: border-box; }
         body {
@@ -309,6 +312,19 @@
         .btn-outline-primary-custom:hover {
             background: #e6f0fa;
         }
+        .btn-outline-success-custom {
+            background: transparent;
+            border: 1px solid #16a34a;
+            color: #16a34a;
+            padding: 8px 16px;
+            font-weight: 500;
+            border-radius: 40px;
+            transition: 0.2s;
+            font-size: 0.8rem;
+        }
+        .btn-outline-success-custom:hover {
+            background: #e6f7ed;
+        }
         .action-buttons {
             display: flex;
             gap: 8px;
@@ -442,6 +458,40 @@
             font-weight: 600;
             color: #0f3b6a;
             font-size: 0.95rem;
+        }
+        
+        /* OCR Progress */
+        .ocr-progress {
+            display: none;
+            margin: 10px 0;
+            padding: 12px;
+            background: #f1f5f9;
+            border-radius: 10px;
+            border: 1px solid #cbd5e1;
+        }
+        .ocr-progress.active {
+            display: block;
+        }
+        .ocr-progress .progress-bar {
+            height: 6px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        .ocr-progress .progress-bar .progress-fill {
+            height: 100%;
+            background: #0f3b6a;
+            width: 0%;
+            transition: width 0.3s;
+            border-radius: 4px;
+        }
+        .ocr-progress .ocr-status {
+            font-size: 0.85rem;
+            color: #1e293b;
+        }
+        .ocr-progress .ocr-status i {
+            color: #0f5b9c;
         }
         
         /* Toast */
@@ -600,14 +650,26 @@
                 </div>
 
                 <!-- Payment screenshot -->
-                <div class="col-12" id="paymentProofSection" style="display:none;">
+                <div class="col-12" id="paymentProofSection">
                     <label class="form-label">Payment Screenshot</label>
                     <input type="file" id="paymentScreenshot" class="form-control" accept="image/*">
                     <div style="font-size:0.75rem;color:#64748b;margin-top:6px;">
-                        Upload the successful payment screenshot. The system will OCR the screenshot and save the extracted payment details to Google Sheets.
+                        <i class="bi bi-info-circle"></i> Upload the successful payment screenshot. OCR will auto-extract Transaction ID and UPI ID.
                     </div>
+                    
+                    <!-- OCR Progress -->
+                    <div id="ocrProgress" class="ocr-progress">
+                        <div class="ocr-status">
+                            <i class="bi bi-arrow-repeat"></i> 
+                            <span id="ocrStatusText">Processing image with OCR...</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="ocrProgressFill"></div>
+                        </div>
+                    </div>
+                    
                     <div id="screenshotPreview" style="display:none;margin-top:10px;text-align:center;">
-                        <img id="screenshotPreviewImg" alt="Payment screenshot preview" style="max-width:100%;max-height:220px;border-radius:10px;border:1px solid #e2e8f0;">
+                        <img id="screenshotPreviewImg" alt="Payment screenshot preview" style="max-width:100%;max-height:300px;border-radius:10px;border:1px solid #e2e8f0;">
                     </div>
                 </div>
                 
@@ -673,6 +735,9 @@
                 <i class="bi bi-info-circle"></i> Scan this QR code with any UPI app (BHIM, Google Pay, PhonePe, Paytm)
             </div>
             <div class="qr-actions-small">
+                <button type="button" id="qrDownloadBtn" class="btn btn-outline-success-custom" style="padding:4px 12px;font-size:0.75rem;">
+                    <i class="bi bi-download"></i> Save QR
+                </button>
                 <button type="button" id="qrRefreshBtn" class="btn btn-outline-primary-custom" style="padding:4px 12px;font-size:0.75rem;">
                     <i class="bi bi-arrow-repeat"></i> Refresh QR
                 </button>
@@ -695,7 +760,7 @@
             </button>
         </div>
         
-        <!-- Save Button (hidden, just for recording) -->
+        <!-- Save Button -->
         <div style="margin-top:12px;text-align:center;">
             <button type="button" id="saveBtn" class="btn btn-outline-primary-custom" style="font-size:0.7rem;">
                 <i class="bi bi-save"></i> Save Receipt (Record Only)
@@ -732,11 +797,12 @@
     let receiptCategories = [];
     let financialYears = [];
     let receiptUpiId = '';
-    let receiptBankingName = '';  // New: Banking name from sheet
+    let receiptBankingName = '';
     let selectedCategoryAmount = 0;
     let isSubmitting = false;
     let qrVisible = false;
     let qrCodeInstance = null;
+    let currentQrCanvas = null;
 
     // ================= SECURITY: GET SESSION =================
     function getSessionFromStorage() {
@@ -862,10 +928,8 @@
         }
     }
 
-    // ================= FETCH UPI ID AND BANKING NAME =================
     async function fetchUpiDetails() {
         try {
-            // Fetch both A1 and B2 from "Receipt UPI ID" sheet
             const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values/'Receipt UPI ID'!A1:B2?key=${CONFIG.API_KEY}&_=${Date.now()}`;
             const response = await fetch(url);
             const data = await response.json();
@@ -874,22 +938,17 @@
             let upiId = '';
             let bankingName = '';
             
-            // Parse the rows: A1=UPI ID, B1=Banking Name (header)
-            // A2=UPI ID value, B2=Banking Name value
             for (let i = 0; i < rows.length; i++) {
                 const row = rows[i];
                 if (row.length >= 2) {
                     const colA = (row[0] || '').trim();
                     const colB = (row[1] || '').trim();
                     
-                    // If this is the data row (not header)
                     if (colA && colA.includes('@') && !colA.toLowerCase().includes('upi')) {
                         upiId = colA;
                         bankingName = colB || '';
                     }
-                    // Check if we have headers and data in the same row
                     if (i === 1 && row.length >= 2) {
-                        // Row 2 is likely the data row
                         if (!upiId && row[0] && row[0].includes('@')) {
                             upiId = row[0];
                             bankingName = row[1] || '';
@@ -898,9 +957,7 @@
                 }
             }
             
-            // If not found by above logic, try direct cell access
             if (!upiId) {
-                // Try A2 specifically
                 const urlA2 = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values/'Receipt UPI ID'!A2?key=${CONFIG.API_KEY}&_=${Date.now()}`;
                 const respA2 = await fetch(urlA2);
                 const dataA2 = await respA2.json();
@@ -908,7 +965,6 @@
                     upiId = dataA2.values[0][0].trim();
                 }
                 
-                // Try B2
                 const urlB2 = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values/'Receipt UPI ID'!B2?key=${CONFIG.API_KEY}&_=${Date.now()}`;
                 const respB2 = await fetch(urlB2);
                 const dataB2 = await respB2.json();
@@ -1023,7 +1079,6 @@
         document.getElementById('amountDisplay').textContent = `₹${amount.toFixed(2)}`;
     }
 
-    // ================= UPDATE UPI INFO DISPLAY =================
     function updateUpiInfoDisplay() {
         document.getElementById('displayUpiId').textContent = receiptUpiId || '—';
         document.getElementById('displayBankingName').textContent = receiptBankingName || '—';
@@ -1109,7 +1164,6 @@
             return false;
         }
 
-        // Build complete UPI deep link with banking name from sheet
         const upiString = 
             `upi://pay?pa=${encodeURIComponent(upiId)}` +
             `&pn=${encodeURIComponent(bankingName)}` +
@@ -1122,13 +1176,11 @@
             `&mcity=INDIA`;
 
         console.log('Generated UPI String:', upiString);
-        console.log('Banking Name used:', bankingName);
         
         const wrapper = document.getElementById('qrCodeWrapper');
         wrapper.innerHTML = '';
         
         try {
-            // Create QR code using QRCode.js
             qrCodeInstance = new QRCode(wrapper, {
                 text: upiString,
                 width: 220,
@@ -1137,6 +1189,14 @@
                 colorLight: "#ffffff",
                 correctLevel: QRCode.CorrectLevel.H
             });
+            
+            // Store reference to canvas for download
+            setTimeout(() => {
+                const canvas = wrapper.querySelector('canvas');
+                if (canvas) {
+                    currentQrCanvas = canvas;
+                }
+            }, 100);
             
             wrapper.dataset.upiString = upiString;
             document.getElementById('qrCodeContainer').style.display = 'block';
@@ -1156,6 +1216,35 @@
             `;
             showToast('Failed to generate QR code.', 'error');
             return false;
+        }
+    }
+
+    // ================= DOWNLOAD QR CODE =================
+    function downloadQR() {
+        if (!currentQrCanvas) {
+            // Try to find canvas in wrapper
+            const wrapper = document.getElementById('qrCodeWrapper');
+            const canvas = wrapper.querySelector('canvas');
+            if (canvas) {
+                currentQrCanvas = canvas;
+            } else {
+                showToast('QR code not generated yet. Please generate QR first.', 'error');
+                return;
+            }
+        }
+        
+        try {
+            // Create a high-quality download
+            const link = document.createElement('a');
+            link.download = 'eshaka-QR.jpg';
+            link.href = currentQrCanvas.toDataURL('image/jpeg', 0.95);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('QR code saved as eshaka-QR.jpg', 'success');
+        } catch (error) {
+            console.error('Download error:', error);
+            showToast('Failed to download QR code.', 'error');
         }
     }
 
@@ -1184,6 +1273,163 @@
             }
         }
     }
+
+    // ================= OCR EXTRACTION =================
+    async function performOCR(imageDataUrl) {
+        const ocrProgress = document.getElementById('ocrProgress');
+        const ocrStatusText = document.getElementById('ocrStatusText');
+        const ocrProgressFill = document.getElementById('ocrProgressFill');
+        
+        ocrProgress.classList.add('active');
+        ocrStatusText.textContent = 'Initializing OCR...';
+        ocrProgressFill.style.width = '10%';
+        
+        try {
+            // Load Tesseract
+            const worker = await Tesseract.createWorker('eng');
+            
+            ocrStatusText.textContent = 'Reading text from image...';
+            ocrProgressFill.style.width = '30%';
+            
+            // Perform OCR
+            const { data: { text } } = await worker.recognize(imageDataUrl);
+            
+            ocrStatusText.textContent = 'Extracting payment details...';
+            ocrProgressFill.style.width = '70%';
+            
+            await worker.terminate();
+            
+            ocrProgressFill.style.width = '100%';
+            
+            console.log('OCR Extracted Text:', text);
+            
+            // Parse extracted text
+            const extracted = parseUPIDetails(text);
+            
+            ocrStatusText.textContent = '✅ Extraction complete!';
+            
+            // Auto-fill fields
+            if (extracted.transactionId) {
+                document.getElementById('transactionId').value = extracted.transactionId;
+            }
+            if (extracted.senderUpiId) {
+                document.getElementById('senderUpiId').value = extracted.senderUpiId;
+            }
+            
+            setTimeout(() => {
+                ocrProgress.classList.remove('active');
+            }, 2000);
+            
+            return extracted;
+            
+        } catch (error) {
+            console.error('OCR Error:', error);
+            ocrStatusText.textContent = '⚠️ OCR failed. Please enter details manually.';
+            ocrProgressFill.style.width = '100%';
+            
+            setTimeout(() => {
+                ocrProgress.classList.remove('active');
+            }, 3000);
+            
+            return null;
+        }
+    }
+
+    function parseUPIDetails(text) {
+        const result = {
+            transactionId: '',
+            senderUpiId: ''
+        };
+        
+        if (!text) return result;
+        
+        const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+        
+        // Patterns for UPI ID
+        const upiPatterns = [
+            /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+)/gi,
+            /UPI\s*ID\s*[:]\s*([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+)/gi,
+            /Payee\s*UPI\s*ID\s*[:]\s*([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+)/gi,
+            /Paid\s*to\s*([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+)/gi
+        ];
+        
+        // Patterns for Transaction ID / UTR
+        const txnPatterns = [
+            /(?:UTR|Transaction\s*ID|Txn\s*ID|TxnID)\s*[:]?\s*([A-Z0-9]{6,20})/gi,
+            /(?:Ref\s*No|Reference\s*No)\s*[:]?\s*([A-Z0-9]{6,20})/gi,
+            /([A-Z]{2}\d{12,16})/gi,  // Common UTR format
+            /(\d{12,16})/gi            // Numeric transaction IDs
+        ];
+        
+        // Extract UPI ID
+        for (const pattern of upiPatterns) {
+            const matches = text.matchAll(pattern);
+            for (const match of matches) {
+                const upi = match[1] || match[0];
+                if (upi && upi.includes('@')) {
+                    result.senderUpiId = upi;
+                    break;
+                }
+            }
+            if (result.senderUpiId) break;
+        }
+        
+        // Extract Transaction ID
+        for (const pattern of txnPatterns) {
+            const matches = text.matchAll(pattern);
+            for (const match of matches) {
+                const txn = match[1] || match[0];
+                if (txn && txn.length >= 6) {
+                    result.transactionId = txn;
+                    break;
+                }
+            }
+            if (result.transactionId) break;
+        }
+        
+        // Additional cleanup: if we found a UPI ID but it's the payee's, try to find sender's
+        if (result.senderUpiId && result.senderUpiId === receiptUpiId) {
+            // Look for another UPI ID in the text
+            const allUpi = text.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+)/gi);
+            if (allUpi && allUpi.length > 1) {
+                for (const upi of allUpi) {
+                    if (upi !== receiptUpiId) {
+                        result.senderUpiId = upi;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        console.log('Extracted details:', result);
+        return result;
+    }
+
+    // ================= SCREENSHOT HANDLING =================
+    document.getElementById('paymentScreenshot').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        if (!file.type.startsWith('image/')) {
+            showToast('Please select an image file.', 'error');
+            this.value = '';
+            return;
+        }
+        
+        // Show preview
+        const reader = new FileReader();
+        reader.onload = async function(event) {
+            const imageDataUrl = event.target.result;
+            const preview = document.getElementById('screenshotPreview');
+            const previewImg = document.getElementById('screenshotPreviewImg');
+            previewImg.src = imageDataUrl;
+            preview.style.display = 'block';
+            
+            // Perform OCR
+            await performOCR(imageDataUrl);
+        };
+        reader.readAsDataURL(file);
+    });
 
     function copyUpiId() {
         const upiId = document.getElementById('upiIdValue').textContent;
@@ -1232,7 +1478,6 @@
             return;
         }
 
-        // Build complete UPI intent with banking name from sheet
         const upiIntent = 
             `upi://pay?pa=${encodeURIComponent(upiId)}` +
             `&pn=${encodeURIComponent(bankingName)}` +
@@ -1329,14 +1574,20 @@
                 <div style="text-align:left;font-size:0.9rem;">
                     <p style="color:#475569;">
                         Please upload the screenshot from your UPI app showing the successful payment.
-                        The screenshot will be OCR-processed and the extracted details will be saved to Google Sheets.
+                        OCR will auto-extract Transaction ID and UPI ID from the screenshot.
                     </p>
                     <input id="swalPaymentScreenshot" type="file" accept="image/*"
                            class="swal2-file" style="width:100%;">
+                    <div id="swalOcrProgress" style="display:none;margin-top:10px;padding:10px;background:#f1f5f9;border-radius:8px;">
+                        <span id="swalOcrStatus">Processing OCR...</span>
+                        <div style="height:4px;background:#e2e8f0;border-radius:2px;margin-top:6px;overflow:hidden;">
+                            <div id="swalOcrFill" style="height:100%;background:#0f3b6a;width:0%;transition:width 0.3s;"></div>
+                        </div>
+                    </div>
                     <input id="swalTransactionId" class="swal2-input"
-                           placeholder="UTR / Transaction ID (optional if visible in screenshot)">
+                           placeholder="UTR / Transaction ID">
                     <input id="swalSenderUpiId" class="swal2-input"
-                           placeholder="Your UPI ID (optional)">
+                           placeholder="Your UPI ID">
                 </div>
             `,
             icon: 'success',
@@ -1356,11 +1607,6 @@
 
                 if (!file.type.startsWith('image/')) {
                     Swal.showValidationMessage('Please select an image file.');
-                    return false;
-                }
-
-                if (file.size > 6 * 1024 * 1024) {
-                    Swal.showValidationMessage('Please use an image smaller than 6 MB.');
                     return false;
                 }
 
@@ -1640,6 +1886,8 @@
         document.getElementById('remarks').value = '';
         document.getElementById('receiptAmountError').classList.remove('show');
         document.getElementById('receiptAmount').classList.remove('is-invalid');
+        document.getElementById('screenshotPreview').style.display = 'none';
+        document.getElementById('paymentScreenshot').value = '';
         
         document.getElementById('qrCodeContainer').style.display = 'none';
         qrVisible = false;
@@ -1673,7 +1921,6 @@
         showLoading(true, 'Loading data...');
         
         try {
-            // Fetch all data in parallel
             const [categories, years, upiDetails] = await Promise.all([
                 fetchReceiptCategories(),
                 fetchFinancialYears(),
@@ -1685,7 +1932,6 @@
             receiptUpiId = upiDetails.upiId;
             receiptBankingName = upiDetails.bankingName;
             
-            // Update UPI info display
             updateUpiInfoDisplay();
             
             populateReceiptCategories(categories);
@@ -1711,6 +1957,7 @@
         // Event listeners
         document.getElementById('payNowBtn').addEventListener('click', handlePayNow);
         document.getElementById('showQrBtn').addEventListener('click', toggleQrCode);
+        document.getElementById('qrDownloadBtn').addEventListener('click', downloadQR);
         document.getElementById('qrRefreshBtn').addEventListener('click', function() {
             if (qrVisible) {
                 generateDynamicQR();
