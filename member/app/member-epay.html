@@ -418,6 +418,32 @@
             border-radius: 30px;
         }
         
+        /* UPI Info Display */
+        .upi-info-display {
+            background: #e6f0fa;
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin: 12px 0;
+            border: 1px solid #b3d4f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .upi-info-display .label {
+            font-size: 0.75rem;
+            color: #64748b;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .upi-info-display .value {
+            font-weight: 600;
+            color: #0f3b6a;
+            font-size: 0.95rem;
+        }
+        
         /* Toast */
         .toast-custom {
             position: fixed;
@@ -472,6 +498,7 @@
             }
             .payment-info-box .amount-display { font-size: 1.4rem; }
             .payment-info-box .upi-id { font-size: 1rem; }
+            .upi-info-display { flex-direction: column; align-items: flex-start; }
         }
     </style>
 </head>
@@ -523,6 +550,18 @@
         <!-- Receipt ID Display -->
         <div class="receipt-id-display" id="receiptIdDisplay">
             <i class="bi bi-hash"></i> <span id="receiptIdValue">—</span>
+        </div>
+        
+        <!-- UPI Info Display -->
+        <div class="upi-info-display">
+            <div>
+                <div class="label"><i class="bi bi-credit-card"></i> UPI ID</div>
+                <div class="value" id="displayUpiId">—</div>
+            </div>
+            <div>
+                <div class="label"><i class="bi bi-building"></i> Banking Name</div>
+                <div class="value" id="displayBankingName">—</div>
+            </div>
         </div>
         
         <!-- Form -->
@@ -678,7 +717,7 @@
     const CONFIG = (function() {
         const _s = '1FKCX4TODUcQ_0o8xP14fGENYT17k4Mcm_rJe6eFSTjE';
         const _k = 'AIzaSyDc8tegwi2rgHyDFYm7uWBqVqQ7Fwb3uWM';
-        const _url = 'https://script.google.com/macros/s/AKfycbwcEoMDE-BeeDS1YcA9K804TGjdLonw0G_LgQdBUXEhYy-ivNdGWVgZ8eyuafPtjkU0oA/exec';
+        const _url = 'https://script.google.com/macros/s/AKfycbyhOFOvkW6FWmuHiYhHDwa72ikPawJ5zeyWCRZ-x8-C_oNpc_hxm3IKdHo-KNW-iY8j6Q/exec';
         
         return {
             get SPREADSHEET_ID() { return _s; },
@@ -693,6 +732,7 @@
     let receiptCategories = [];
     let financialYears = [];
     let receiptUpiId = '';
+    let receiptBankingName = '';  // New: Banking name from sheet
     let selectedCategoryAmount = 0;
     let isSubmitting = false;
     let qrVisible = false;
@@ -822,20 +862,68 @@
         }
     }
 
-    async function fetchReceiptUpiId() {
+    // ================= FETCH UPI ID AND BANKING NAME =================
+    async function fetchUpiDetails() {
         try {
-            const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values/'Receipt UPI ID'!A:A?key=${CONFIG.API_KEY}&_=${Date.now()}`;
+            // Fetch both A1 and B2 from "Receipt UPI ID" sheet
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values/'Receipt UPI ID'!A1:B2?key=${CONFIG.API_KEY}&_=${Date.now()}`;
             const response = await fetch(url);
             const data = await response.json();
             const rows = data.values || [];
             
-            if (rows.length > 1 && rows[1] && rows[1][0]) {
-                return rows[1][0];
+            let upiId = '';
+            let bankingName = '';
+            
+            // Parse the rows: A1=UPI ID, B1=Banking Name (header)
+            // A2=UPI ID value, B2=Banking Name value
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                if (row.length >= 2) {
+                    const colA = (row[0] || '').trim();
+                    const colB = (row[1] || '').trim();
+                    
+                    // If this is the data row (not header)
+                    if (colA && colA.includes('@') && !colA.toLowerCase().includes('upi')) {
+                        upiId = colA;
+                        bankingName = colB || '';
+                    }
+                    // Check if we have headers and data in the same row
+                    if (i === 1 && row.length >= 2) {
+                        // Row 2 is likely the data row
+                        if (!upiId && row[0] && row[0].includes('@')) {
+                            upiId = row[0];
+                            bankingName = row[1] || '';
+                        }
+                    }
+                }
             }
-            return '';
+            
+            // If not found by above logic, try direct cell access
+            if (!upiId) {
+                // Try A2 specifically
+                const urlA2 = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values/'Receipt UPI ID'!A2?key=${CONFIG.API_KEY}&_=${Date.now()}`;
+                const respA2 = await fetch(urlA2);
+                const dataA2 = await respA2.json();
+                if (dataA2.values && dataA2.values.length > 0 && dataA2.values[0][0]) {
+                    upiId = dataA2.values[0][0].trim();
+                }
+                
+                // Try B2
+                const urlB2 = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values/'Receipt UPI ID'!B2?key=${CONFIG.API_KEY}&_=${Date.now()}`;
+                const respB2 = await fetch(urlB2);
+                const dataB2 = await respB2.json();
+                if (dataB2.values && dataB2.values.length > 0 && dataB2.values[0][0]) {
+                    bankingName = dataB2.values[0][0].trim();
+                }
+            }
+            
+            console.log('Fetched UPI ID:', upiId);
+            console.log('Fetched Banking Name:', bankingName);
+            
+            return { upiId, bankingName };
         } catch (e) {
-            console.error('Error fetching UPI ID:', e);
-            return '';
+            console.error('Error fetching UPI details:', e);
+            return { upiId: '', bankingName: '' };
         }
     }
 
@@ -935,6 +1023,12 @@
         document.getElementById('amountDisplay').textContent = `₹${amount.toFixed(2)}`;
     }
 
+    // ================= UPDATE UPI INFO DISPLAY =================
+    function updateUpiInfoDisplay() {
+        document.getElementById('displayUpiId').textContent = receiptUpiId || '—';
+        document.getElementById('displayBankingName').textContent = receiptBankingName || '—';
+    }
+
     // ================= POPULATE DROPDOWNS =================
     function populateReceiptCategories(categories) {
         const select = document.getElementById('receiptCategory');
@@ -956,7 +1050,6 @@
         
         $('#receiptCategory').on('change', function() {
             updateAmount();
-            // Regenerate QR when category changes
             if (qrVisible) {
                 generateDynamicQR();
             }
@@ -1002,9 +1095,9 @@
     // ================= GENERATE DYNAMIC QR CODE =================
     function generateDynamicQR() {
         const upiId = receiptUpiId;
+        const bankingName = receiptBankingName || 'Payee';
         const amount = parseFloat(document.getElementById('receiptAmount').value) || 0;
         const receiptNo = document.getElementById('receiptIdValue').textContent.trim();
-        const payeeName = document.getElementById('displayMemberName').textContent || 'Member';
         
         if (!upiId) {
             showToast('UPI ID not available.', 'error');
@@ -1016,19 +1109,20 @@
             return false;
         }
 
-        // Build complete UPI deep link with all parameters for BHIM compatibility
+        // Build complete UPI deep link with banking name from sheet
         const upiString = 
             `upi://pay?pa=${encodeURIComponent(upiId)}` +
-            `&pn=${encodeURIComponent(payeeName)}` +
+            `&pn=${encodeURIComponent(bankingName)}` +
             `&am=${amount.toFixed(2)}` +
             `&cu=INR` +
             `&mc=0000` +
             `&tn=${encodeURIComponent(receiptNo || 'Payment')}` +
             `&tr=${encodeURIComponent('TXN' + Date.now())}` +
-            `&mam=${encodeURIComponent(payeeName)}` +
+            `&mam=${encodeURIComponent(bankingName)}` +
             `&mcity=INDIA`;
 
         console.log('Generated UPI String:', upiString);
+        console.log('Banking Name used:', bankingName);
         
         const wrapper = document.getElementById('qrCodeWrapper');
         wrapper.innerHTML = '';
@@ -1041,17 +1135,12 @@
                 height: 220,
                 colorDark: "#0b2b44",
                 colorLight: "#ffffff",
-                correctLevel: QRCode.CorrectLevel.H  // High error correction
+                correctLevel: QRCode.CorrectLevel.H
             });
             
-            // Store the UPI string for reference
             wrapper.dataset.upiString = upiString;
-            
-            // Show QR container
             document.getElementById('qrCodeContainer').style.display = 'block';
             qrVisible = true;
-            
-            // Update button text
             document.getElementById('showQrBtn').innerHTML = '<i class="bi bi-qr-code"></i> Hide QR';
             
             return true;
@@ -1075,15 +1164,12 @@
         const btn = document.getElementById('showQrBtn');
         
         if (qrVisible) {
-            // Hide QR
             container.style.display = 'none';
             btn.innerHTML = '<i class="bi bi-qr-code"></i> Show QR';
             qrVisible = false;
         } else {
-            // Show QR - generate fresh
             const success = generateDynamicQR();
             if (!success) {
-                // If generation failed, show error state
                 const wrapper = document.getElementById('qrCodeWrapper');
                 wrapper.innerHTML = `
                     <div class="qr-placeholder">
@@ -1137,25 +1223,25 @@
 
     function openUpiApp() {
         const upiId = receiptUpiId;
+        const bankingName = receiptBankingName || 'Payee';
         const amount = parseFloat(document.getElementById('receiptAmount').value) || 0;
         const receiptNo = document.getElementById('receiptIdValue').textContent.trim();
-        const payeeName = document.getElementById('displayMemberName').textContent || 'Member';
 
         if (!upiId || amount <= 0) {
             showToast('Please enter a valid payment amount.', 'error');
             return;
         }
 
-        // Build complete UPI intent with all parameters
+        // Build complete UPI intent with banking name from sheet
         const upiIntent = 
             `upi://pay?pa=${encodeURIComponent(upiId)}` +
-            `&pn=${encodeURIComponent(payeeName)}` +
+            `&pn=${encodeURIComponent(bankingName)}` +
             `&am=${amount.toFixed(2)}` +
             `&cu=INR` +
             `&mc=0000` +
             `&tn=${encodeURIComponent(receiptNo || 'Payment')}` +
             `&tr=${encodeURIComponent('TXN' + Date.now())}` +
-            `&mam=${encodeURIComponent(payeeName)}` +
+            `&mam=${encodeURIComponent(bankingName)}` +
             `&mcity=INDIA`;
 
         upiPaymentStarted = true;
@@ -1219,7 +1305,6 @@
         } else if (result.isDenied) {
             upiPaymentStarted = false;
             sessionStorage.removeItem('upiPaymentPending');
-            // Show QR for manual payment
             toggleQrCode();
             Swal.fire({
                 title: 'Use QR to Pay',
@@ -1316,7 +1401,6 @@
         });
     }
 
-    // Detect return from UPI app.
     document.addEventListener('visibilitychange', function() {
         if (document.visibilityState === 'visible' && upiPaymentStarted) {
             clearTimeout(upiReturnTimer);
@@ -1340,7 +1424,7 @@
         }
     });
 
-    // ================= SAVE RECEIPT (Record Only) =================
+    // ================= SAVE RECEIPT =================
     async function saveReceipt(proof = null) {
         if (isSubmitting) return;
         
@@ -1509,12 +1593,12 @@
             return;
         }
         
-        // Show confirmation
         Swal.fire({
             title: 'Pay Now',
             html: `
                 <div style="text-align:left;">
                     <p><strong>UPI ID:</strong> ${escapeHtml(receiptUpiId)}</p>
+                    <p><strong>Banking Name:</strong> ${escapeHtml(receiptBankingName || 'N/A')}</p>
                     <p><strong>Amount:</strong> ₹${amount.toFixed(2)}</p>
                     <p><strong>Reference:</strong> ${escapeHtml(document.getElementById('receiptIdValue').textContent)}</p>
                 </div>
@@ -1557,7 +1641,6 @@
         document.getElementById('receiptAmountError').classList.remove('show');
         document.getElementById('receiptAmount').classList.remove('is-invalid');
         
-        // Hide QR
         document.getElementById('qrCodeContainer').style.display = 'none';
         qrVisible = false;
         document.getElementById('showQrBtn').innerHTML = '<i class="bi bi-qr-code"></i> Show QR';
@@ -1590,15 +1673,20 @@
         showLoading(true, 'Loading data...');
         
         try {
-            const [categories, years, upiId] = await Promise.all([
+            // Fetch all data in parallel
+            const [categories, years, upiDetails] = await Promise.all([
                 fetchReceiptCategories(),
                 fetchFinancialYears(),
-                fetchReceiptUpiId()
+                fetchUpiDetails()
             ]);
             
             receiptCategories = categories;
             financialYears = years;
-            receiptUpiId = upiId;
+            receiptUpiId = upiDetails.upiId;
+            receiptBankingName = upiDetails.bankingName;
+            
+            // Update UPI info display
+            updateUpiInfoDisplay();
             
             populateReceiptCategories(categories);
             populateFinancialYears(years);
@@ -1610,6 +1698,8 @@
                 document.getElementById('receiptCategory').value = categories[0].id;
                 $('#receiptCategory').trigger('change');
             }
+            
+            console.log('Initialization complete. UPI ID:', receiptUpiId, 'Banking Name:', receiptBankingName);
             
         } catch (e) {
             console.error('Error initializing:', e);
@@ -1632,7 +1722,6 @@
         document.getElementById('saveBtn').addEventListener('click', saveReceipt);
         document.getElementById('receiptAmount').addEventListener('input', function() {
             calculateBalance();
-            // Regenerate QR if visible and amount changes
             if (qrVisible) {
                 generateDynamicQR();
             }
