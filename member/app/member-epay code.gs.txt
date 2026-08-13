@@ -1,645 +1,413 @@
-/**
- * Google Apps Script - Receipt Submission Handler
- * Deploy as web app with "Execute as: Me" and "Who has access: Anyone"
- */
+// ==================== PAYMENT RECEIPT API ====================
+// Deploy as Web App (Execute as: "Me", Access: "Anyone" - including anonymous)
+// Spreadsheet ID: 1FKCX4TODUcQ_0o8xP14fGENYT17k4Mcm_rJe6eFSTjE
 
-// ================= MAIN DO POST HANDLER =================
+const SPREADSHEET_ID = "1FKCX4TODUcQ_0o8xP14fGENYT17k4Mcm_rJe6eFSTjE";
+const API_KEY = "AIzaSyDc8tegwi2rgHyDFYm7uWBqVqQ7Fwb3uWM";
+
 function doPost(e) {
-    try {
-        let params = {};
-        if (e && e.postData && e.postData.contents) {
-            try {
-                params = JSON.parse(e.postData.contents);
-            } catch (parseError) {
-                const content = e.postData.contents;
-                const urlParams = new URLSearchParams(content);
-                for (const [key, value] of urlParams) {
-                    params[key] = value;
-                }
-            }
-        }
-        
-        const action = params.action || 'ADD_RECEIPT';
-        
-        if (action === 'ADD_RECEIPT') {
-            return handleAddReceipt(params);
-        } else if (action === 'GET_CATEGORIES') {
-            return handleGetCategories();
-        } else if (action === 'GET_YEARS') {
-            return handleGetYears();
-        } else if (action === 'GET_UPI_ID') {
-            return handleGetUpiId();
-        } else {
-            return createResponse({
-                success: false,
-                error: 'Unknown action: ' + action
-            });
-        }
-        
-    } catch (error) {
-        console.error('Error in doPost:', error);
-        return createResponse({
-            success: false,
-            error: error.toString()
-        });
-    }
-}
-
-// ================= HANDLE ADD RECEIPT =================
-function handleAddReceipt(params) {
-    try {
-        const requiredFields = [
-            'branchId', 'homeId', 'receiptNo',
-            'receiptCategory', 'financialYear', 'amount', 'receiptAmount'
-        ];
-
-        for (const field of requiredFields) {
-            if (!params[field] && params[field] !== 0) {
-                return createResponse({
-                    success: false,
-                    error: 'Missing required field: ' + field
-                });
-            }
-        }
-
-        const ss = SpreadsheetApp.getActiveSpreadsheet();
-        let sheet = ss.getSheetByName('Data');
-
-        if (!sheet) {
-            sheet = ss.insertSheet('Data');
-        }
-
-        ensureDataHeaders(sheet);
-
-        const now = new Date();
-        const timestamp = Utilities.formatDate(
-            now,
-            Session.getScriptTimeZone(),
-            'yyyy-MM-dd HH:mm:ss'
-        );
-        const dateStr = Utilities.formatDate(
-            now,
-            Session.getScriptTimeZone(),
-            'yyyy-MM-dd'
-        );
-
-        let screenshotUrl = '';
-        let ocrText = '';
-        let ocrTransactionId = '';
-        let ocrAmount = '';
-        let ocrDate = '';
-        let ocrUpiId = '';
-        let ocrStatus = '';
-
-        // Process payment screenshot when supplied.
-        if (params.screenshotBase64) {
-            try {
-                const proof = saveAndReadPaymentScreenshot(
-                    params.screenshotBase64,
-                    params.screenshotName || ('payment-' + params.receiptNo + '.jpg'),
-                    params.screenshotMimeType || 'image/jpeg'
-                );
-
-                screenshotUrl = proof.screenshotUrl || '';
-                ocrText = proof.ocrText || '';
-                ocrTransactionId = proof.transactionId || '';
-                ocrAmount = proof.amount || '';
-                ocrDate = proof.date || '';
-                ocrUpiId = proof.upiId || '';
-                ocrStatus = proof.ocrStatus || '';
-            } catch (proofError) {
-                console.error('Screenshot processing error:', proofError);
-                ocrStatus = 'Screenshot saved, OCR failed: ' + proofError.toString();
-            }
-        }
-
-        // Prefer the transaction ID manually entered by the user.
-        const finalTransactionId =
-            String(params.transactionId || '').trim() || ocrTransactionId;
-
-        const rowData = [
-            params.branchId || '',
-            params.homeId || '',
-            params.receiptNo || '',
-            finalTransactionId,
-            params.receiptCategory || '',
-            params.financialYear || '',
-            params.senderUpiId || ocrUpiId || '',
-            parseFloat(params.amount) || 0,
-            parseFloat(params.receiptAmount) || 0,
-            parseFloat(params.balance) || 0,
-            'Verification Pending',
-            params.remarks || '',
-            timestamp,
-            dateStr
-        ];
-
-        // Keep the original 14 columns unchanged.
-        sheet.appendRow(rowData);
-
-        // Add proof/OCR information to columns after the original columns.
-        ensureProofColumns(sheet);
-
-        const newRow = sheet.getLastRow();
-        const proofValues = [
-            params.paymentMethod || 'UPI',
-            screenshotUrl,
-            ocrTransactionId,
-            ocrAmount,
-            ocrDate,
-            ocrUpiId,
-            ocrStatus,
-            ocrText
-        ];
-
-        sheet.getRange(newRow, 15, 1, proofValues.length).setValues([proofValues]);
-
-        return createResponse({
-            success: true,
-            message: 'Payment receipt submitted successfully',
-            receiptNo: params.receiptNo,
-            status: 'Verification Pending',
-            transactionId: finalTransactionId,
-            screenshotUrl: screenshotUrl,
-            ocr: {
-                transactionId: ocrTransactionId,
-                amount: ocrAmount,
-                date: ocrDate,
-                upiId: ocrUpiId,
-                status: ocrStatus
-            }
-        });
-
-    } catch (error) {
-        console.error('Error in handleAddReceipt:', error);
-        return createResponse({
-            success: false,
-            error: error.toString()
-        });
-    }
-}
-
-function ensureDataHeaders(sheet) {
-    const headers = [
-        'Branch ID', 'Home ID', 'Receipt No', 'Transaction ID',
-        'Receipt Category', 'Financial Year', 'Sender UPI ID',
-        'Amount', 'Receipt Amount', 'Balance', 'Payment Confirm', 'Remarks',
-        'Timestamp', 'Date'
-    ];
-
-    if (sheet.getLastRow() === 0) {
-        sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-        return;
-    }
-
-    const current = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), headers.length))
-        .getValues()[0];
-
-    let changed = false;
-    headers.forEach((header, index) => {
-        if (!current[index]) {
-            sheet.getRange(1, index + 1).setValue(header);
-            changed = true;
-        }
-    });
-
-    return changed;
-}
-
-function ensureProofColumns(sheet) {
-    const proofHeaders = [
-        'Payment Method',
-        'Screenshot URL',
-        'OCR Transaction ID',
-        'OCR Amount',
-        'OCR Date',
-        'OCR UPI ID',
-        'OCR Status',
-        'OCR Text'
-    ];
-
-    proofHeaders.forEach((header, i) => {
-        const col = 15 + i;
-        const existing = sheet.getRange(1, col).getValue();
-        if (!existing) {
-            sheet.getRange(1, col).setValue(header);
-        }
-    });
-}
-
-/**
- * Saves the original screenshot to Drive and attempts OCR.
- *
- * IMPORTANT:
- * Enable the Advanced Google service "Drive API" in Apps Script:
- * Services (+) -> Drive API -> Add.
- * Also ensure the Drive API is enabled in the linked Google Cloud project.
- */
-function saveAndReadPaymentScreenshot(base64, fileName, mimeType) {
-    if (!base64) {
-        throw new Error('Empty screenshot.');
-    }
-
-    // Safety limit: approximately 4 MB decoded image.
-    const bytes = Utilities.base64Decode(base64);
-    if (bytes.length > 4 * 1024 * 1024) {
-        throw new Error('Screenshot is larger than 4 MB.');
-    }
-
-    const safeName = sanitizeFileName(fileName);
-    const blob = Utilities.newBlob(bytes, mimeType, safeName);
-
-    const folder = getOrCreatePaymentProofFolder();
-    const originalFile = folder.createFile(blob);
-    originalFile.setDescription('UPI payment screenshot submitted from member e-pay page.');
-
-    let ocrText = '';
-    let ocrStatus = 'OCR unavailable';
-
-    try {
-        // Advanced Drive API required.
-        const ocrResource = {
-            title: 'OCR-' + safeName,
-            mimeType: MimeType.GOOGLE_DOCS
-        };
-
-        const ocrFile = Drive.Files.insert(ocrResource, blob, {
-            ocr: true,
-            convert: true,
-            ocrLanguage: 'en'
-        });
-
-        if (ocrFile && ocrFile.id) {
-            Utilities.sleep(1200);
-            ocrText = DocumentApp.openById(ocrFile.id).getBody().getText() || '';
-            ocrStatus = ocrText ? 'OCR successful' : 'OCR returned no text';
-
-            // Delete temporary OCR document after reading it.
-            try {
-                Drive.Files.remove(ocrFile.id);
-            } catch (deleteError) {
-                console.warn('Could not remove OCR temp file:', deleteError);
-            }
-        }
-    } catch (ocrError) {
-        console.error('OCR error:', ocrError);
-        ocrStatus = 'OCR failed: ' + ocrError.toString();
-    }
-
-    const extracted = extractPaymentData(ocrText);
-
-    return {
-        screenshotUrl: originalFile.getUrl(),
-        ocrText: ocrText,
-        transactionId: extracted.transactionId,
-        amount: extracted.amount,
-        date: extracted.date,
-        upiId: extracted.upiId,
-        ocrStatus: ocrStatus
-    };
-}
-
-function getOrCreatePaymentProofFolder() {
-    const folderName = 'UPI Payment Screenshots';
-
-    const folders = DriveApp.getFoldersByName(folderName);
-    if (folders.hasNext()) {
-        return folders.next();
-    }
-
-    return DriveApp.createFolder(folderName);
-}
-
-function sanitizeFileName(name) {
-    return String(name || 'payment-screenshot.jpg')
-        .replace(/[\\\/:*?"<>|#%{}[\]]/g, '_')
-        .substring(0, 150);
-}
-
-function extractPaymentData(text) {
-    const clean = String(text || '')
-        .replace(/\r/g, '\n')
-        .replace(/[ \t]+/g, ' ')
-        .trim();
-
-    if (!clean) {
-        return {
-            transactionId: '',
-            amount: '',
-            date: '',
-            upiId: ''
-        };
-    }
-
-    let transactionId = '';
-
-    // Look specifically near common UPI transaction/reference labels first.
-    const transactionPatterns = [
-        /(?:UTR|UPI\s*REF(?:ERENCE)?|TRANSACTION\s*ID|TRANSACTION\s*NO|REF(?:ERENCE)?\s*NO)\s*[:#-]?\s*([A-Z0-9]{6,30})/i,
-        /(?:RRN)\s*[:#-]?\s*([A-Z0-9]{6,30})/i
-    ];
-
-    for (const pattern of transactionPatterns) {
-        const match = clean.match(pattern);
-        if (match && match[1]) {
-            transactionId = match[1].trim();
-            break;
-        }
-    }
-
-    let amount = '';
-    const amountMatch = clean.match(
-        /(?:AMOUNT|PAID|TOTAL|DEBITED|SENT)\s*[:\-]?\s*(?:₹|INR|RS\.?)?\s*([\d,]+(?:\.\d{1,2})?)/i
-    );
-
-    if (amountMatch) {
-        amount = amountMatch[1].replace(/,/g, '');
+  const corsHeaders = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Max-Age": "86400"
+  };
+  
+  try {
+    let requestData;
+    if (e.postData.type === "application/json") {
+      requestData = JSON.parse(e.postData.contents);
     } else {
-        const rupeeMatch = clean.match(/(?:₹|INR|RS\.?)\s*([\d,]+(?:\.\d{1,2})?)/i);
-        if (rupeeMatch) {
-            amount = rupeeMatch[1].replace(/,/g, '');
-        }
+      requestData = JSON.parse(e.postData.getDataAsString());
     }
-
-    // Extract a VPA-like value. This can be the payer or payee depending on the screenshot.
-    const upiMatch = clean.match(/\b[A-Z0-9._-]{2,}@[A-Z0-9._-]{2,}\b/i);
-    const upiId = upiMatch ? upiMatch[0] : '';
-
-    let date = '';
-    const dateMatch = clean.match(
-        /\b(\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}(?:\s+\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?)?)\b/i
-    );
-
-    if (dateMatch) {
-        date = dateMatch[1];
+    
+    console.log("Request received:", requestData);
+    
+    const action = requestData.action;
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    
+    let result;
+    switch(action) {
+      case "ADD_RECEIPT":
+        result = handleAddReceipt(ss, requestData);
+        break;
+      case "UPDATE_PAYMENT_STATUS":
+        result = handleUpdatePaymentStatus(ss, requestData);
+        break;
+      default:
+        result = { status: "error", error: "Unknown action: " + action };
     }
-
-    return {
-        transactionId: transactionId,
-        amount: amount,
-        date: date,
-        upiId: upiId
-    };
+    
+    return createResponse(result, corsHeaders);
+    
+  } catch(error) {
+    console.error("Error in doPost:", error);
+    return createResponse({ 
+      status: "error", 
+      error: error.toString(),
+      stack: error.stack 
+    }, corsHeaders);
+  }
 }
 
-// ================= HANDLE GET CATEGORIES =================
-function handleGetCategories() {
-    try {
-        const ss = SpreadsheetApp.getActiveSpreadsheet();
-        const sheet = ss.getSheetByName('Receipt Category and Amount');
-        
-        if (!sheet) {
-            const newSheet = ss.insertSheet('Receipt Category and Amount');
-            newSheet.getRange(1, 1, 1, 3).setValues([['Receipt ID', 'Receipt Category', 'Receipt Amount']]);
-            newSheet.getRange(2, 1, 2, 3).setValues([
-                ['AP', 'Annual Pay', 500],
-                ['YN', 'Yoganadham', 500]
-            ]);
-            
-            return createResponse({
-                success: true,
-                categories: [
-                    { id: 'AP', category: 'Annual Pay', amount: 500 },
-                    { id: 'YN', category: 'Yoganadham', amount: 500 }
-                ]
-            });
-        }
-        
-        const data = sheet.getDataRange().getValues();
-        const categories = [];
-        
-        for (let i = 1; i < data.length; i++) {
-            if (data[i] && data[i][0] && data[i][1]) {
-                categories.push({
-                    id: data[i][0].toString().trim(),
-                    category: data[i][1].toString().trim(),
-                    amount: parseFloat(data[i][2]) || 0
-                });
-            }
-        }
-        
-        if (categories.length === 0) {
-            return createResponse({
-                success: true,
-                categories: [
-                    { id: 'AP', category: 'Annual Pay', amount: 500 },
-                    { id: 'YN', category: 'Yoganadham', amount: 500 }
-                ]
-            });
-        }
-        
-        return createResponse({
-            success: true,
-            categories: categories
-        });
-        
-    } catch (error) {
-        console.error('Error in handleGetCategories:', error);
-        return createResponse({
-            success: false,
-            error: error.toString()
-        });
-    }
-}
-
-// ================= HANDLE GET FINANCIAL YEARS =================
-function handleGetYears() {
-    try {
-        const ss = SpreadsheetApp.getActiveSpreadsheet();
-        const sheet = ss.getSheetByName('Financial Years');
-        
-        if (!sheet) {
-            const newSheet = ss.insertSheet('Financial Years');
-            newSheet.getRange(1, 1, 1, 1).setValues([['Financial Year']]);
-            newSheet.getRange(2, 1, 2, 1).setValues([
-                ['2024-25'],
-                ['2025-26']
-            ]);
-            
-            return createResponse({
-                success: true,
-                years: ['2024-25', '2025-26']
-            });
-        }
-        
-        const data = sheet.getDataRange().getValues();
-        const years = [];
-        
-        for (let i = 1; i < data.length; i++) {
-            if (data[i] && data[i][0]) {
-                const year = data[i][0].toString().trim();
-                if (year) {
-                    years.push(year);
-                }
-            }
-        }
-        
-        if (years.length === 0) {
-            return createResponse({
-                success: true,
-                years: ['2024-25', '2025-26']
-            });
-        }
-        
-        return createResponse({
-            success: true,
-            years: years
-        });
-        
-    } catch (error) {
-        console.error('Error in handleGetYears:', error);
-        return createResponse({
-            success: false,
-            error: error.toString()
-        });
-    }
-}
-
-// ================= HANDLE GET UPI ID =================
-function handleGetUpiId() {
-    try {
-        const ss = SpreadsheetApp.getActiveSpreadsheet();
-        const sheet = ss.getSheetByName('Receipt UPI ID');
-        
-        if (!sheet) {
-            const newSheet = ss.insertSheet('Receipt UPI ID');
-            newSheet.getRange(1, 1, 1, 1).setValues([['Receipt UPI ID']]);
-            newSheet.getRange(2, 1, 1, 1).setValues([['gokulg.ambadi@okicici']]);
-            
-            return createResponse({
-                success: true,
-                upiId: 'gokulg.ambadi@okicici'
-            });
-        }
-        
-        const data = sheet.getDataRange().getValues();
-        let upiId = '';
-        
-        for (let i = 1; i < data.length; i++) {
-            if (data[i] && data[i][0]) {
-                const value = data[i][0].toString().trim();
-                if (value) {
-                    upiId = value;
-                    break;
-                }
-            }
-        }
-        
-        if (!upiId) {
-            return createResponse({
-                success: true,
-                upiId: 'gokulg.ambadi@okicici'
-            });
-        }
-        
-        return createResponse({
-            success: true,
-            upiId: upiId
-        });
-        
-    } catch (error) {
-        console.error('Error in handleGetUpiId:', error);
-        return createResponse({
-            success: false,
-            error: error.toString()
-        });
-    }
-}
-
-// ================= CREATE RESPONSE =================
-function createResponse(data) {
-    const response = ContentService.createTextOutput();
-    response.setMimeType(ContentService.MimeType.JSON);
-    response.setContent(JSON.stringify(data));
-    return response;
-}
-
-// ================= DO GET HANDLER =================
 function doGet(e) {
-    const action = e.parameter.action || 'info';
-    
-    if (action === 'info') {
-        return createResponse({
-            success: true,
-            message: 'Receipt API is running',
-            version: '1.0',
-            endpoints: [
-                'POST - ADD_RECEIPT',
-                'GET - GET_CATEGORIES',
-                'GET - GET_YEARS',
-                'GET - GET_UPI_ID'
-            ]
-        });
-    } else if (action === 'GET_CATEGORIES') {
-        return handleGetCategories();
-    } else if (action === 'GET_YEARS') {
-        return handleGetYears();
-    } else if (action === 'GET_UPI_ID') {
-        return handleGetUpiId();
-    } else {
-        return createResponse({
-            success: false,
-            error: 'Unknown action: ' + action
-        });
-    }
+  const corsHeaders = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Max-Age": "86400"
+  };
+  
+  return createResponse({ 
+    status: "success", 
+    message: "Payment Receipt API is running",
+    operations: ["ADD_RECEIPT", "UPDATE_PAYMENT_STATUS"],
+    spreadsheet: SPREADSHEET_ID
+  }, corsHeaders);
 }
 
-// ================= SHEET CREATION HELPER =================
-function createRequiredSheets() {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheetNames = ['Data', 'Receipt Category and Amount', 'Financial Years', 'Receipt UPI ID'];
+// ==================== HANDLE ADD RECEIPT ====================
+function handleAddReceipt(ss, data) {
+  try {
+    const sheet = ss.getSheetByName("Data");
     
-    sheetNames.forEach(name => {
-        if (!ss.getSheetByName(name)) {
-            ss.insertSheet(name);
-        }
-    });
+    if (!sheet) {
+      throw new Error("Data sheet not found");
+    }
     
-    const dataSheet = ss.getSheetByName('Data');
-    const dataHeaders = [
-        'Branch ID', 'Home ID', 'Receipt No', 'Transaction ID', 
-        'Receipt Category', 'Financial Year', 'Sender UPI ID', 
-        'Amount', 'Receipt Amount', 'Balance', 'Payment Confirm', 'Remarks',
-        'Timestamp', 'Date'
+    // Ensure all columns exist (A to O)
+    const headers = sheet.getRange(1, 1, 1, 15).getValues()[0];
+    if (headers.length < 15) {
+      const newHeaders = [
+        "Branch ID", "Home ID", "Receipt No", "Transaction ID", 
+        "Receipt Category", "Financial Year", "Sender UPI ID",
+        "Amount", "Receipt Amount", "Balance", "Payment Confirm",
+        "Remarks", "Timestamp", "Date", "Screenshot Data URL"
+      ];
+      sheet.getRange(1, 1, 1, newHeaders.length).setValues([newHeaders]);
+    }
+    
+    const timestamp = Utilities.formatDate(
+      new Date(),
+      Session.getScriptTimeZone(),
+      'yyyy-MM-dd HH:mm:ss'
+    );
+    const dateStr = Utilities.formatDate(
+      new Date(),
+      Session.getScriptTimeZone(),
+      'yyyy-MM-dd'
+    );
+    
+    // Handle screenshot data - store if present
+    let screenshotData = '';
+    if (data.screenshotDataUrl && data.screenshotDataUrl.startsWith('data:image/jpeg;base64,')) {
+      screenshotData = data.screenshotDataUrl;
+    } else if (data.screenshotDataUrl) {
+      screenshotData = data.screenshotDataUrl;
+    }
+    
+    // Prepare row data (15 columns)
+    const rowData = [
+      data.branchId || '',
+      data.homeId || '',
+      data.receiptNo || '',
+      data.transactionId || '',
+      data.receiptCategory || '',
+      data.financialYear || '',
+      data.senderUpiId || '',
+      data.amount || 0,
+      data.receiptAmount || 0,
+      data.balance || 0,
+      'Pending Verification',  // Column K: Payment Confirm
+      data.remarks || '',
+      timestamp,
+      dateStr,
+      screenshotData  // Column O: Screenshot Data URL
     ];
-    dataSheet.getRange(1, 1, 1, dataHeaders.length).setValues([dataHeaders]);
     
-    const categorySheet = ss.getSheetByName('Receipt Category and Amount');
-    const categoryData = categorySheet.getDataRange().getValues();
-    if (categoryData.length === 0 || categoryData[0][0] !== 'Receipt ID') {
-        categorySheet.getRange(1, 1, 1, 3).setValues([['Receipt ID', 'Receipt Category', 'Receipt Amount']]);
-        if (categoryData.length <= 1) {
-            categorySheet.getRange(2, 1, 2, 3).setValues([
-                ['AP', 'Annual Pay', 500],
-                ['YN', 'Yoganadham', 500]
-            ]);
-        }
+    // Append row to sheet
+    const lastRow = sheet.getLastRow();
+    sheet.getRange(lastRow + 1, 1, 1, rowData.length).setValues([rowData]);
+    
+    return { 
+      status: "success", 
+      message: "Receipt saved successfully",
+      receiptNo: data.receiptNo,
+      rowIndex: lastRow + 1,
+      timestamp: timestamp,
+      screenshotStored: !!screenshotData
+    };
+    
+  } catch(error) {
+    console.error("Error in handleAddReceipt:", error);
+    throw error;
+  }
+}
+
+// ==================== HANDLE UPDATE PAYMENT STATUS ====================
+function handleUpdatePaymentStatus(ss, data) {
+  try {
+    const sheet = ss.getSheetByName("Data");
+    
+    if (!sheet) {
+      throw new Error("Data sheet not found");
     }
     
-    const yearSheet = ss.getSheetByName('Financial Years');
-    const yearData = yearSheet.getDataRange().getValues();
-    if (yearData.length === 0 || yearData[0][0] !== 'Financial Year') {
-        yearSheet.getRange(1, 1, 1, 1).setValues([['Financial Year']]);
-        if (yearData.length <= 1) {
-            yearSheet.getRange(2, 1, 2, 1).setValues([
-                ['2024-25'],
-                ['2025-26']
-            ]);
-        }
+    const rowIndex = data.rowIndex;
+    if (!rowIndex && rowIndex !== 0) {
+      throw new Error("Row index missing for update");
     }
     
-    const upiSheet = ss.getSheetByName('Receipt UPI ID');
-    const upiData = upiSheet.getDataRange().getValues();
-    if (upiData.length === 0 || upiData[0][0] !== 'Receipt UPI ID') {
-        upiSheet.getRange(1, 1, 1, 1).setValues([['Receipt UPI ID']]);
-        if (upiData.length <= 1) {
-            upiSheet.getRange(2, 1, 1, 1).setValues([['']]);
-        }
+    const rowNumber = parseInt(rowIndex);
+    const lastRow = sheet.getLastRow();
+    if (rowNumber > lastRow) {
+      throw new Error("Row does not exist. Row number: " + rowNumber + ", Last row: " + lastRow);
+    }
+    
+    const status = data.status;
+    if (!status) {
+      throw new Error("Status is required");
+    }
+    
+    const notes = data.notes || '';
+    const verifiedBy = data.verifiedBy || Session.getActiveUser().getEmail() || 'Admin';
+    
+    // Update Payment Confirm - Column K (index 11)
+    sheet.getRange(rowNumber, 11).setValue(status);
+    
+    // Update Remarks with verification notes - Column L (index 12)
+    if (notes) {
+      const currentRemarks = sheet.getRange(rowNumber, 12).getValue() || '';
+      const timestamp = Utilities.formatDate(
+        new Date(),
+        Session.getScriptTimeZone(),
+        'dd/MM/yyyy HH:mm'
+      );
+      const newEntry = `[${timestamp}] ${status}: ${notes} (by: ${verifiedBy})`;
+      const newRemarks = currentRemarks 
+        ? currentRemarks + ' | ' + newEntry 
+        : newEntry;
+      sheet.getRange(rowNumber, 12).setValue(newRemarks);
+    }
+    
+    // Update verification log
+    try {
+      updateVerificationLog(ss, data.receiptNo, status, notes, verifiedBy);
+    } catch(logError) {
+      console.error("Error updating verification log:", logError);
+    }
+    
+    const verificationTime = Utilities.formatDate(
+      new Date(),
+      Session.getScriptTimeZone(),
+      'yyyy-MM-dd HH:mm:ss'
+    );
+    
+    return { 
+      status: "success", 
+      message: "Payment status updated successfully",
+      receiptNo: data.receiptNo,
+      status: status,
+      rowIndex: rowNumber,
+      updatedAt: verificationTime
+    };
+    
+  } catch(error) {
+    console.error("Error in handleUpdatePaymentStatus:", error);
+    throw error;
+  }
+}
+
+// ==================== UPDATE VERIFICATION LOG ====================
+function updateVerificationLog(ss, receiptNo, status, notes, verifiedBy) {
+  try {
+    let logSheet = ss.getSheetByName("Verification_Log");
+    
+    if (!logSheet) {
+      logSheet = ss.insertSheet("Verification_Log");
+      logSheet.getRange(1, 1, 1, 6).setValues([
+        ['Receipt No', 'Status', 'Notes', 'Verified By', 'Timestamp', 'Date']
+      ]);
+    }
+    
+    const timestamp = Utilities.formatDate(
+      new Date(),
+      Session.getScriptTimeZone(),
+      'yyyy-MM-dd HH:mm:ss'
+    );
+    const dateStr = Utilities.formatDate(
+      new Date(),
+      Session.getScriptTimeZone(),
+      'yyyy-MM-dd'
+    );
+    
+    logSheet.appendRow([
+      receiptNo || '',
+      status || '',
+      notes || '',
+      verifiedBy || '',
+      timestamp,
+      dateStr
+    ]);
+    
+  } catch(error) {
+    console.error("Error updating verification log:", error);
+    throw error;
+  }
+}
+
+// ==================== CREATE RESPONSE ====================
+function createResponse(data, corsHeaders) {
+  const output = ContentService
+    .createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
+  
+  if (corsHeaders) {
+    for (const key in corsHeaders) {
+      output.setHeader(key, corsHeaders[key]);
+    }
+  }
+  
+  return output;
+}
+
+// ==================== INITIALIZE SHEETS ====================
+function initializeSheets() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  
+  // Initialize Data sheet with correct columns
+  let dataSheet = ss.getSheetByName("Data");
+  if (!dataSheet) {
+    dataSheet = ss.insertSheet("Data");
+  }
+  
+  if (dataSheet.getLastRow() === 0) {
+    dataSheet.getRange(1, 1, 1, 15).setValues([[
+      "Branch ID", "Home ID", "Receipt No", "Transaction ID", 
+      "Receipt Category", "Financial Year", "Sender UPI ID",
+      "Amount", "Receipt Amount", "Balance", "Payment Confirm",
+      "Remarks", "Timestamp", "Date", "Screenshot Data URL"
+    ]]);
+  } else {
+    // Ensure column O exists
+    const lastCol = dataSheet.getLastColumn();
+    if (lastCol < 15) {
+      const newHeaders = [
+        "Branch ID", "Home ID", "Receipt No", "Transaction ID", 
+        "Receipt Category", "Financial Year", "Sender UPI ID",
+        "Amount", "Receipt Amount", "Balance", "Payment Confirm",
+        "Remarks", "Timestamp", "Date", "Screenshot Data URL"
+      ];
+      dataSheet.getRange(1, 1, 1, newHeaders.length).setValues([newHeaders]);
+    }
+  }
+  
+  // Initialize Verification_Log sheet
+  let logSheet = ss.getSheetByName("Verification_Log");
+  if (!logSheet) {
+    logSheet = ss.insertSheet("Verification_Log");
+    logSheet.getRange(1, 1, 1, 6).setValues([
+      ['Receipt No', 'Status', 'Notes', 'Verified By', 'Timestamp', 'Date']
+    ]);
+  }
+  
+  return "Sheets initialized successfully!";
+}
+
+// ==================== TEST FUNCTIONS ====================
+function testAddReceipt() {
+  const testData = {
+    action: "ADD_RECEIPT",
+    branchId: "BR001",
+    homeId: "HM001",
+    receiptNo: "SNBR001HM001A010120242425",
+    transactionId: "TXN123456",
+    receiptCategory: "Test Category",
+    financialYear: "2024-25",
+    senderUpiId: "test@paytm",
+    amount: 1000,
+    receiptAmount: 500,
+    balance: 500,
+    remarks: "Test receipt",
+    paymentMethod: "UPI",
+    screenshotDataUrl: ""
+  };
+  
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const result = handleAddReceipt(ss, testData);
+  console.log("Test result:", result);
+  return result;
+}
+
+function testUpdateStatus() {
+  const testData = {
+    action: "UPDATE_PAYMENT_STATUS",
+    rowIndex: 2,
+    receiptNo: "TEST123",
+    status: "Verified",
+    notes: "Test verification",
+    verifiedBy: "Test User"
+  };
+  
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const result = handleUpdatePaymentStatus(ss, testData);
+  console.log("Test result:", result);
+  return result;
+}
+
+function checkSheetStructure() {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName("Data");
+    
+    if (!sheet) {
+      console.log('Sheet "Data" not found!');
+      return { success: false, error: 'Sheet "Data" not found!' };
+    }
+    
+    const lastRow = sheet.getLastRow();
+    const lastCol = sheet.getLastColumn();
+    console.log('Sheet found. Rows:', lastRow, 'Columns:', lastCol);
+    
+    if (lastRow > 0) {
+      const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+      console.log('Headers:', headers);
+      
+      if (lastCol < 15) {
+        console.warn('⚠️ Screenshot Data URL column (O) is missing!');
+      } else {
+        console.log('✅ Screenshot Data URL column (O) exists');
+      }
     }
     
     return {
-        success: true,
-        message: 'All sheets created successfully',
-        sheets: sheetNames
+      success: true,
+      rows: lastRow,
+      columns: lastCol,
+      headers: lastRow > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : []
     };
+    
+  } catch(error) {
+    console.error('Error checking sheet:', error);
+    return { success: false, error: error.toString() };
+  }
+}
+
+function cleanupOldScreenshots() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName("Data");
+  
+  if (!sheet) return "Data sheet not found";
+  
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return "No data to clean up";
+  
+  const keepRows = 100;
+  const startRow = Math.max(2, lastRow - keepRows + 1);
+  
+  for (let i = 2; i < startRow; i++) {
+    sheet.getRange(i, 15).setValue('');
+  }
+  
+  return `Cleaned up screenshot data. Kept rows ${startRow} to ${lastRow}`;
 }
