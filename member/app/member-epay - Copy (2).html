@@ -843,11 +843,6 @@
                 <span style="font-size:0.8rem;color:#64748b;">Amount</span>
                 <div class="amount-display" id="amountDisplay">₹0.00</div>
             </div>
-            <div style="font-size:0.72rem;color:#64748b;margin-top:8px;">
-                <i class="bi bi-shield-check"></i>
-                UPI app return is only a navigation signal. Payment is accepted only after
-                proof/gateway verification.
-            </div>
             <div style="font-size:0.75rem;color:#94a3b8;">
                 <i class="bi bi-info-circle"></i> Click "Pay Now" to open your UPI app
             </div>
@@ -918,7 +913,7 @@
 const CONFIG = (function() {
     const _s = '1FKCX4TODUcQ_0o8xP14fGENYT17k4Mcm_rJe6eFSTjE';
     const _k = 'AIzaSyDc8tegwi2rgHyDFYm7uWBqVqQ7Fwb3uWM';
-    const _url = 'https://script.google.com/macros/s/AKfycbyj-CnJ4Hsw75gGAM6Ua4iMH9w9-Mp5FTOYnFXf8BfRZ9jqxcYvyQQR4nTpBatQoRAOLQ/exec';
+    const _url = 'https://script.google.com/macros/s/AKfycbzqOc24JMAJ2or_jFrznO3JfApc-LnH6i3GSSejdHn4Jy3UZ41iOBZrvaTBxUX-h59xSw/exec';
     
     return {
         get SPREADSHEET_ID() { return _s; },
@@ -1927,306 +1922,265 @@ function fallbackCopy(text) {
     document.body.removeChild(textArea);
 }
 
-// ================= SECURE UPI INTENT FLOW =================
-// IMPORTANT:
-// A plain static HTML page cannot receive a cryptographically trusted
-// "payment successful" result from a UPI app. The browser can detect that
-// the user returned from the app, but that does NOT prove that money moved.
-//
-// Therefore this version:
-// 1. Creates an auditable payment-attempt record in Apps Script.
-// 2. Opens the standard UPI intent.
-// 3. Detects return to the browser using visibility/page-focus events.
-// 4. NEVER marks the payment as Verified merely because the UPI app returned.
-// 5. Requires payment proof (screenshot) for this direct-UPI mode.
-// 6. Leaves a clean integration point for a real PSP/payment-gateway API.
-
+// ================= UPI PAYMENT WITH VERIFICATION =================
 let upiPaymentStarted = false;
 let upiReturnTimer = null;
-let upiVisibilityHandler = null;
-let paymentReturnHandled = false;
 
 function generateTransactionRef() {
-    // This is a merchant-side reference, NOT the bank/UPI transaction ID.
-    return 'EPAY' +
-        Date.now().toString(36).toUpperCase() +
-        Math.random().toString(36).slice(2, 8).toUpperCase();
+    return 'TXN' + Date.now().toString(36).toUpperCase() + 
+           Math.random().toString(36).substr(2, 4).toUpperCase();
 }
 
-function getPendingPayment() {
-    try {
-        const raw = sessionStorage.getItem('pendingUPITransaction');
-        return raw ? JSON.parse(raw) : null;
-    } catch (e) {
-        console.error('Invalid pending payment:', e);
-        sessionStorage.removeItem('pendingUPITransaction');
-        return null;
-    }
-}
-
-async function recordPaymentAttempt(action, pending, extra = {}) {
-    if (!pending) return;
-
-    const payload = {
-        action: action,
-        receiptNo: pending.receiptNo || '',
-        paymentRef: pending.transactionRef || '',
-        amount: Number(pending.amount || 0),
-        payeeUpiId: pending.upiId || '',
-        branchId: branchId || '',
-        homeId: homeId || '',
-        memberName: memberName || '',
-        clientTime: new Date().toISOString(),
-        ...extra
-    };
-
-    // Apps Script Web Apps may redirect; no-cors is intentionally used here.
-    // We do not use the response as proof of payment.
-    try {
-        await fetch(CONFIG.APPS_SCRIPT_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-            keepalive: true
-        });
-    } catch (e) {
-        console.warn('Payment audit call failed:', e);
-    }
-}
-
-function clearPaymentMonitoring() {
-    if (upiVisibilityHandler) {
-        document.removeEventListener('visibilitychange', upiVisibilityHandler);
-        upiVisibilityHandler = null;
-    }
-
-    if (verificationCheckInterval) {
-        clearInterval(verificationCheckInterval);
-        verificationCheckInterval = null;
-    }
-
-    if (upiReturnTimer) {
-        clearTimeout(upiReturnTimer);
-        upiReturnTimer = null;
-    }
-}
-
-function buildUpiIntent(upiId, bankingName, amount, receiptNo, transactionRef) {
-    const params = new URLSearchParams({
-        pa: upiId,
-        pn: bankingName || 'Payee',
-        am: Number(amount).toFixed(2),
-        cu: 'INR',
-        tn: receiptNo || 'Payment',
-        tr: transactionRef
-    });
-
-    // Do NOT add a fake browser callback URL.
-    // UPI intent is not a guaranteed browser callback protocol.
-    return 'upi://pay?' + params.toString();
-}
-
-async function createPendingPayment() {
+function openUpiAppWithVerification() {
     const upiId = receiptUpiId;
     const bankingName = receiptBankingName || 'Payee';
     const amount = parseFloat(document.getElementById('receiptAmount').value) || 0;
     const receiptNo = document.getElementById('receiptIdValue').textContent.trim();
-
-    if (!upiId || amount <= 0 || !receiptNo) {
-        throw new Error('Payment information is incomplete.');
-    }
-
     const transactionRef = generateTransactionRef();
 
-    pendingTransaction = {
-        receiptNo,
-        amount,
-        upiId,
-        bankingName,
-        transactionRef,
-        startedAt: Date.now(),
-        status: 'initiated'
-    };
-
-    sessionStorage.setItem(
-        'pendingUPITransaction',
-        JSON.stringify(pendingTransaction)
-    );
-
-    await recordPaymentAttempt('CREATE_PAYMENT_ATTEMPT', pendingTransaction, {
-        status: 'INITIATED'
-    });
-
-    return pendingTransaction;
-}
-
-async function openUpiAppWithVerification() {
-    if (upiPaymentStarted) {
-        showToast('A payment session is already active.', 'info');
-        return;
-    }
-
-    const amount = parseFloat(document.getElementById('receiptAmount').value) || 0;
-
-    if (!calculateBalance() || amount <= 0) {
+    if (!upiId || amount <= 0) {
         showToast('Please enter a valid payment amount.', 'error');
         return;
     }
 
-    if (!receiptUpiId) {
-        showToast('UPI ID is not configured. Please contact admin.', 'error');
-        return;
-    }
+    // Store pending transaction for verification
+    pendingTransaction = {
+        receiptNo: receiptNo,
+        amount: amount,
+        upiId: upiId,
+        transactionRef: transactionRef,
+        startedAt: Date.now(),
+        status: 'pending'
+    };
+    sessionStorage.setItem('pendingUPITransaction', JSON.stringify(pendingTransaction));
 
-    let pending;
-    try {
-        pending = await createPendingPayment();
-    } catch (error) {
-        console.error('Unable to create payment attempt:', error);
-        showToast('Could not start the payment securely. Please try again.', 'error');
-        return;
-    }
-
-    const upiIntent = buildUpiIntent(
-        pending.upiId,
-        pending.bankingName,
-        pending.amount,
-        pending.receiptNo,
-        pending.transactionRef
-    );
+    // Build UPI URL with callback parameters
+    const upiIntent = 
+        `upi://pay?pa=${encodeURIComponent(upiId)}` +
+        `&pn=${encodeURIComponent(bankingName)}` +
+        `&am=${amount.toFixed(2)}` +
+        `&cu=INR` +
+        `&mc=0000` +
+        `&tn=${encodeURIComponent(receiptNo || 'Payment')}` +
+        `&tr=${encodeURIComponent(transactionRef)}` +
+        `&mam=${encodeURIComponent(bankingName)}` +
+        `&mcity=INDIA` +
+        `&url=${encodeURIComponent(window.location.href.split('?')[0] + '?status=return')}`;
 
     upiPaymentStarted = true;
-    paymentReturnHandled = false;
-
-    console.log('UPI intent created:', {
-        merchantReference: pending.transactionRef,
-        amount: pending.amount,
-        payee: pending.upiId,
-        receiptNo: pending.receiptNo
+    console.log('UPI Payment initiated:', {
+        transactionRef,
+        amount,
+        upiId,
+        receiptNo
     });
 
     showToast('Opening your UPI app. Complete the payment there.', 'info');
 
-    setupPaymentReturnMonitoring(pending);
-
-    // Use a direct same-tab navigation for mobile reliability.
-    // The browser/OS chooses the installed UPI application.
     try {
-        window.location.href = upiIntent;
+        const link = document.createElement('a');
+        link.href = upiIntent;
+        link.target = '_blank';
+        link.rel = 'noopener';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     } catch (e) {
-        console.error('UPI launch error:', e);
-        showToast(
-            'Unable to open a UPI app. Use Show QR instead.',
-            'error'
-        );
+        window.open(upiIntent, '_blank');
     }
+
+    // Setup return monitoring
+    setupPaymentReturnMonitoring(transactionRef);
 }
 
-function setupPaymentReturnMonitoring(pending) {
-    clearPaymentMonitoring();
-
-    const onReturn = () => {
-        if (document.visibilityState !== 'visible' || paymentReturnHandled) {
-            return;
+function setupPaymentReturnMonitoring(transactionRef) {
+    // Listen for visibility change (user returns from UPI app)
+    document.addEventListener('visibilitychange', function onVisibilityChange() {
+        if (document.visibilityState === 'visible') {
+            document.removeEventListener('visibilitychange', onVisibilityChange);
+            // Wait a moment for the app to close
+            setTimeout(() => {
+                handlePaymentReturn(transactionRef);
+            }, 500);
         }
+    });
 
-        paymentReturnHandled = true;
+    // Also poll for return
+    let pollCount = 0;
+    const maxPolls = 30;
+    verificationCheckInterval = setInterval(() => {
+        pollCount++;
+        if (pollCount >= maxPolls) {
+            clearInterval(verificationCheckInterval);
+            const pending = sessionStorage.getItem('pendingUPITransaction');
+            if (pending) {
+                handlePaymentReturn(transactionRef);
+            }
+        }
+    }, 2000);
 
-        setTimeout(() => {
-            handlePaymentReturn(pending);
-        }, 800);
-    };
-
-    upiVisibilityHandler = onReturn;
-    document.addEventListener('visibilitychange', upiVisibilityHandler);
-
-    // pageshow also covers some mobile browser/app-switch behavior.
-    window.addEventListener('pageshow', onReturn, { once: true });
-
-    // Do not repeatedly display a confirmation dialog every 2 seconds.
-    // After 90 seconds, provide a deterministic manual status screen.
+    // Set a timeout for manual confirmation
     upiReturnTimer = setTimeout(() => {
-        if (!paymentReturnHandled && getPendingPayment()) {
-            paymentReturnHandled = true;
-            handlePaymentReturn(pending);
+        const pending = sessionStorage.getItem('pendingUPITransaction');
+        if (pending) {
+            clearInterval(verificationCheckInterval);
+            handlePaymentReturn(transactionRef);
         }
-    }, 90000);
+    }, 60000);
 }
 
-async function handlePaymentReturn(pending) {
-    if (!pending) {
-        pending = getPendingPayment();
-    }
-
-    if (!pending) {
+async function handlePaymentReturn(transactionRef) {
+    if (!upiPaymentStarted) return;
+    
+    const pendingData = sessionStorage.getItem('pendingUPITransaction');
+    if (!pendingData) {
         upiPaymentStarted = false;
-        clearPaymentMonitoring();
         return;
     }
 
-    clearPaymentMonitoring();
-
-    await recordPaymentAttempt('PAYMENT_RETURNED', pending, {
-        status: 'RETURNED_TO_BROWSER'
-    });
-
-    const result = await Swal.fire({
-        title: 'Returned from UPI app',
-        html: `
-            <div style="text-align:left;">
-                <p><strong>Amount:</strong> ₹${Number(pending.amount).toFixed(2)}</p>
-                <p><strong>Payee:</strong> ${escapeHtml(pending.bankingName || '')}</p>
-                <p><strong>UPI ID:</strong> ${escapeHtml(pending.upiId || '')}</p>
-                <p><strong>Payment reference:</strong> ${escapeHtml(pending.transactionRef || '')}</p>
-                <hr>
-                <div style="background:#fff7ed;border:1px solid #fdba74;border-radius:8px;padding:10px;font-size:.88rem;">
-                    <strong>Security notice:</strong><br>
-                    Returning from the UPI app does not prove that the payment succeeded.
-                    The actual UPI transaction ID/UTR must come from the payment confirmation
-                    screen or from a trusted payment gateway/bank verification service.
+    try {
+        const pending = JSON.parse(pendingData);
+        
+        // Show payment status dialog
+        const result = await Swal.fire({
+            title: 'Payment Status',
+            html: `
+                <div style="text-align:left;">
+                    <p><strong>Amount:</strong> ₹${pending.amount.toFixed(2)}</p>
+                    <p><strong>Reference:</strong> ${pending.receiptNo}</p>
+                    <p><strong>Transaction Ref:</strong> ${pending.transactionRef}</p>
+                    <hr>
+                    <p style="font-size:0.9rem;color:#475569;">
+                        Did you complete the payment in your UPI app?
+                    </p>
                 </div>
-            </div>
-        `,
-        icon: 'info',
-        showDenyButton: true,
-        showCancelButton: true,
-        confirmButtonText: 'Payment succeeded — Upload proof',
-        denyButtonText: 'Payment failed / cancelled',
-        cancelButtonText: 'I need more time',
-        confirmButtonColor: '#16a34a',
-        denyButtonColor: '#dc2626',
-        cancelButtonColor: '#64748b',
-        allowOutsideClick: false
-    });
-
-    if (result.isConfirmed) {
-        await recordPaymentAttempt('PAYMENT_PROOF_REQUESTED', pending, {
-            status: 'PROOF_REQUESTED'
+            `,
+            icon: 'question',
+            showDenyButton: true,
+            showCancelButton: true,
+            confirmButtonText: '✅ Yes, Payment Done',
+            denyButtonText: '❌ No, Not Done',
+            cancelButtonText: '⏳ Wait, Still Processing',
+            confirmButtonColor: '#16a34a',
+            denyButtonColor: '#dc2626',
+            cancelButtonColor: '#64748b'
         });
 
+        if (result.isConfirmed) {
+            // User confirmed payment done
+            await verifyAndConfirmPayment(pending);
+        } else if (result.isDenied) {
+            // Payment not done
+            upiPaymentStarted = false;
+            sessionStorage.removeItem('pendingUPITransaction');
+            showToast('Payment cancelled. Try again or use QR code.', 'info');
+            toggleQrCode();
+        } else {
+            // User wants to wait - keep monitoring
+            showToast('We\'ll wait for you to complete the payment.', 'info');
+            setupPaymentReturnMonitoring(transactionRef);
+        }
+    } catch (error) {
+        console.error('Error handling payment return:', error);
+        showToast('Error processing payment status.', 'error');
+    }
+}
+
+async function verifyAndConfirmPayment(pending) {
+    showLoading(true, 'Verifying payment...');
+    
+    try {
+        // Attempt to verify the payment with backend
+        const verificationResult = await verifyPaymentWithBackend(pending);
+        
+        showLoading(false);
+        
+        if (verificationResult.verified) {
+            // Payment verified successfully
+            upiPaymentStarted = false;
+            sessionStorage.removeItem('pendingUPITransaction');
+            
+            // Pre-fill transaction details
+            if (verificationResult.transactionId) {
+                document.getElementById('transactionId').value = verificationResult.transactionId;
+                document.getElementById('txnExtractedBadge').style.display = 'inline';
+            }
+            if (verificationResult.senderUpiId) {
+                document.getElementById('senderUpiId').value = verificationResult.senderUpiId;
+                document.getElementById('upiExtractedBadge').style.display = 'inline';
+            }
+            
+            await showSuccessProofDialog(pending);
+        } else {
+            // Verification failed - user can still upload proof
+            const result = await Swal.fire({
+                title: 'Verification Incomplete',
+                html: `
+                    <p style="color:#475569;">
+                        We couldn't automatically verify the payment. 
+                        Please upload the screenshot to complete verification.
+                    </p>
+                    <p style="font-size:0.9rem;color:#64748b;">
+                        Amount: ₹${pending.amount.toFixed(2)}
+                    </p>
+                `,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Upload Screenshot',
+                cancelButtonText: 'Try Again',
+                confirmButtonColor: '#0f3b6a'
+            });
+            
+            if (result.isConfirmed) {
+                await showSuccessProofDialog(pending);
+            } else {
+                toggleQrCode();
+            }
+        }
+    } catch (error) {
+        showLoading(false);
+        console.error('Verification error:', error);
+        showToast('Error verifying payment. Please upload screenshot manually.', 'error');
         await showSuccessProofDialog(pending);
-        return;
     }
+}
 
-    if (result.isDenied) {
-        await recordPaymentAttempt('PAYMENT_CANCELLED', pending, {
-            status: 'CANCELLED'
+async function verifyPaymentWithBackend(pending) {
+    try {
+        const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'VERIFY_UPI_PAYMENT',
+                receiptNo: pending.receiptNo,
+                transactionId: pending.transactionRef,
+                amount: pending.amount,
+                senderUpiId: pending.upiId
+            })
         });
-
-        upiPaymentStarted = false;
-        sessionStorage.removeItem('pendingUPITransaction');
-        showToast('Payment was not confirmed. You can try again or use QR.', 'info');
-        toggleQrCode();
-        return;
+        
+        const data = await response.json();
+        
+        if (data.status === 'success' && data.verified) {
+            return {
+                verified: true,
+                transactionId: data.transactionId || pending.transactionRef,
+                senderUpiId: data.senderUpiId || pending.upiId,
+                message: data.message
+            };
+        } else {
+            return {
+                verified: false,
+                message: data.message || 'Verification failed'
+            };
+        }
+    } catch (error) {
+        console.error('Verification API error:', error);
+        return {
+            verified: false,
+            message: error.message
+        };
     }
-
-    // Keep the transaction pending. The user can return later.
-    upiPaymentStarted = false;
-    showToast(
-        'Payment remains pending. Complete it in the UPI app, then return here.',
-        'info'
-    );
 }
 
 // ================= SUCCESS PROOF DIALOG =================
@@ -2629,51 +2583,23 @@ function resetForm() {
 
 // ================= CHECK PENDING TRANSACTION ON LOAD =================
 function checkPendingTransaction() {
-    const pending = getPendingPayment();
-
-    if (!pending) return;
-
-    const elapsed = Date.now() - Number(pending.startedAt || 0);
-
-    // Keep pending attempts for up to 15 minutes.
-    if (!pending.startedAt || elapsed > 15 * 60 * 1000) {
-        sessionStorage.removeItem('pendingUPITransaction');
-        return;
-    }
-
-    Swal.fire({
-        title: 'Pending payment found',
-        html: `
-            <p style="font-size:.9rem;">
-                A UPI payment attempt for
-                <strong>₹${Number(pending.amount || 0).toFixed(2)}</strong>
-                is still open.
-            </p>
-            <p style="font-size:.8rem;color:#64748b;">
-                Do not treat this reference as the bank transaction ID.
-            </p>
-        `,
-        icon: 'info',
-        showCancelButton: true,
-        confirmButtonText: 'Continue payment',
-        cancelButtonText: 'Discard attempt',
-        confirmButtonColor: '#0f3b6a',
-        allowOutsideClick: false
-    }).then(async result => {
-        if (result.isConfirmed) {
-            upiPaymentStarted = true;
-            paymentReturnHandled = false;
-            await recordPaymentAttempt('PAYMENT_RESUMED', pending, {
-                status: 'RESUMED'
-            });
-            openUpiAppWithVerification();
-        } else {
-            await recordPaymentAttempt('PAYMENT_DISCARDED', pending, {
-                status: 'DISCARDED'
-            });
+    const pending = sessionStorage.getItem('pendingUPITransaction');
+    if (pending) {
+        try {
+            const data = JSON.parse(pending);
+            const elapsed = Date.now() - data.startedAt;
+            if (elapsed < 180000) { // Within 3 minutes
+                showToast('You have a pending payment. Please complete it.', 'info');
+                setTimeout(() => {
+                    handlePaymentReturn(data.transactionRef);
+                }, 1000);
+            } else {
+                sessionStorage.removeItem('pendingUPITransaction');
+            }
+        } catch (e) {
             sessionStorage.removeItem('pendingUPITransaction');
         }
-    });
+    }
 }
 
 // ================= INIT =================
