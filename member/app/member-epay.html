@@ -843,6 +843,11 @@
                 <span style="font-size:0.8rem;color:#64748b;">Amount</span>
                 <div class="amount-display" id="amountDisplay">₹0.00</div>
             </div>
+            <div style="font-size:0.72rem;color:#64748b;margin-top:8px;">
+                <i class="bi bi-shield-check"></i>
+                UPI app return is only a navigation signal. Payment is accepted only after
+                proof/gateway verification.
+            </div>
             <div style="font-size:0.75rem;color:#94a3b8;">
                 <i class="bi bi-info-circle"></i> Click "Pay Now" to open your UPI app
             </div>
@@ -910,12 +915,17 @@
 
 <script>
 // ================= CONFIGURATION =================
-const CONFIG = Object.freeze({
-    APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbx50wtPaKc43I4ZAcWC1ux-mF4f_1SLhWlyQ-NlpzukjavWpz8S4Teh3nQmuuWNE5HGfQ/exec',
-    GATEWAY_PROVIDER: 'RAZORPAY',
-    PAYMENT_POLL_MS: 3000,
-    PAYMENT_POLL_MAX_MS: 10 * 60 * 1000
-});
+const CONFIG = (function() {
+    const _s = '1FKCX4TODUcQ_0o8xP14fGENYT17k4Mcm_rJe6eFSTjE';
+    const _k = 'AIzaSyDc8tegwi2rgHyDFYm7uWBqVqQ7Fwb3uWM';
+    const _url = 'https://script.google.com/macros/s/AKfycbyj-CnJ4Hsw75gGAM6Ua4iMH9w9-Mp5FTOYnFXf8BfRZ9jqxcYvyQQR4nTpBatQoRAOLQ/exec';
+    
+    return {
+        get SPREADSHEET_ID() { return _s; },
+        get API_KEY() { return _k; },
+        get APPS_SCRIPT_URL() { return _url; }
+    };
+})();
 
 let branchId = '';
 let homeId = '';
@@ -1013,216 +1023,1210 @@ function goBackToDashboard() {
 }
 
 // ================= FETCH DATA FROM SHEET =================
-// Sheet reads are server-side. No Spreadsheet ID/API key is exposed here.
-async function fetchFormDataFromBackend(){
-    const url=new URL(CONFIG.APPS_SCRIPT_URL);
-    url.searchParams.set('action','GET_FORM_DATA');
-    url.searchParams.set('_',Date.now().toString());
-    const response=await fetch(url.toString(),{method:'GET',cache:'no-store'});
-    if(!response.ok)throw new Error('Backend HTTP '+response.status);
-    const data=await response.json();
-    if(data.status!=='success')throw new Error(data.error||'Unable to load form data');
-    return data;
+async function fetchReceiptCategories() {
+    try {
+        const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values/'Receipt Category and Amount'!A:C?key=${CONFIG.API_KEY}&_=${Date.now()}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        const rows = data.values || [];
+        
+        const categories = [];
+        for (let i = 1; i < rows.length; i++) {
+            const row = rows[i];
+            if (row.length >= 3) {
+                categories.push({
+                    id: row[0] || '',
+                    category: row[1] || '',
+                    amount: parseFloat(row[2]) || 0
+                });
+            }
+        }
+        return categories;
+    } catch (e) {
+        console.error('Error fetching receipt categories:', e);
+        return [];
+    }
 }
-async function fetchReceiptCategories(){try{const d=await fetchFormDataFromBackend();return d.categories||[];}catch(e){console.error(e);return[];}}
-async function fetchFinancialYears(){try{const d=await fetchFormDataFromBackend();return d.financialYears||[];}catch(e){console.error(e);return[];}}
-async function fetchUpiDetails(){try{const d=await fetchFormDataFromBackend();return{upiId:d.upiId||'',bankingName:d.bankingName||''};}catch(e){console.error(e);return{upiId:'',bankingName:''};}}
 
-// ================= WEB UPI GATEWAY PAYMENT =================
-// Primary path: Razorpay UPI Payment Link created by Apps Script.
-// Browser return is NOT trusted; Apps Script verifies Razorpay status.
-
-let gatewayPaymentStarted=false;
-let gatewayPollTimer=null;
-let gatewayPollStartedAt=0;
-
-function getGatewayCallbackUrl(){return window.location.origin+window.location.pathname;}
-
-async function createGatewayPayment(){
-    const amount=parseFloat(document.getElementById('receiptAmount').value)||0;
-    const receiptNo=document.getElementById('receiptIdValue').textContent.trim();
-    if(amount<=0)throw new Error('Invalid payment amount.');
-    if(!receiptNo)throw new Error('Receipt number is missing.');
-    const url=new URL(CONFIG.APPS_SCRIPT_URL);
-    url.searchParams.set('action','CREATE_GATEWAY_PAYMENT');
-    url.searchParams.set('amount',amount.toFixed(2));
-    url.searchParams.set('receiptNo',receiptNo);
-    url.searchParams.set('branchId',branchId);
-    url.searchParams.set('homeId',homeId);
-    url.searchParams.set('memberName',memberName);
-    url.searchParams.set('callbackUrl',getGatewayCallbackUrl());
-    const category=document.getElementById('receiptCategory');
-    const year=document.getElementById('financialYear');
-    url.searchParams.set('receiptCategory', category.options[category.selectedIndex]?.text || '');
-    url.searchParams.set('financialYear', year.options[year.selectedIndex]?.text || '');
-    url.searchParams.set('description','E-Payment '+receiptNo);
-    url.searchParams.set('_',Date.now().toString());
-    const response=await fetch(url.toString(),{method:'GET',cache:'no-store'});
-    if(!response.ok)throw new Error('Payment server HTTP '+response.status);
-    const data=await response.json();
-    if(data.status!=='success'||!data.paymentLinkId||!data.paymentUrl)
-        throw new Error(data.error||data.message||'Unable to create payment request.');
-    return data;
+async function fetchFinancialYears() {
+    try {
+        const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values/'Financial Years'!A:A?key=${CONFIG.API_KEY}&_=${Date.now()}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        const rows = data.values || [];
+        
+        const years = [];
+        for (let i = 1; i < rows.length; i++) {
+            if (rows[i] && rows[i][0]) {
+                years.push(rows[i][0]);
+            }
+        }
+        return years;
+    } catch (e) {
+        console.error('Error fetching financial years:', e);
+        return [];
+    }
 }
-function storeGatewayPending(payment){
-    pendingTransaction={
-        provider:'RAZORPAY',receiptNo:payment.receiptNo,amount:Number(payment.amount),
-        transactionRef:payment.referenceId,referenceId:payment.referenceId,
-        paymentLinkId:payment.paymentLinkId,paymentUrl:payment.paymentUrl,
-        upiId:receiptUpiId||'',startedAt:Date.now(),status:'created'
-    };
-    sessionStorage.setItem('pendingUPITransaction',JSON.stringify(pendingTransaction));
+
+async function fetchUpiDetails() {
+    try {
+        const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values/'Receipt UPI ID'!A1:B2?key=${CONFIG.API_KEY}&_=${Date.now()}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        const rows = data.values || [];
+        
+        let upiId = '';
+        let bankingName = '';
+        
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            if (row.length >= 2) {
+                const colA = (row[0] || '').trim();
+                const colB = (row[1] || '').trim();
+                
+                if (colA && colA.includes('@') && !colA.toLowerCase().includes('upi')) {
+                    upiId = colA;
+                    bankingName = colB || '';
+                }
+                if (i === 1 && row.length >= 2) {
+                    if (!upiId && row[0] && row[0].includes('@')) {
+                        upiId = row[0];
+                        bankingName = row[1] || '';
+                    }
+                }
+            }
+        }
+        
+        if (!upiId) {
+            const urlA2 = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values/'Receipt UPI ID'!A2?key=${CONFIG.API_KEY}&_=${Date.now()}`;
+            const respA2 = await fetch(urlA2);
+            const dataA2 = await respA2.json();
+            if (dataA2.values && dataA2.values.length > 0 && dataA2.values[0][0]) {
+                upiId = dataA2.values[0][0].trim();
+            }
+            
+            const urlB2 = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values/'Receipt UPI ID'!B2?key=${CONFIG.API_KEY}&_=${Date.now()}`;
+            const respB2 = await fetch(urlB2);
+            const dataB2 = await respB2.json();
+            if (dataB2.values && dataB2.values.length > 0 && dataB2.values[0][0]) {
+                bankingName = dataB2.values[0][0].trim();
+            }
+        }
+        
+        console.log('Fetched UPI ID:', upiId);
+        console.log('Fetched Banking Name:', bankingName);
+        
+        return { upiId, bankingName };
+    } catch (e) {
+        console.error('Error fetching UPI details:', e);
+        return { upiId: '', bankingName: '' };
+    }
 }
-async function handlePayNow(){
-    if(!calculateBalance()){showToast('Please fix the amount error.','error');return;}
-    const amount=parseFloat(document.getElementById('receiptAmount').value)||0;
-    if(amount<=0){showToast('Please enter a valid amount.','error');return;}
-    const receiptNo=document.getElementById('receiptIdValue').textContent.trim();
-    const result=await Swal.fire({
-        title:'Secure UPI Payment',
-        html:`<div style="text-align:left;">
-        <p><strong>Payee:</strong> ${escapeHtml(receiptBankingName||'Configured Merchant')}</p>
-        <p><strong>UPI:</strong> ${escapeHtml(receiptUpiId||'Configured at gateway')}</p>
-        <p><strong>Amount:</strong> ₹${amount.toFixed(2)}</p>
-        <p><strong>Receipt:</strong> ${escapeHtml(receiptNo)}</p><hr>
-        <p style="font-size:.9rem;color:#475569;">You will be taken to a secure payment page.
-        Success is confirmed from the payment provider's server, not merely from returning here.</p>
-        </div>`,
-        icon:'question',showCancelButton:true,confirmButtonColor:'#16a34a',
-        cancelButtonColor:'#64748b',confirmButtonText:'Continue to Secure Payment',
-        cancelButtonText:'Cancel'
+
+// ================= GENERATE RECEIPT ID =================
+function generateReceiptId() {
+    const branch = branchId || 'NA';
+    const home = homeId || 'NA';
+    const month = getCurrentMonth();
+    const day = getCurrentDay();
+    
+    const categorySelect = document.getElementById('receiptCategory');
+    const selectedCategory = categorySelect.options[categorySelect.selectedIndex];
+    const categoryId = selectedCategory ? selectedCategory.value : 'XX';
+    
+    const yearSelect = document.getElementById('financialYear');
+    const selectedYear = yearSelect.options[yearSelect.selectedIndex];
+    const yearValue = selectedYear ? selectedYear.value : '2425';
+    
+    const receiptId = `SN${branch}${home}${categoryId}${month}${day}${yearValue}`;
+    return receiptId;
+}
+
+function updateReceiptId() {
+    const receiptId = generateReceiptId();
+    document.getElementById('receiptIdValue').textContent = receiptId;
+    return receiptId;
+}
+
+// ================= UPDATE AMOUNT =================
+function updateAmount() {
+    const categorySelect = document.getElementById('receiptCategory');
+    const selectedCategory = categorySelect.options[categorySelect.selectedIndex];
+    const categoryId = selectedCategory ? selectedCategory.value : '';
+    
+    const category = receiptCategories.find(c => c.id === categoryId);
+    if (category) {
+        document.getElementById('amount').value = category.amount.toFixed(2);
+        selectedCategoryAmount = category.amount;
+        document.getElementById('receiptAmount').value = category.amount.toFixed(2);
+        calculateBalance();
+        updatePaymentDisplay();
+    } else {
+        document.getElementById('amount').value = '';
+        selectedCategoryAmount = 0;
+        document.getElementById('receiptAmount').value = '';
+        document.getElementById('balance').value = '';
+        updatePaymentDisplay();
+    }
+    updateReceiptId();
+}
+
+// ================= CALCULATE BALANCE =================
+function calculateBalance() {
+    const amount = parseFloat(document.getElementById('amount').value) || 0;
+    const receiptAmount = parseFloat(document.getElementById('receiptAmount').value) || 0;
+    
+    const balance = amount - receiptAmount;
+    document.getElementById('balance').value = balance >= 0 ? balance.toFixed(2) : '0.00';
+    
+    const errorEl = document.getElementById('receiptAmountError');
+    const input = document.getElementById('receiptAmount');
+    
+    if (receiptAmount <= 0) {
+        errorEl.textContent = 'Receipt amount must be greater than zero.';
+        errorEl.classList.add('show');
+        input.classList.add('is-invalid');
+        updatePaymentDisplay();
+        return false;
+    }
+    
+    if (receiptAmount > amount) {
+        errorEl.textContent = `Receipt amount cannot exceed ₹${amount.toFixed(2)}.`;
+        errorEl.classList.add('show');
+        input.classList.add('is-invalid');
+        updatePaymentDisplay();
+        return false;
+    }
+    
+    if (receiptAmount % 1 !== 0) {
+        errorEl.textContent = 'Receipt amount must be a whole number (no decimals).';
+        errorEl.classList.add('show');
+        input.classList.add('is-invalid');
+        updatePaymentDisplay();
+        return false;
+    }
+    
+    errorEl.classList.remove('show');
+    input.classList.remove('is-invalid');
+    updatePaymentDisplay();
+    return true;
+}
+
+// ================= UPDATE PAYMENT DISPLAY =================
+function updatePaymentDisplay() {
+    const amount = parseFloat(document.getElementById('receiptAmount').value) || 0;
+    document.getElementById('upiIdValue').textContent = receiptUpiId || '—';
+    document.getElementById('amountDisplay').textContent = `₹${amount.toFixed(2)}`;
+}
+
+function updateUpiInfoDisplay() {
+    document.getElementById('displayUpiId').textContent = receiptUpiId || '—';
+    document.getElementById('displayBankingName').textContent = receiptBankingName || '—';
+}
+
+// ================= POPULATE DROPDOWNS =================
+function populateReceiptCategories(categories) {
+    const select = document.getElementById('receiptCategory');
+    select.innerHTML = '<option value="">Select Category</option>';
+    categories.forEach(cat => {
+        const option = document.createElement('option');
+        option.value = cat.id;
+        option.textContent = cat.category;
+        option.dataset.amount = cat.amount;
+        select.appendChild(option);
     });
-    if(!result.isConfirmed)return;
-    showLoading(true,'Creating secure payment request...');
-    try{
-        const payment=await createGatewayPayment();
-        storeGatewayPending(payment);
-        gatewayPaymentStarted=true;gatewayPollStartedAt=Date.now();
-        showLoading(false);
-        const popup=window.open(payment.paymentUrl,'_blank','noopener,noreferrer');
-        if(!popup){window.location.href=payment.paymentUrl;return;}
-        await Swal.fire({
-            title:'Payment page opened',
-            html:`<p style="color:#475569;">Complete the payment in the secure payment page.</p>
-            <p style="font-size:.85rem;color:#64748b;">Receipt: <strong>${escapeHtml(payment.receiptNo)}</strong><br>
-            Payment reference: <strong>${escapeHtml(payment.referenceId)}</strong></p>`,
-            icon:'info',confirmButtonText:'Check Payment Status',showCancelButton:true,
-            cancelButtonText:'Keep Waiting',confirmButtonColor:'#0f3b6a'
+    
+    $('#receiptCategory').select2({
+        theme: 'bootstrap-5',
+        placeholder: 'Select Category',
+        allowClear: true,
+        width: '100%'
+    });
+    
+    $('#receiptCategory').on('change', function() {
+        updateAmount();
+        if (qrVisible) {
+            generateDynamicQR();
+        }
+    });
+}
+
+function populateFinancialYears(years) {
+    const select = document.getElementById('financialYear');
+    select.innerHTML = '<option value="">Select Financial Year</option>';
+    
+    const sortedYears = [...years].sort((a, b) => {
+        const aStart = parseInt(a.split('-')[0]);
+        const bStart = parseInt(b.split('-')[0]);
+        return bStart - aStart;
+    });
+    
+    sortedYears.forEach(year => {
+        const option = document.createElement('option');
+        option.value = year.replace('-', '');
+        option.textContent = year;
+        select.appendChild(option);
+    });
+    
+    if (sortedYears.length > 0) {
+        select.value = sortedYears[0].replace('-', '');
+    }
+    
+    $('#financialYear').select2({
+        theme: 'bootstrap-5',
+        placeholder: 'Select Financial Year',
+        allowClear: true,
+        width: '100%'
+    });
+    
+    $('#financialYear').on('change', function() {
+        updateReceiptId();
+        if (qrVisible) {
+            generateDynamicQR();
+        }
+    });
+}
+
+// ================= GENERATE DYNAMIC QR CODE =================
+function generateDynamicQR() {
+    const upiId = receiptUpiId;
+    const bankingName = receiptBankingName || 'Payee';
+    const amount = parseFloat(document.getElementById('receiptAmount').value) || 0;
+    const receiptNo = document.getElementById('receiptIdValue').textContent.trim();
+    
+    if (!upiId) {
+        showToast('UPI ID not available.', 'error');
+        return false;
+    }
+    
+    if (amount <= 0) {
+        showToast('Please enter a valid amount.', 'error');
+        return false;
+    }
+
+    const upiString = 
+        `upi://pay?pa=${encodeURIComponent(upiId)}` +
+        `&pn=${encodeURIComponent(bankingName)}` +
+        `&am=${amount.toFixed(2)}` +
+        `&cu=INR` +
+        `&mc=0000` +
+        `&tn=${encodeURIComponent(receiptNo || 'Payment')}` +
+        `&tr=${encodeURIComponent('TXN' + Date.now())}` +
+        `&mam=${encodeURIComponent(bankingName)}` +
+        `&mcity=INDIA`;
+
+    console.log('Generated UPI String:', upiString);
+    
+    const wrapper = document.getElementById('qrCodeWrapper');
+    wrapper.innerHTML = '';
+    
+    try {
+        qrCodeInstance = new QRCode(wrapper, {
+            text: upiString,
+            width: 220,
+            height: 220,
+            colorDark: "#0b2b44",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.H
         });
-        startGatewayPaymentPolling(payment.paymentLinkId);
-    }catch(error){
-        showLoading(false);console.error(error);
-        showToast(error.message||'Unable to start secure payment.','error');
+        
+        document.getElementById('qrCodeContainer').style.display = 'block';
+        qrVisible = true;
+        document.getElementById('showQrBtn').innerHTML = '<i class="bi bi-qr-code"></i> Hide QR';
+        
+        return true;
+        
+    } catch (error) {
+        console.error('QR Generation Error:', error);
+        wrapper.innerHTML = `
+            <div class="qr-placeholder">
+                <i class="bi bi-exclamation-triangle" style="color:#dc2626;"></i>
+                <span style="color:#dc2626;">Failed to generate QR</span>
+                <span style="font-size:0.7rem;color:#94a3b8;">${error.message}</span>
+            </div>
+        `;
+        showToast('Failed to generate QR code.', 'error');
+        return false;
     }
 }
-async function getGatewayPaymentStatus(paymentLinkId){
-    const url=new URL(CONFIG.APPS_SCRIPT_URL);
-    url.searchParams.set('action','GATEWAY_PAYMENT_STATUS');
-    url.searchParams.set('paymentLinkId',paymentLinkId);
-    url.searchParams.set('_',Date.now().toString());
-    const response=await fetch(url.toString(),{method:'GET',cache:'no-store'});
-    if(!response.ok)throw new Error('Status server HTTP '+response.status);
-    const data=await response.json();
-    if(data.status!=='success')throw new Error(data.error||data.message||'Unable to read payment status.');
-    return data;
+
+// ================= DOWNLOAD QR CODE =================
+function downloadQR() {
+    const wrapper = document.getElementById('qrCodeWrapper');
+    const canvas = wrapper.querySelector('canvas');
+    
+    if (!canvas) {
+        showToast('QR code not generated yet. Please generate QR first.', 'error');
+        return;
+    }
+    
+    try {
+        const link = document.createElement('a');
+        link.download = 'eshaka-QR.jpg';
+        
+        const padding = 20;
+        const size = 220 + (padding * 2);
+        const newCanvas = document.createElement('canvas');
+        newCanvas.width = size;
+        newCanvas.height = size;
+        const ctx = newCanvas.getContext('2d');
+        
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, size, size);
+        
+        ctx.drawImage(canvas, padding, padding, 220, 220);
+        
+        ctx.strokeStyle = '#E2E8F0';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(padding - 2, padding - 2, 224, 224);
+        
+        link.href = newCanvas.toDataURL('image/jpeg', 0.95);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast('QR code saved as eshaka-QR.jpg', 'success');
+    } catch (error) {
+        console.error('Download error:', error);
+        showToast('Failed to download QR code.', 'error');
+    }
 }
-function startGatewayPaymentPolling(paymentLinkId){
-    if(!paymentLinkId)return;
-    if(gatewayPollTimer)clearTimeout(gatewayPollTimer);
-    gatewayPollStartedAt=Date.now();
-    const poll=async()=>{
-        try{
-            const result=await getGatewayPaymentStatus(paymentLinkId);
-            if(result.paymentStatus==='paid'){await finalizeGatewayPayment(paymentLinkId);return;}
-            if(result.paymentStatus==='expired'||result.paymentStatus==='cancelled'){
-                gatewayPaymentStarted=false;sessionStorage.removeItem('pendingUPITransaction');
-                await Swal.fire({title:'Payment not completed',text:'The secure payment request is no longer active.',icon:'warning',confirmButtonText:'OK'});
-                toggleQrCode();return;
+
+function toggleQrCode() {
+    const container = document.getElementById('qrCodeContainer');
+    const btn = document.getElementById('showQrBtn');
+    
+    if (qrVisible) {
+        container.style.display = 'none';
+        btn.innerHTML = '<i class="bi bi-qr-code"></i> Show QR';
+        qrVisible = false;
+    } else {
+        const success = generateDynamicQR();
+        if (!success) {
+            const wrapper = document.getElementById('qrCodeWrapper');
+            wrapper.innerHTML = `
+                <div class="qr-placeholder">
+                    <i class="bi bi-exclamation-triangle" style="color:#dc2626;"></i>
+                    <span style="color:#dc2626;">Cannot generate QR</span>
+                    <span style="font-size:0.7rem;color:#94a3b8;">Check amount and UPI ID</span>
+                </div>
+            `;
+            container.style.display = 'block';
+            btn.innerHTML = '<i class="bi bi-qr-code"></i> Hide QR';
+            qrVisible = true;
+        }
+    }
+}
+
+// ================= ROBUST OCR ENGINE =================
+const OCR_CONFIG = {
+    maxDimension: 2400,
+    minScale: 1.35,
+    passTimeoutMs: 45000,
+    language: 'eng'
+};
+
+function loadImage(dataUrl) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('Unable to load the screenshot.'));
+        img.src = dataUrl;
+    });
+}
+
+function canvasToDataUrl(canvas, quality = 0.92) {
+    return canvas.toDataURL('image/jpeg', quality);
+}
+
+function buildOcrImage(img, mode = 'enhanced') {
+    const sourceW = img.naturalWidth || img.width;
+    const sourceH = img.naturalHeight || img.height;
+    const largest = Math.max(sourceW, sourceH);
+    const scale = Math.max(OCR_CONFIG.minScale, Math.min(2.2, OCR_CONFIG.maxDimension / largest));
+    const width = Math.max(1, Math.round(sourceW * scale));
+    const height = Math.max(1, Math.round(sourceH * scale));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(img, 0, 0, width, height);
+
+    if (mode === 'original') return canvasToDataUrl(canvas);
+
+    const imageData = ctx.getImageData(0, 0, width, height);
+    const data = imageData.data;
+
+    for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        let gray = (0.299 * r) + (0.587 * g) + (0.114 * b);
+
+        if (mode === 'threshold') {
+            gray = gray < 155 ? 25 : 245;
+        } else {
+            gray = ((gray - 128) * 1.35) + 128;
+            gray = Math.max(0, Math.min(255, gray));
+        }
+
+        data[i] = gray;
+        data[i + 1] = gray;
+        data[i + 2] = gray;
+    }
+    ctx.putImageData(imageData, 0, 0);
+    return canvasToDataUrl(canvas, 0.94);
+}
+
+function normalizeOcrText(text) {
+    if (!text) return '';
+
+    let value = String(text)
+        .replace(/\r/g, '')
+        .replace(/[|¦]/g, 'I')
+        .replace(/[“”„]/g, '"')
+        .replace(/[‘’]/g, "'")
+        .replace(/[‐‑‒–—]/g, '-')
+        .replace(/[\u00a0\t]+/g, ' ');
+
+    value = value
+        .replace(/\bUPI\s*[lI1]\s*D\b/gi, 'UPI ID')
+        .replace(/\bUPl\s*ID\b/gi, 'UPI ID')
+        .replace(/\bTransactlon\b/gi, 'Transaction')
+        .replace(/\bTransactlon\s*lD\b/gi, 'Transaction ID')
+        .replace(/\bTransactlon\s*ID\b/gi, 'Transaction ID')
+        .replace(/\bTxn\s*lD\b/gi, 'Txn ID')
+        .replace(/\bUTR\s*No\.?\b/gi, 'UTR')
+        .replace(/\bReference\s*lD\b/gi, 'Reference ID')
+        .replace(/\bRef\s*No\.?\b/gi, 'Ref No')
+        .replace(/\bFrom\s*UPl\b/gi, 'From UPI')
+        .replace(/\bSender\s*UPl\b/gi, 'Sender UPI')
+        .replace(/\bPaid\s*b[yv]\b/gi, 'Paid by')
+        .replace(/\bP[ae]id\s*to\b/gi, 'Paid to');
+
+    value = value.replace(/([A-Za-z0-9._-])\s*@\s*([A-Za-z0-9._-])/g, '$1@$2');
+    value = value.replace(/[ ]{2,}/g, ' ');
+    return value;
+}
+
+function getOcrLines(text) {
+    return normalizeOcrText(text)
+        .split('\n')
+        .map(line => line.trim())
+        .filter(Boolean);
+}
+
+function normalizeUpiCandidate(value) {
+    if (!value) return '';
+    return value
+        .replace(/[\s|]+/g, '')
+        .replace(/[;,]+$/g, '')
+        .replace(/^[:=\-]+/, '')
+        .trim();
+}
+
+function isValidUpi(value) {
+    return /^[a-zA-Z0-9][a-zA-Z0-9._-]{1,80}@[a-zA-Z][a-zA-Z0-9._-]{1,40}$/.test(value);
+}
+
+function isSameUpi(a, b) {
+    return !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+
+function collectUpiCandidates(text) {
+    const lines = getOcrLines(text);
+    const combined = lines.join('\n');
+    const regex = /[a-zA-Z0-9][a-zA-Z0-9._-]{1,80}\s*@\s*[a-zA-Z][a-zA-Z0-9._-]{1,40}/g;
+    const candidates = [];
+    const seen = new Set();
+
+    function addCandidate(raw, score, reason, lineIndex) {
+        const upi = normalizeUpiCandidate(raw);
+        if (!isValidUpi(upi)) return;
+        const key = upi.toLowerCase();
+        if (!seen.has(key)) {
+            seen.add(key);
+            candidates.push({ value: upi, score, reason, lineIndex });
+        } else {
+            const existing = candidates.find(c => c.value.toLowerCase() === key);
+            if (existing && score > existing.score) {
+                existing.score = score;
+                existing.reason = reason;
+                existing.lineIndex = lineIndex;
             }
-            if(Date.now()-gatewayPollStartedAt<CONFIG.PAYMENT_POLL_MAX_MS){
-                gatewayPollTimer=setTimeout(poll,CONFIG.PAYMENT_POLL_MS);
-            }else{
-                const r=await Swal.fire({title:'Payment still pending',
-                    html:'<p>The provider has not reported a final result yet.</p><p style="font-size:.85rem;color:#64748b;">You can check again or upload payment proof.</p>',
-                    icon:'info',showCancelButton:true,confirmButtonText:'Check Again',cancelButtonText:'Upload Proof',confirmButtonColor:'#0f3b6a'});
-                const pending=JSON.parse(sessionStorage.getItem('pendingUPITransaction')||'{}');
-                if(r.isConfirmed){gatewayPollStartedAt=Date.now();startGatewayPaymentPolling(paymentLinkId);}
-                else await showSuccessProofDialog(pending);
-            }
-        }catch(error){
-            console.error('Gateway status polling error:',error);
-            if(Date.now()-gatewayPollStartedAt<CONFIG.PAYMENT_POLL_MAX_MS)
-                gatewayPollTimer=setTimeout(poll,CONFIG.PAYMENT_POLL_MS*2);
-            else showToast('Could not read payment status. Please try again.','error');
+        }
+    }
+
+    lines.forEach((line, index) => {
+        const matches = line.match(regex) || [];
+        const lower = line.toLowerCase();
+        const senderContext = /\b(from|sender|payer|paid\s*by|debited\s*from|your\s*upi|paid\s*using)\b/i.test(line);
+        const payeeContext = /\b(to|payee|merchant|receiver|credited\s*to|paid\s*to)\b/i.test(line);
+
+        matches.forEach(m => {
+            let score = 20;
+            let reason = 'UPI ID pattern';
+            if (senderContext) { score += 70; reason = 'sender-context label'; }
+            if (payeeContext) { score -= 65; reason = 'payee-context label'; }
+            if (/\b(from\s+upi\s*id|sender\s+upi\s*id|payer\s+upi\s*id)\b/i.test(line)) score += 25;
+            if (/\b(upi\s*id|vpa)\b/i.test(line)) score += 10;
+            addCandidate(m, score, reason, index);
+        });
+    });
+
+    lines.forEach((line, index) => {
+        const matches = line.match(regex) || [];
+        if (!matches.length) return;
+        for (let offset = -2; offset <= 2; offset++) {
+            if (offset === 0) continue;
+            const n = index + offset;
+            if (n < 0 || n >= lines.length) continue;
+            const ctx = lines[n].toLowerCase();
+            const sender = /\b(from|sender|payer|paid\s*by|debited\s*from|your\s*upi)\b/i.test(ctx);
+            const payee = /\b(to|payee|merchant|receiver|credited\s*to|paid\s*to)\b/i.test(ctx);
+            matches.forEach(m => {
+                if (sender) addCandidate(m, 75 - Math.abs(offset) * 10, 'near sender label', index);
+                if (payee) addCandidate(m, 5, 'near payee label', index);
+            });
+        }
+    });
+
+    return candidates.sort((a, b) => b.score - a.score);
+}
+
+function collectTransactionCandidates(text) {
+    const lines = getOcrLines(text);
+    const candidates = [];
+    const seen = new Set();
+
+    const labeledPatterns = [
+        { re: /(?:transaction\s*(?:id|no|number)|txn\s*(?:id|no|number)|utr(?:\s*(?:no|number))?|reference\s*(?:id|no|number)|ref\s*(?:no|number)|rrn)\s*[:#=\-]?\s*([A-Z0-9][A-Z0-9\-]{5,29})/i, score: 100 },
+        { re: /(?:transaction|txn|utr|rrn|reference|ref)\s*[:#=\-]?\s*([A-Z0-9][A-Z0-9\-]{5,29})/i, score: 85 }
+    ];
+
+    function add(raw, score, reason, lineIndex) {
+        if (!raw) return;
+        const clean = raw.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+        if (clean.length < 6 || clean.length > 30) return;
+        if (/^(?:AMOUNT|PAYMENT|SUCCESS|FAILED|PENDING|DATE|TIME|MOBILE|PHONE|ACCOUNT|UPI|TRANSACTION|REFERENCE|NUMBER|STATUS)$/i.test(clean)) return;
+        if (/^\d{1,8}(?:\.\d{1,2})?$/.test(clean)) return;
+
+        const key = clean;
+        const existing = candidates.find(c => c.value === key);
+        if (existing) {
+            existing.score = Math.max(existing.score, score);
+            return;
+        }
+        if (!seen.has(key)) {
+            seen.add(key);
+            candidates.push({ value: clean, score, reason, lineIndex });
+        }
+    }
+
+    lines.forEach((line, index) => {
+        for (const item of labeledPatterns) {
+            const match = line.match(item.re);
+            if (match) add(match[1], item.score, 'explicit transaction label', index);
+        }
+
+        if (/\b(transaction|txn|utr|rrn|reference|ref)\b/i.test(line)) {
+            const nearby = line.match(/\b[A-Z0-9]{8,30}\b/gi) || [];
+            nearby.forEach(v => {
+                let score = 60;
+                if (/\d/.test(v) && /[A-Z]/i.test(v)) score += 10;
+                add(v, score, 'transaction-like value near label', index);
+            });
+        }
+    });
+
+    lines.forEach((line, index) => {
+        if (!/\b(transaction|txn|utr|rrn|reference|ref)\b/i.test(line)) return;
+        const numeric = line.match(/\b\d{10,20}\b/g) || [];
+        numeric.forEach(v => add(v, 92, 'numeric reference near transaction label', index));
+    });
+
+    return candidates.sort((a, b) => b.score - a.score);
+}
+
+function parseUPIDetails(text) {
+    const normalized = normalizeOcrText(text || '');
+    const upiCandidates = collectUpiCandidates(normalized);
+    const txnCandidates = collectTransactionCandidates(normalized);
+
+    const senderCandidates = upiCandidates.map(c => {
+        let score = c.score;
+        if (isSameUpi(c.value, receiptUpiId)) score -= 120;
+        if (/\b(to|payee|merchant|receiver|credited\s*to|paid\s*to)\b/i.test(c.reason)) score -= 50;
+        return { ...c, score };
+    }).sort((a, b) => b.score - a.score);
+
+    const bestSender = senderCandidates.find(c => c.score >= 50 && !isSameUpi(c.value, receiptUpiId));
+    const bestTxn = txnCandidates.find(c => c.score >= 60);
+
+    const result = {
+        transactionId: bestTxn ? bestTxn.value : '',
+        senderUpiId: bestSender ? bestSender.value : '',
+        confidence: {
+            transaction: bestTxn ? Math.min(99, bestTxn.score) : 0,
+            senderUpi: bestSender ? Math.min(99, bestSender.score) : 0
+        },
+        evidence: {
+            transactionCandidates: txnCandidates.slice(0, 5),
+            upiCandidates: upiCandidates.slice(0, 8)
         }
     };
-    poll();
+
+    console.log('OCR parser candidates:', result.evidence);
+    console.log('OCR parser result:', result);
+    return result;
 }
-async function finalizeGatewayPayment(paymentLinkId){
-    if(!paymentLinkId)return;
-    showLoading(true,'Confirming payment with payment provider...');
-    try{
-        const url=new URL(CONFIG.APPS_SCRIPT_URL);
-        url.searchParams.set('action','FINALIZE_GATEWAY_PAYMENT');
-        url.searchParams.set('paymentLinkId',paymentLinkId);
-        url.searchParams.set('_',Date.now().toString());
-        const response=await fetch(url.toString(),{method:'GET',cache:'no-store'});
-        const data=await response.json();
-        showLoading(false);
-        if(data.status!=='success'||!data.verified)throw new Error(data.error||data.message||'Server-side payment verification failed.');
-        gatewayPaymentStarted=false;
-        if(gatewayPollTimer)clearTimeout(gatewayPollTimer);
-        if(data.transactionId){
-            document.getElementById('transactionId').value=data.transactionId;
-            document.getElementById('txnExtractedBadge').style.display='inline';
+
+async function runTesseractPass(worker, imageDataUrl, psm, label, startPercent, endPercent) {
+    await worker.setParameters({
+        tessedit_pageseg_mode: String(psm),
+        preserve_interword_spaces: '1'
+    });
+
+    const timeout = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error(`${label} timed out`)), OCR_CONFIG.passTimeoutMs);
+    });
+
+    const promise = worker.recognize(imageDataUrl);
+    const result = await Promise.race([promise, timeout]);
+    updateOCRStatus(`📖 ${label}...`, endPercent, `${endPercent}%`);
+    return result?.data?.text || '';
+}
+
+async function performOCR(imageDataUrl) {
+    if (ocrInProgress) {
+        showToast('OCR already in progress...', 'info');
+        return null;
+    }
+
+    ocrInProgress = true;
+    const ocrProgress = document.getElementById('ocrProgress');
+    const ocrStatusText = document.getElementById('ocrStatusText');
+    const ocrProgressFill = document.getElementById('ocrProgressFill');
+    const ocrPercentage = document.getElementById('ocrPercentage');
+    const ocrSpinner = document.getElementById('ocrSpinner');
+    const manualHint = document.getElementById('manualEntryHint');
+    const resultsDiv = document.getElementById('extractedResults');
+
+    ocrProgress.style.display = 'block';
+    ocrStatusText.textContent = '🔍 Initializing OCR engine...';
+    ocrProgressFill.style.width = '5%';
+    ocrPercentage.textContent = '5%';
+    ocrSpinner.className = 'bi bi-arrow-repeat spinner-border spinner-border-sm';
+    manualHint.classList.remove('show');
+    resultsDiv.style.display = 'none';
+
+    let worker = null;
+    try {
+        if (typeof Tesseract === 'undefined') {
+            throw new Error('Tesseract.js is not loaded.');
         }
-        if(data.senderUpiId){
-            document.getElementById('senderUpiId').value=data.senderUpiId;
-            document.getElementById('upiExtractedBadge').style.display='inline';
-        }
-        sessionStorage.removeItem('pendingUPITransaction');
-        await Swal.fire({
-            title:'Payment Verified',
-            html:`<div style="text-align:left;">
-            <p><strong>Amount:</strong> ₹${Number(data.amount).toFixed(2)}</p>
-            <p><strong>Receipt:</strong> ${escapeHtml(data.receiptNo||'')}</p>
-            <p><strong>Transaction ID:</strong> ${escapeHtml(data.transactionId||'')}</p>
-            ${data.senderUpiId?`<p><strong>Sender UPI:</strong> ${escapeHtml(data.senderUpiId)}</p>`:''}
-            <p style="color:#15803d;font-weight:600;">✓ Payment provider confirmed the payment.</p>
-            <p style="font-size:.82rem;color:#64748b;">The receipt has been recorded as Verified. Screenshot is not required for this gateway-confirmed payment.</p>
-            </div>`,
-            icon:'success',confirmButtonText:'Continue',confirmButtonColor:'#16a34a'
+
+        updateOCRStatus('📷 Preparing original image...', 10, '10%');
+        const img = await loadImage(imageDataUrl);
+        const original = buildOcrImage(img, 'original');
+        const enhanced = buildOcrImage(img, 'enhanced');
+        const threshold = buildOcrImage(img, 'threshold');
+
+        updateOCRStatus('⚙️ Starting OCR engine...', 15, '15%');
+        worker = await Tesseract.createWorker(OCR_CONFIG.language, 1, {
+            logger: m => {
+                if (m.status === 'recognizing text') {
+                    const p = Math.round(m.progress * 100);
+                    updateOCRStatus(`📖 Reading screenshot... ${p}%`, Math.min(95, 15 + p * 0.75), `${Math.min(95, Math.round(15 + p * 0.75))}%`);
+                }
+            }
         });
-        resetForm();
-    }catch(error){
-        showLoading(false);console.error('Gateway finalization failed:',error);
-        const r=await Swal.fire({title:'Payment requires attention',
-            html:'<p>The payment page may have completed, but the server could not finalize the receipt yet.</p><p style="font-size:.85rem;color:#64748b;">Do not pay again immediately.</p>',
-            icon:'warning',showCancelButton:true,confirmButtonText:'Check Status',cancelButtonText:'Upload Proof',confirmButtonColor:'#0f3b6a'});
-        const pending=JSON.parse(sessionStorage.getItem('pendingUPITransaction')||'{}');
-        if(r.isConfirmed&&pending.paymentLinkId)startGatewayPaymentPolling(pending.paymentLinkId);
-        else await showSuccessProofDialog(pending);
+
+        const text1 = await runTesseractPass(worker, original, 6, 'Reading original screenshot', 15, 40);
+        const text2 = await runTesseractPass(worker, enhanced, 6, 'Reading enhanced screenshot', 40, 65);
+        const text3 = await runTesseractPass(worker, threshold, 11, 'Reading sparse text', 65, 85);
+
+        const combined = [text1, text2, text3].filter(Boolean).join('\n');
+        console.log('=== OCR PASS 1: ORIGINAL ===\n', text1);
+        console.log('=== OCR PASS 2: ENHANCED ===\n', text2);
+        console.log('=== OCR PASS 3: THRESHOLD / SPARSE ===\n', text3);
+        console.log('=== OCR COMBINED TEXT ===\n', combined);
+
+        updateOCRStatus('🔎 Scoring Transaction ID and Sender UPI candidates...', 90, '90%');
+        const extracted = parseUPIDetails(combined);
+        extractedData = extracted;
+        screenshotDataUrl = imageDataUrl;
+
+        showExtractedResults(extracted);
+        updateOCRStatus('✅ OCR extraction complete — verify the values before accepting.', 100, '100%');
+
+        if (extracted.transactionId && extracted.senderUpiId) {
+            ocrStatusText.innerHTML = '✅ <strong>Both fields found. Please verify them and click "Accept & Fill".</strong>';
+            manualHint.classList.remove('show');
+        } else if (extracted.transactionId || extracted.senderUpiId) {
+            ocrStatusText.innerHTML = '⚠️ <strong>Partial extraction. Verify the detected field and enter the missing value manually.</strong>';
+            manualHint.classList.add('show');
+        } else {
+            ocrStatusText.innerHTML = '❌ <strong>No reliable payment identifiers found. Please enter them manually.</strong>';
+            manualHint.classList.add('show');
+            resultsDiv.style.borderColor = '#dc2626';
+            resultsDiv.style.background = '#fef2f2';
+        }
+
+        setTimeout(() => { ocrProgress.style.display = 'none'; }, 2500);
+        return extracted;
+    } catch (error) {
+        console.error('OCR Error:', error);
+        screenshotDataUrl = imageDataUrl;
+        updateOCRStatus('❌ OCR failed — enter details manually.', 100, '100%');
+        ocrSpinner.className = 'bi bi-exclamation-circle';
+        manualHint.classList.add('show');
+        resultsDiv.style.display = 'block';
+        resultsDiv.style.borderColor = '#dc2626';
+        resultsDiv.style.background = '#fef2f2';
+        document.getElementById('extractedTxnDisplay').textContent = '❌ OCR failed';
+        document.getElementById('extractedUpiDisplay').textContent = '❌ OCR failed';
+        document.getElementById('extractionTime').textContent = error.message || 'OCR error';
+        showToast('OCR could not process this screenshot. You can enter the details manually.', 'error');
+        return null;
+    } finally {
+        if (worker) {
+            try { await worker.terminate(); } catch (e) { console.warn('Tesseract terminate warning:', e); }
+        }
+        ocrInProgress = false;
     }
 }
-function openUpiAppWithVerification(){return handlePayNow();}
-function setupPaymentReturnMonitoring(){console.info('Direct UPI return monitoring disabled; using gateway status.');}
-async function handlePaymentReturn(){
-    const p=sessionStorage.getItem('pendingUPITransaction');if(!p)return;
-    try{const d=JSON.parse(p);if(d.paymentLinkId)startGatewayPaymentPolling(d.paymentLinkId);}
-    catch(e){sessionStorage.removeItem('pendingUPITransaction');}
+
+function updateOCRStatus(status, percentage, percentageText) {
+    document.getElementById('ocrStatusText').textContent = status;
+    document.getElementById('ocrProgressFill').style.width = percentageText || `${percentage}%`;
+    document.getElementById('ocrPercentage').textContent = percentageText || `${percentage}%`;
 }
-async function verifyAndConfirmPayment(pending){
-    if(pending&&pending.paymentLinkId)return finalizeGatewayPayment(pending.paymentLinkId);
-    return showSuccessProofDialog(pending||null);
+
+function showExtractedResults(extracted) {
+    const resultsDiv = document.getElementById('extractedResults');
+    resultsDiv.style.display = 'block';
+    resultsDiv.style.borderColor = '#16a34a';
+    resultsDiv.style.background = '#f0fdf4';
+
+    document.getElementById('extractedTxnDisplay').textContent = extracted.transactionId || '❌ Not found';
+    document.getElementById('extractedUpiDisplay').textContent = extracted.senderUpiId || '❌ Not found';
+
+    const txnScore = extracted.confidence?.transaction || 0;
+    const upiScore = extracted.confidence?.senderUpi || 0;
+    document.getElementById('extractionTime').textContent =
+        `Transaction confidence: ${txnScore}% • Sender UPI confidence: ${upiScore}% • ${new Date().toLocaleTimeString()}`;
+
+    let confidenceNote = resultsDiv.querySelector('.ocr-confidence-note');
+    if (!confidenceNote) {
+        confidenceNote = document.createElement('div');
+        confidenceNote.className = 'ocr-confidence-note';
+        resultsDiv.appendChild(confidenceNote);
+    }
+    confidenceNote.textContent = 'OCR is assistive only. Always compare the detected values with the screenshot before accepting.';
 }
-async function verifyPaymentWithBackend(pending){
-    if(!pending||!pending.paymentLinkId)return{verified:false,message:'No gateway payment reference is available.'};
-    try{
-        const d=await getGatewayPaymentStatus(pending.paymentLinkId);
-        return d.paymentStatus==='paid'
-            ?{verified:true,transactionId:d.transactionId||'',senderUpiId:d.senderUpiId||'',message:'Payment provider confirmed payment.'}
-            :{verified:false,message:'Payment is currently '+(d.paymentStatus||'pending')+'.'};
-    }catch(error){return{verified:false,message:error.message};}
+
+function applyExtractedValue(elementId, badgeId, value) {
+    if (!value) return false;
+    const el = document.getElementById(elementId);
+    el.value = value;
+    el.style.borderColor = '#16a34a';
+    el.style.background = '#f0fdf4';
+    document.getElementById(badgeId).style.display = 'inline';
+    return true;
+}
+
+function acceptExtractedDetails() {
+    if (!extractedData || (!extractedData.transactionId && !extractedData.senderUpiId)) {
+        showToast('No reliable OCR values are available to accept.', 'error');
+        return;
+    }
+
+    const txnApplied = applyExtractedValue('transactionId', 'txnExtractedBadge', extractedData.transactionId);
+    const upiApplied = applyExtractedValue('senderUpiId', 'upiExtractedBadge', extractedData.senderUpiId);
+
+    document.getElementById('extractedResults').style.borderColor = '#16a34a';
+    document.getElementById('extractedResults').style.background = '#d1fae5';
+    document.getElementById('acceptExtractedBtn').style.display = 'none';
+    document.getElementById('rejectExtractedBtn').style.display = 'none';
+    document.getElementById('manualEntryHint').classList.remove('show');
+
+    showToast(
+        txnApplied && upiApplied ? 'Transaction ID and Sender UPI ID accepted.' : 'Detected OCR value accepted. Please complete the missing field manually.',
+        'success'
+    );
+}
+
+// ================= SCREENSHOT HANDLING =================
+document.getElementById('paymentScreenshot').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    if (!file.type.startsWith('image/')) {
+        showToast('Please select an image file.', 'error');
+        this.value = '';
+        return;
+    }
+    
+    document.getElementById('extractedResults').style.display = 'none';
+    document.getElementById('extractedResults').style.borderColor = '#16a34a';
+    document.getElementById('extractedResults').style.background = '#f0fdf4';
+    document.getElementById('acceptExtractedBtn').style.display = 'inline-block';
+    document.getElementById('rejectExtractedBtn').style.display = 'inline-block';
+    document.getElementById('manualEntryHint').classList.remove('show');
+    
+    const oldMsg = document.querySelector('.auto-accept-msg');
+    if (oldMsg) oldMsg.remove();
+    
+    const reader = new FileReader();
+    reader.onload = async function(event) {
+        const imageDataUrl = event.target.result;
+        const preview = document.getElementById('screenshotPreview');
+        const previewImg = document.getElementById('screenshotPreviewImg');
+        previewImg.src = imageDataUrl;
+        preview.style.display = 'block';
+        
+        await performOCR(imageDataUrl);
+    };
+    reader.readAsDataURL(file);
+});
+
+function copyUpiId() {
+    const upiId = document.getElementById('upiIdValue').textContent;
+    if (upiId === '—') {
+        showToast('No UPI ID available.', 'error');
+        return;
+    }
+    
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(upiId).then(() => {
+            showToast('UPI ID copied!', 'success');
+        }).catch(() => {
+            fallbackCopy(upiId);
+        });
+    } else {
+        fallbackCopy(upiId);
+    }
+}
+
+function fallbackCopy(text) {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+        document.execCommand('copy');
+        showToast('UPI ID copied!', 'success');
+    } catch (e) {
+        showToast('Failed to copy.', 'error');
+    }
+    document.body.removeChild(textArea);
+}
+
+// ================= SECURE UPI INTENT FLOW =================
+// IMPORTANT:
+// A plain static HTML page cannot receive a cryptographically trusted
+// "payment successful" result from a UPI app. The browser can detect that
+// the user returned from the app, but that does NOT prove that money moved.
+//
+// Therefore this version:
+// 1. Creates an auditable payment-attempt record in Apps Script.
+// 2. Opens the standard UPI intent.
+// 3. Detects return to the browser using visibility/page-focus events.
+// 4. NEVER marks the payment as Verified merely because the UPI app returned.
+// 5. Requires payment proof (screenshot) for this direct-UPI mode.
+// 6. Leaves a clean integration point for a real PSP/payment-gateway API.
+
+let upiPaymentStarted = false;
+let upiReturnTimer = null;
+let upiVisibilityHandler = null;
+let paymentReturnHandled = false;
+
+function generateTransactionRef() {
+    // This is a merchant-side reference, NOT the bank/UPI transaction ID.
+    return 'EPAY' +
+        Date.now().toString(36).toUpperCase() +
+        Math.random().toString(36).slice(2, 8).toUpperCase();
+}
+
+function getPendingPayment() {
+    try {
+        const raw = sessionStorage.getItem('pendingUPITransaction');
+        return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+        console.error('Invalid pending payment:', e);
+        sessionStorage.removeItem('pendingUPITransaction');
+        return null;
+    }
+}
+
+async function recordPaymentAttempt(action, pending, extra = {}) {
+    if (!pending) return;
+
+    const payload = {
+        action: action,
+        receiptNo: pending.receiptNo || '',
+        paymentRef: pending.transactionRef || '',
+        amount: Number(pending.amount || 0),
+        payeeUpiId: pending.upiId || '',
+        branchId: branchId || '',
+        homeId: homeId || '',
+        memberName: memberName || '',
+        clientTime: new Date().toISOString(),
+        ...extra
+    };
+
+    // Apps Script Web Apps may redirect; no-cors is intentionally used here.
+    // We do not use the response as proof of payment.
+    try {
+        await fetch(CONFIG.APPS_SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            keepalive: true
+        });
+    } catch (e) {
+        console.warn('Payment audit call failed:', e);
+    }
+}
+
+function clearPaymentMonitoring() {
+    if (upiVisibilityHandler) {
+        document.removeEventListener('visibilitychange', upiVisibilityHandler);
+        upiVisibilityHandler = null;
+    }
+
+    if (verificationCheckInterval) {
+        clearInterval(verificationCheckInterval);
+        verificationCheckInterval = null;
+    }
+
+    if (upiReturnTimer) {
+        clearTimeout(upiReturnTimer);
+        upiReturnTimer = null;
+    }
+}
+
+function buildUpiIntent(upiId, bankingName, amount, receiptNo, transactionRef) {
+    const params = new URLSearchParams({
+        pa: upiId,
+        pn: bankingName || 'Payee',
+        am: Number(amount).toFixed(2),
+        cu: 'INR',
+        tn: receiptNo || 'Payment',
+        tr: transactionRef
+    });
+
+    // Do NOT add a fake browser callback URL.
+    // UPI intent is not a guaranteed browser callback protocol.
+    return 'upi://pay?' + params.toString();
+}
+
+async function createPendingPayment() {
+    const upiId = receiptUpiId;
+    const bankingName = receiptBankingName || 'Payee';
+    const amount = parseFloat(document.getElementById('receiptAmount').value) || 0;
+    const receiptNo = document.getElementById('receiptIdValue').textContent.trim();
+
+    if (!upiId || amount <= 0 || !receiptNo) {
+        throw new Error('Payment information is incomplete.');
+    }
+
+    const transactionRef = generateTransactionRef();
+
+    pendingTransaction = {
+        receiptNo,
+        amount,
+        upiId,
+        bankingName,
+        transactionRef,
+        startedAt: Date.now(),
+        status: 'initiated'
+    };
+
+    sessionStorage.setItem(
+        'pendingUPITransaction',
+        JSON.stringify(pendingTransaction)
+    );
+
+    await recordPaymentAttempt('CREATE_PAYMENT_ATTEMPT', pendingTransaction, {
+        status: 'INITIATED'
+    });
+
+    return pendingTransaction;
+}
+
+async function openUpiAppWithVerification() {
+    if (upiPaymentStarted) {
+        showToast('A payment session is already active.', 'info');
+        return;
+    }
+
+    const amount = parseFloat(document.getElementById('receiptAmount').value) || 0;
+
+    if (!calculateBalance() || amount <= 0) {
+        showToast('Please enter a valid payment amount.', 'error');
+        return;
+    }
+
+    if (!receiptUpiId) {
+        showToast('UPI ID is not configured. Please contact admin.', 'error');
+        return;
+    }
+
+    let pending;
+    try {
+        pending = await createPendingPayment();
+    } catch (error) {
+        console.error('Unable to create payment attempt:', error);
+        showToast('Could not start the payment securely. Please try again.', 'error');
+        return;
+    }
+
+    const upiIntent = buildUpiIntent(
+        pending.upiId,
+        pending.bankingName,
+        pending.amount,
+        pending.receiptNo,
+        pending.transactionRef
+    );
+
+    upiPaymentStarted = true;
+    paymentReturnHandled = false;
+
+    console.log('UPI intent created:', {
+        merchantReference: pending.transactionRef,
+        amount: pending.amount,
+        payee: pending.upiId,
+        receiptNo: pending.receiptNo
+    });
+
+    showToast('Opening your UPI app. Complete the payment there.', 'info');
+
+    setupPaymentReturnMonitoring(pending);
+
+    // Use a direct same-tab navigation for mobile reliability.
+    // The browser/OS chooses the installed UPI application.
+    try {
+        window.location.href = upiIntent;
+    } catch (e) {
+        console.error('UPI launch error:', e);
+        showToast(
+            'Unable to open a UPI app. Use Show QR instead.',
+            'error'
+        );
+    }
+}
+
+function setupPaymentReturnMonitoring(pending) {
+    clearPaymentMonitoring();
+
+    const onReturn = () => {
+        if (document.visibilityState !== 'visible' || paymentReturnHandled) {
+            return;
+        }
+
+        paymentReturnHandled = true;
+
+        setTimeout(() => {
+            handlePaymentReturn(pending);
+        }, 800);
+    };
+
+    upiVisibilityHandler = onReturn;
+    document.addEventListener('visibilitychange', upiVisibilityHandler);
+
+    // pageshow also covers some mobile browser/app-switch behavior.
+    window.addEventListener('pageshow', onReturn, { once: true });
+
+    // Do not repeatedly display a confirmation dialog every 2 seconds.
+    // After 90 seconds, provide a deterministic manual status screen.
+    upiReturnTimer = setTimeout(() => {
+        if (!paymentReturnHandled && getPendingPayment()) {
+            paymentReturnHandled = true;
+            handlePaymentReturn(pending);
+        }
+    }, 90000);
+}
+
+async function handlePaymentReturn(pending) {
+    if (!pending) {
+        pending = getPendingPayment();
+    }
+
+    if (!pending) {
+        upiPaymentStarted = false;
+        clearPaymentMonitoring();
+        return;
+    }
+
+    clearPaymentMonitoring();
+
+    await recordPaymentAttempt('PAYMENT_RETURNED', pending, {
+        status: 'RETURNED_TO_BROWSER'
+    });
+
+    const result = await Swal.fire({
+        title: 'Returned from UPI app',
+        html: `
+            <div style="text-align:left;">
+                <p><strong>Amount:</strong> ₹${Number(pending.amount).toFixed(2)}</p>
+                <p><strong>Payee:</strong> ${escapeHtml(pending.bankingName || '')}</p>
+                <p><strong>UPI ID:</strong> ${escapeHtml(pending.upiId || '')}</p>
+                <p><strong>Payment reference:</strong> ${escapeHtml(pending.transactionRef || '')}</p>
+                <hr>
+                <div style="background:#fff7ed;border:1px solid #fdba74;border-radius:8px;padding:10px;font-size:.88rem;">
+                    <strong>Security notice:</strong><br>
+                    Returning from the UPI app does not prove that the payment succeeded.
+                    The actual UPI transaction ID/UTR must come from the payment confirmation
+                    screen or from a trusted payment gateway/bank verification service.
+                </div>
+            </div>
+        `,
+        icon: 'info',
+        showDenyButton: true,
+        showCancelButton: true,
+        confirmButtonText: 'Payment succeeded — Upload proof',
+        denyButtonText: 'Payment failed / cancelled',
+        cancelButtonText: 'I need more time',
+        confirmButtonColor: '#16a34a',
+        denyButtonColor: '#dc2626',
+        cancelButtonColor: '#64748b',
+        allowOutsideClick: false
+    });
+
+    if (result.isConfirmed) {
+        await recordPaymentAttempt('PAYMENT_PROOF_REQUESTED', pending, {
+            status: 'PROOF_REQUESTED'
+        });
+
+        await showSuccessProofDialog(pending);
+        return;
+    }
+
+    if (result.isDenied) {
+        await recordPaymentAttempt('PAYMENT_CANCELLED', pending, {
+            status: 'CANCELLED'
+        });
+
+        upiPaymentStarted = false;
+        sessionStorage.removeItem('pendingUPITransaction');
+        showToast('Payment was not confirmed. You can try again or use QR.', 'info');
+        toggleQrCode();
+        return;
+    }
+
+    // Keep the transaction pending. The user can return later.
+    upiPaymentStarted = false;
+    showToast(
+        'Payment remains pending. Complete it in the UPI app, then return here.',
+        'info'
+    );
 }
 
 // ================= SUCCESS PROOF DIALOG =================
@@ -1624,19 +2628,52 @@ function resetForm() {
 }
 
 // ================= CHECK PENDING TRANSACTION ON LOAD =================
-function checkPendingTransaction(){
-    const pending=sessionStorage.getItem('pendingUPITransaction');
-    if(!pending)return;
-    try{
-        const data=JSON.parse(pending);
-        if(data.paymentLinkId){
-            const elapsed=Date.now()-Number(data.startedAt||0);
-            if(elapsed<CONFIG.PAYMENT_POLL_MAX_MS*2){
-                showToast('A payment is still being checked with the payment provider.','info');
-                setTimeout(()=>startGatewayPaymentPolling(data.paymentLinkId),800);
-            }else sessionStorage.removeItem('pendingUPITransaction');
-        }else sessionStorage.removeItem('pendingUPITransaction');
-    }catch(e){sessionStorage.removeItem('pendingUPITransaction');}
+function checkPendingTransaction() {
+    const pending = getPendingPayment();
+
+    if (!pending) return;
+
+    const elapsed = Date.now() - Number(pending.startedAt || 0);
+
+    // Keep pending attempts for up to 15 minutes.
+    if (!pending.startedAt || elapsed > 15 * 60 * 1000) {
+        sessionStorage.removeItem('pendingUPITransaction');
+        return;
+    }
+
+    Swal.fire({
+        title: 'Pending payment found',
+        html: `
+            <p style="font-size:.9rem;">
+                A UPI payment attempt for
+                <strong>₹${Number(pending.amount || 0).toFixed(2)}</strong>
+                is still open.
+            </p>
+            <p style="font-size:.8rem;color:#64748b;">
+                Do not treat this reference as the bank transaction ID.
+            </p>
+        `,
+        icon: 'info',
+        showCancelButton: true,
+        confirmButtonText: 'Continue payment',
+        cancelButtonText: 'Discard attempt',
+        confirmButtonColor: '#0f3b6a',
+        allowOutsideClick: false
+    }).then(async result => {
+        if (result.isConfirmed) {
+            upiPaymentStarted = true;
+            paymentReturnHandled = false;
+            await recordPaymentAttempt('PAYMENT_RESUMED', pending, {
+                status: 'RESUMED'
+            });
+            openUpiAppWithVerification();
+        } else {
+            await recordPaymentAttempt('PAYMENT_DISCARDED', pending, {
+                status: 'DISCARDED'
+            });
+            sessionStorage.removeItem('pendingUPITransaction');
+        }
+    });
 }
 
 // ================= INIT =================
@@ -1663,13 +2700,11 @@ async function init() {
     showLoading(true, 'Loading data...');
     
     try {
-        const formData = await fetchFormDataFromBackend();
-        const categories = Array.isArray(formData.categories) ? formData.categories : [];
-        const years = Array.isArray(formData.financialYears) ? formData.financialYears : [];
-        const upiDetails = {
-            upiId: formData.upiId || '',
-            bankingName: formData.bankingName || ''
-        };
+        const [categories, years, upiDetails] = await Promise.all([
+            fetchReceiptCategories(),
+            fetchFinancialYears(),
+            fetchUpiDetails()
+        ]);
         
         receiptCategories = categories;
         financialYears = years;
