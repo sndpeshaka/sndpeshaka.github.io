@@ -577,6 +577,10 @@
             <div style="font-size:0.85rem;font-weight:600;color:#0f3b6a;margin-bottom:10px;">
                 <i class="bi bi-qr-code"></i> Scan to Pay
             </div>
+            <div class="small text-muted mt-2">
+                Receipt number is included in the UPI payment note for easier payment matching.
+            </div>
+
             <img id="upiQrImage"
                  src="https://sndpeshaka.github.io/member/app/upi/upi.png"
                  alt="UPI QR Code"
@@ -966,10 +970,36 @@
 
     // ================= GENERATE QR CODE =================
     function generateUpiQR(upiId, amount, receiptNo) {
-        const upiString = `upi://pay?pa=${encodeURIComponent(upiId)}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(receiptNo)}`;
-        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiString)}`;
-        
-        document.getElementById('qrCode').innerHTML = `<img src="${qrUrl}" alt="UPI QR Code" class="qr-code-img">`;
+        const safeUpiId = String(upiId || '').trim();
+        const safeAmount = Number(amount || 0).toFixed(2);
+
+        // Put the generated receipt number into UPI's transaction-note (tn).
+        // Keep it compact and URL-safe for broad UPI-app compatibility.
+        const note = String(receiptNo || 'UPI Payment')
+            .replace(/[^A-Za-z0-9._-]/g, '')
+            .slice(0, 80);
+
+        const upiString =
+            `upi://pay?pa=${safeUpiId}` +
+            `&am=${safeAmount}` +
+            `&cu=INR` +
+            `&tn=${note}`;
+
+        const qrUrl =
+            `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(upiString)}`;
+
+        const img = document.getElementById('upiQrImage');
+        if (img) {
+            img.src = qrUrl;
+            img.alt = `UPI payment QR for receipt ${receiptNo}`;
+        }
+
+        // Keep a copy for debugging / display if needed.
+        const qrContainer = document.getElementById('qrCode');
+        if (qrContainer) {
+            qrContainer.innerHTML =
+                `<img src="${qrUrl}" alt="UPI QR Code for receipt ${receiptNo}" class="qr-code-img">`;
+        }
     }
 
     function toggleQrCode() {
@@ -1533,4 +1563,4 @@ function convertToJpegDataUrl(base64Data, mimeType) {
     });
 </script>
 </body>
-</html>
+    </html>
