@@ -140,7 +140,7 @@ button{
 
   <section class="card" id="masterCard">
     <div class="section-head">
-      <div><h2>ഗൃഹ വിവരങ്ങൾ</h2><p>വീട്ടു നമ്പർ നൽകിയാൽ നിലവിലുള്ള വിവരങ്ങൾ യാന്ത്രികമായി പൂരിപ്പിക്കും</p></div>
+      <div><h2>ഗൃഹ വിവരങ്ങൾ</h2><p>വീട്ടു നമ്പർ നൽകിയാൽ വിവരങ്ങൾ പരിശോധിച്ച് പൂരിപ്പിക്കും</p></div>
       <span class="badge">Master</span>
     </div>
 
@@ -151,7 +151,7 @@ button{
       </div>
       <div class="field">
         <input id="homeId" placeholder=" " autocomplete="off">
-        <label for="homeId">വീട്ടു നമ്പർ</label>
+        <label for="homeId">ശാഖാ വീട്ടു നമ്പർ</label>
         <div class="hint">വീട്ടു നമ്പർ ടൈപ്പ് ചെയ്യുമ്പോൾ തന്നെ വിവരങ്ങൾ പരിശോധിച്ച് പൂരിപ്പിക്കും</div>
       </div>
 
@@ -203,8 +203,8 @@ button{
 
     <div id="homeNotice" class="notice"></div>
     <div class="actions">
-      <button class="btn-primary" id="checkHome">വീട്ടു വിവരങ്ങൾ സംരക്ഷിക്കുക / പരിശോധിക്കുക</button>
-      <button class="btn-light" id="testConn">🔌 ബന്ധം പരിശോധിക്കുക</button>
+      <button class="btn-primary" id="checkHome">വീട്ടു വിവരങ്ങൾ ചേർക്കുക</button>
+      <button class="btn-light" id="testConn"> പരിശോധിക്കുക</button>
     </div>
   </section>
 
@@ -218,7 +218,7 @@ button{
 
     <div id="emptyMember" class="member-title">
       <strong>ഗൃഹ നാഥൻ /ഗൃഹനാഥ യുടെ വിവരമാണ് ആദ്യം നൽകേണ്ടത്</strong>
-      <span>താഴെയുള്ള ബട്ടൺ അമർത്തി ആദ്യ അംഗത്തിന്റെ വിവരങ്ങൾ ചേർക്കുക</span>
+      <span>താഴെയുള്ള ബട്ടൺ ക്ലിക്ക് ചെയ്തു ആദ്യ അംഗത്തിന്റെ വിവരങ്ങൾ ചേർക്കുക</span>
     </div>
 
     <button class="btn-primary btn-wide" id="addMember">＋ അംഗത്തിന്റെ വിവരങ്ങൾ ചേർക്കുക</button>
@@ -250,15 +250,15 @@ button{
       <div class="camera" id="cameraBox">
         <video id="video" playsinline autoplay muted style="display:none"></video>
         <img id="photoPreview" alt="Captured photo" style="display:none">
-        <div class="placeholder" id="cameraPlaceholder">📷<br>ഫോട്ടോ എടുക്കാൻ അമർത്തുക</div>
+        <div class="placeholder" id="cameraPlaceholder">📷<br>ഫോട്ടോ എടുക്കാൻ ഇവിടെ ക്ലിക്ക് ചെയ്യുക.</div>
       </div>
     </div>
     <div class="actions" style="margin-top:-5px;margin-bottom:14px">
       <button class="btn-light" id="cameraBtn">📷 ഫോട്ടോ എടുക്കുക</button>
-      <button class="btn-light" id="locationBtn">📍 സ്ഥലം എടുക്കുക</button>
+      <button class="btn-light" id="locationBtn">📍 MAP Location എടുക്കുക</button>
       <input id="photoInput" type="file" accept="image/*" capture="user" style="display:none">
     </div>
-    <div class="location-status" id="locationStatus">സ്ഥലം ഇതുവരെ എടുത്തിട്ടില്ല</div>
+    <div class="location-status" id="locationStatus">MAP Location ഇതുവരെ എടുത്തിട്ടില്ല</div>
 
     <div class="grid" style="margin-top:14px">
       <div class="field full">
@@ -283,7 +283,7 @@ button{
       </div>
       <div class="field">
         <input id="mContact" type="tel" inputmode="numeric" maxlength="10" placeholder=" ">
-        <label for="mContact">ബന്ധപ്പെടാനുള്ള നമ്പർ</label>
+        <label for="mContact">വാട്സ്ആപ്പ് /മൊബൈൽ നമ്പർ</label>
       </div>
       <div class="field">
         <select id="mEducation" required>
@@ -305,13 +305,13 @@ button{
       </div>
       <div class="field">
         <select id="mBloodGroup">
-          <option value="" selected>തിരഞ്ഞെടുക്കുക (ഐച്ഛികം)</option>
+          <option value="" selected>തിരഞ്ഞെടുക്കുക</option>
         </select>
         <label for="mBloodGroup">രക്ത ഗ്രൂപ്പ്‌</label>
       </div>
       <div class="field">
         <select id="mBirthStar">
-          <option value="" selected>തിരഞ്ഞെടുക്കുക (ഐച്ഛികം)</option>
+          <option value="" selected>തിരഞ്ഞെടുക്കുക</option>
         </select>
         <label for="mBirthStar">ജന്മ നക്ഷത്രം</label>
       </div>
@@ -754,8 +754,8 @@ async function loadDropdownData() {
   populateSelect("mEducation", data.education);
   populateSelect("mJob", data.job);
   populateSelect("mMarital", data.marital);
-  populateSelect("mBloodGroup", data.bloodGroup, "തിരഞ്ഞെടുക്കുക (ഐച്ഛികം)");
-  populateSelect("mBirthStar", data.birthStar, "തിരഞ്ഞെടുക്കുക (ഐച്ഛികം)");
+  populateSelect("mBloodGroup", data.bloodGroup, "തിരഞ്ഞെടുക്കുക");
+  populateSelect("mBirthStar", data.birthStar, "തിരഞ്ഞെടുക്കുക");
 
   isDropdownsLoaded = true;
 
@@ -826,7 +826,7 @@ function fillFormFromMaster(homeData) {
   showNotice(
     $("homeNotice"),
     "ok",
-    `✅ വീട്ടു നമ്പർ ${escapeHtml(homeData.homeId)} നിലവിലുണ്ട്. വിവരങ്ങൾ പൂരിപ്പിച്ചു.`
+    `✅ വീട്ടു നമ്പർ ${escapeHtml(homeData.homeId)} നിലവിലുണ്ട്. മറ്റു വിവരങ്ങൾ പൂരിപ്പിച്ചു.`
   );
 
   $("membersCard").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -901,12 +901,12 @@ async function submitMasterData() {
       "ok",
       result.fallback
         ? `✅ വിവരങ്ങൾ സമർപ്പിച്ചു. വീട്ടു നമ്പർ: ${escapeHtml(homeId)}`
-        : `✅ ഗൃഹ വിവരങ്ങൾ വിജയകരമായി സംരക്ഷിച്ചു! (${result.action || "SAVED"})`
+        : `✅ ഗൃഹ വിവരങ്ങൾ വിജയകരമായി ചേർത്തു! (${result.action || "SAVED"})`
     );
     return true;
   } catch (error) {
     console.error("❌ Master submission error:", error);
-    showNotice($("homeNotice"), "err", `❌ സംരക്ഷിക്കുന്നതിൽ പിശക്: ${escapeHtml(error.message)}`);
+    showNotice($("homeNotice"), "err", `❌ ചേർക്കുന്നതിൽ പിഴവ് സംഭവിച്ചു: ${escapeHtml(error.message)}`);
     return false;
   } finally {
     isSubmitting = false;
@@ -984,7 +984,7 @@ async function lookupHomeOnInput() {
 // ============================================================
 
 async function testConnection() {
-  showNotice($("homeNotice"), "info", "🔌 ബന്ധം പരിശോധിക്കുന്നു...");
+  showNotice($("homeNotice"), "info", " പരിശോധിക്കുന്നു...");
 
   try {
     const response = await fetch(CONFIG.APPS_SCRIPT_URL + "?action=health&_=" + Date.now(), {
@@ -1025,7 +1025,7 @@ function resetMemberForm() {
   $("photoPreview").style.display = "none";
   $("video").style.display = "none";
   $("cameraPlaceholder").style.display = "grid";
-  $("locationStatus").textContent = "സ്ഥലം ഇതുവരെ എടുത്തിട്ടില്ല";
+  $("locationStatus").textContent = "സ്ഥല വിവരം (Location Data )ഇതുവരെ എടുത്തിട്ടില്ല";
   if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
   $("cameraBtn").textContent = "📷 ഫോട്ടോ എടുക്കുക";
   $("mEmail").style.borderColor = "";
@@ -1034,7 +1034,7 @@ function resetMemberForm() {
 function openMember() {
   const home = val("homeId");
   if (!home) {
-    showNotice($("homeNotice"), "warn", "അംഗത്തെ ചേർക്കുന്നതിന് മുമ്പ് വീട്ടു നമ്പർ നൽകുക.");
+    showNotice($("homeNotice"), "warn", "അംഗത്തെ ചേർക്കുന്നതിന് മുമ്പ് ശാഖാ വീട്ടു നമ്പർ നൽകുക.");
     $("homeId").focus();
     return;
   }
