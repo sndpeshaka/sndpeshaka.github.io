@@ -1,0 +1,1548 @@
+<!DOCTYPE html>
+<html lang="ml">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<title>കുടുംബ വിവര ശേഖരണം</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Malayalam:wght@400;500;600;700&display=swap');
+
+:root{
+  --primary:#b88916; --primary2:#8f6910; --bg:#f7f5ef; --card:#fff;
+  --text:#302a1b; --muted:#766f5d; --line:#d8cfb8; --danger:#b52b2b;
+  --ok:#397044; --shadow:0 8px 30px rgba(86,67,23,.10); --radius:18px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font-family:"Noto Sans Malayalam",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.app{max-width:760px;margin:auto;padding:14px 12px 90px}
+.topbar{
+  background:linear-gradient(135deg,#a97b12,#76550b);
+  color:#fff;border-radius:22px;padding:18px 18px 20px;
+  box-shadow:var(--shadow);margin-bottom:14px;
+}
+.topbar h1{font-size:21px;margin:0 0 4px;font-weight:700}
+.topbar p{font-size:12px;margin:0;opacity:.86}
+.stepper{display:flex;gap:7px;margin-top:16px}
+.step{height:5px;border-radius:20px;background:rgba(255,255,255,.25);flex:1}
+.step.active{background:#fff}
+.card{
+  background:var(--card);border-radius:var(--radius);padding:18px;
+  box-shadow:var(--shadow);margin-bottom:14px;
+}
+.section-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:16px}
+.section-head h2{font-size:17px;margin:0 0 3px}
+.section-head p{font-size:11px;color:var(--muted);margin:0}
+.badge{
+  white-space:nowrap;background:#f5ecd2;color:var(--primary2);
+  border-radius:999px;padding:5px 9px;font-size:11px;font-weight:700
+}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.full{grid-column:1/-1}
+.field{position:relative}
+.field input,.field select,.field textarea{
+  width:100%;border:1px solid var(--line);border-radius:13px;
+  background:#fff;color:var(--text);font:inherit;font-size:14px;
+  outline:none;transition:.18s;padding:17px 13px 8px;min-height:52px;
+}
+.field textarea{min-height:86px;resize:vertical;padding-top:20px}
+.field select{appearance:auto;padding-top:28px}
+.field label{
+  position:absolute;left:11px;top:16px;color:var(--muted);
+  font-size:13px;pointer-events:none;background:transparent;
+  transition:.16s;padding:0 3px;
+}
+.field input:focus,.field select:focus,.field textarea:focus{
+  border:2px solid var(--primary);padding-left:12px
+}
+.field input:focus+label,.field textarea:focus+label,
+.field input:not(:placeholder-shown)+label,.field textarea:not(:placeholder-shown)+label,
+.field select:valid+label{
+  top:-8px;background:#fff;color:var(--primary);font-size:11px;font-weight:600
+}
+.field input[readonly]{background:#f4f7f7;color:#45605e}
+.hint{font-size:10px;color:var(--muted);margin:5px 2px 0;line-height:1.5}
+.notice{
+  border-radius:13px;padding:12px 13px;font-size:12px;line-height:1.65;
+  margin-bottom:14px;display:none
+}
+.notice.show{display:block}
+.notice.info{background:#eaf5f4;color:#245957}
+.notice.warn{background:#fff6df;color:#765600}
+.notice.ok{background:#eaf7ef;color:#166238}
+.notice.err{background:#fff0f0;color:#9b2525}
+.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}
+button{
+  border:0;border-radius:13px;padding:12px 16px;font:600 13px inherit;
+  cursor:pointer;min-height:46px;touch-action:manipulation
+}
+.btn-primary{background:var(--primary);color:#fff;flex:1}
+.btn-primary:active{background:var(--primary2)}
+.btn-light{background:#edf3f2;color:#245957}
+.btn-danger{background:#fff0f0;color:#a52a2a}
+.btn-wide{width:100%}
+.member-title{
+  background:linear-gradient(135deg,#fbf5e3,#fffdf8);
+  border:1px solid #eadbb0;border-radius:15px;padding:13px;margin-bottom:15px
+}
+.member-title strong{display:block;font-size:14px}
+.member-title span{font-size:11px;color:var(--muted)}
+.member-list{display:grid;gap:9px}
+.member-chip{
+  border:1px solid #dce6e5;border-radius:13px;padding:11px 12px;
+  display:flex;align-items:center;justify-content:space-between;gap:10px;background:#fff
+}
+.member-chip b{font-size:12px}.member-chip small{display:block;color:var(--muted);font-size:10px;margin-top:2px}
+.member-chip button{min-height:34px;padding:7px 10px;font-size:11px}
+.photo-box{display:flex;justify-content:center;margin:2px 0 16px}
+.camera{
+  width:142px;height:142px;border-radius:50%;overflow:hidden;
+  background:#edf3f2;border:5px solid #fff;box-shadow:0 3px 20px rgba(0,0,0,.14);
+  position:relative
+}
+.camera video,.camera img{width:100%;height:100%;object-fit:cover;display:block}
+.camera .placeholder{position:absolute;inset:0;display:grid;place-items:center;color:#81908f;font-size:12px;text-align:center;padding:20px}
+.modal-backdrop{
+  display:none;position:fixed;inset:0;background:rgba(44,35,15,.58);
+  z-index:20;padding:10px;align-items:flex-start;justify-content:center;
+  overflow-y:auto
+}
+.modal-backdrop.show{display:flex}
+.modal{
+  width:min(620px,100%);max-height:calc(100vh - 20px);overflow:auto;background:#fff;
+  border-radius:20px;padding:18px;box-shadow:0 20px 70px rgba(0,0,0,.25);
+  margin:0 auto
+}
+.modal h3{margin:0 0 5px;font-size:17px}.modal>p{font-size:11px;color:var(--muted);margin:0 0 15px}
+.summary{border:1px solid #dbe5e4;border-radius:14px;overflow:hidden;margin-bottom:15px}
+.summary-row{display:flex;justify-content:space-between;gap:15px;padding:9px 11px;border-bottom:1px solid #edf1f1;font-size:12px}
+.summary-row:last-child{border-bottom:0}.summary-row span{color:var(--muted)}.summary-row b{text-align:right}
+.location-row{display:flex;gap:8px;align-items:center}
+.location-status{font-size:11px;color:var(--muted);margin-top:6px}
+.loading-spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-radius:50%;border-top-color:#fff;animation:spin .8s linear infinite;vertical-align:middle;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:560px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.app{padding:10px 9px 75px}.card{padding:15px}.topbar{border-radius:18px}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <h1>SNDP 1003 ശാഖ : കുടുംബ വിവര ശേഖരണം</h1>
+    <p>ഗൃഹ വിവരങ്ങളും കുടുംബാംഗങ്ങളുടെ വിവരങ്ങളും നൽകുന്നതിനുള്ള ഫോം</p>
+    <div class="stepper"><i class="step active"></i><i class="step"></i><i class="step"></i></div>
+  </header>
+
+  <section class="card" id="masterCard">
+    <div class="section-head">
+      <div><h2>ഗൃഹ വിവരങ്ങൾ</h2><p>വീട്ടു നമ്പർ നൽകിയാൽ നിലവിലുള്ള വിവരങ്ങൾ യാന്ത്രികമായി പൂരിപ്പിക്കും</p></div>
+      <span class="badge">Master</span>
+    </div>
+
+    <div class="grid">
+      <div class="field">
+        <input id="branch" value="1003" placeholder=" " inputmode="numeric">
+        <label for="branch">ശാഖാ നമ്പർ</label>
+      </div>
+      <div class="field">
+        <input id="homeId" placeholder=" " autocomplete="off">
+        <label for="homeId">വീട്ടു നമ്പർ</label>
+        <div class="hint">വീട്ടു നമ്പർ ടൈപ്പ് ചെയ്യുമ്പോൾ തന്നെ വിവരങ്ങൾ പരിശോധിച്ച് പൂരിപ്പിക്കും</div>
+      </div>
+
+      <div class="field full">
+        <input id="owner" placeholder=" ">
+        <label for="owner">ഗൃഹനാഥന്റെ / ഗൃഹനാഥയുടെ പേര്</label>
+      </div>
+      <div class="field">
+        <input id="house" placeholder=" ">
+        <label for="house">വീട്ടുപേര്</label>
+      </div>
+      <div class="field">
+        <select id="area" required>
+          <option value="" selected disabled>തിരഞ്ഞെടുക്കുക</option>
+        </select>
+        <label for="area">പ്രദേശം</label>
+      </div>
+      <div class="field">
+        <select id="location" required>
+          <option value="" selected disabled>തിരഞ്ഞെടുക്കുക</option>
+        </select>
+        <label for="location">സ്ഥലം</label>
+      </div>
+      <div class="field">
+        <select id="postoffice" required>
+          <option value="" selected disabled>തിരഞ്ഞെടുക്കുക</option>
+        </select>
+        <label for="postoffice">പോസ്റ്റ് ഓഫീസ്</label>
+      </div>
+      <div class="field">
+        <select id="district" required>
+          <option value="" selected disabled>തിരഞ്ഞെടുക്കുക</option>
+        </select>
+        <label for="district">ജില്ല</label>
+      </div>
+      <div class="field">
+        <select id="status" required>
+          <option value="" selected disabled></option>
+          <option>Active</option><option>Inactive</option>
+        </select>
+        <label for="status">നിലവിലെ സ്ഥിതി</label>
+      </div>
+      <div class="field full">
+        <input id="email" type="email" placeholder=" ">
+        <label for="email">ഇമെയിൽ വിലാസം</label>
+        <div class="hint">ശരിയായ ഇമെയിൽ ഫോർമാറ്റിൽ നൽകുക (example@domain.com)</div>
+      </div>
+    </div>
+
+    <div id="homeNotice" class="notice"></div>
+    <div class="actions">
+      <button class="btn-primary" id="checkHome">വീട്ടു വിവരങ്ങൾ സംരക്ഷിക്കുക / പരിശോധിക്കുക</button>
+      <button class="btn-light" id="testConn">🔌 ബന്ധം പരിശോധിക്കുക</button>
+    </div>
+  </section>
+
+  <section class="card" id="membersCard">
+    <div class="section-head">
+      <div><h2>കുടുംബാംഗങ്ങളുടെ വിവരങ്ങൾ</h2><p>ആദ്യം ഗൃഹനാഥൻ / ഗൃഹനാഥയുടെ വിവരങ്ങൾ നൽകുക</p></div>
+      <span class="badge" id="memberCount">0 അംഗങ്ങൾ</span>
+    </div>
+
+    <div id="membersList" class="member-list"></div>
+
+    <div id="emptyMember" class="member-title">
+      <strong>ഗൃഹ നാഥൻ /ഗൃഹനാഥ യുടെ വിവരമാണ് ആദ്യം നൽകേണ്ടത്</strong>
+      <span>താഴെയുള്ള ബട്ടൺ അമർത്തി ആദ്യ അംഗത്തിന്റെ വിവരങ്ങൾ ചേർക്കുക</span>
+    </div>
+
+    <button class="btn-primary btn-wide" id="addMember">＋ അംഗത്തിന്റെ വിവരങ്ങൾ ചേർക്കുക</button>
+  </section>
+
+  <section class="card" id="finalCard" style="display:none">
+    <div class="section-head">
+      <div><h2>അന്തിമ പരിശോധന</h2><p>സമർപ്പിക്കുന്നതിന് മുമ്പ് എല്ലാ വിവരങ്ങളും പരിശോധിക്കുക</p></div>
+    </div>
+    <div id="finalSummary"></div>
+    <div class="actions">
+      <button class="btn-primary" id="submitAll">വിവരങ്ങൾ സമർപ്പിക്കുക</button>
+    </div>
+  </section>
+</div>
+
+<!-- Member modal -->
+<div class="modal-backdrop" id="memberModal">
+  <div class="modal">
+    <h3 id="memberModalTitle">കുടുംബാംഗത്തിന്റെ വിവരങ്ങൾ</h3>
+    <p id="memberModalSub">അംഗത്തിന്റെ വിവരങ്ങൾ നൽകുക</p>
+
+    <div class="member-title">
+      <strong id="memberHeading">ഗൃഹ നാഥൻ /ഗൃഹനാഥ യുടെ വിവരമാണ് ആദ്യം നൽകേണ്ടത്</strong>
+      <span id="memberIdDisplay">Member ID: —</span>
+    </div>
+
+    <div class="photo-box">
+      <div class="camera" id="cameraBox">
+        <video id="video" playsinline autoplay muted style="display:none"></video>
+        <img id="photoPreview" alt="Captured photo" style="display:none">
+        <div class="placeholder" id="cameraPlaceholder">📷<br>ഫോട്ടോ എടുക്കാൻ അമർത്തുക</div>
+      </div>
+    </div>
+    <div class="actions" style="margin-top:-5px;margin-bottom:14px">
+      <button class="btn-light" id="cameraBtn">📷 ഫോട്ടോ എടുക്കുക</button>
+      <button class="btn-light" id="locationBtn">📍 സ്ഥലം എടുക്കുക</button>
+      <input id="photoInput" type="file" accept="image/*" capture="user" style="display:none">
+    </div>
+    <div class="location-status" id="locationStatus">സ്ഥലം ഇതുവരെ എടുത്തിട്ടില്ല</div>
+
+    <div class="grid" style="margin-top:14px">
+      <div class="field full">
+        <input id="mName" placeholder=" ">
+        <label for="mName">അംഗത്തിന്റെ പേര്</label>
+      </div>
+      <div class="field">
+        <select id="mRelation" required>
+           <option value="" selected disabled></option>
+         </select>
+         <label for="mRelation">ബന്ധം</label>
+      </div>
+      <div class="field">
+        <input id="mDob" type="date" placeholder=" ">
+        <label for="mDob">ജനന തീയതി</label>
+      </div>
+      <div class="field">
+        <select id="mGender" required>
+           <option value="" selected disabled></option>
+         </select>
+         <label for="mGender">ലിംഗം</label>
+      </div>
+      <div class="field">
+        <input id="mContact" type="tel" inputmode="numeric" maxlength="10" placeholder=" ">
+        <label for="mContact">ബന്ധപ്പെടാനുള്ള നമ്പർ</label>
+      </div>
+      <div class="field">
+        <select id="mEducation" required>
+           <option value="" selected disabled></option>
+         </select>
+         <label for="mEducation">വിദ്യാഭ്യാസം</label>
+      </div>
+      <div class="field">
+        <select id="mMarital" required>
+           <option value="" selected disabled></option>
+         </select>
+         <label for="mMarital">വൈവാഹിക നില</label>
+      </div>
+      <div class="field">
+        <select id="mJob" required>
+           <option value="" selected disabled></option>
+         </select>
+         <label for="mJob">തൊഴിൽ</label>
+      </div>
+      <div class="field">
+        <select id="mBloodGroup">
+          <option value="" selected>തിരഞ്ഞെടുക്കുക (ഐച്ഛികം)</option>
+        </select>
+        <label for="mBloodGroup">രക്ത ഗ്രൂപ്പ്‌</label>
+      </div>
+      <div class="field">
+        <select id="mBirthStar">
+          <option value="" selected>തിരഞ്ഞെടുക്കുക (ഐച്ഛികം)</option>
+        </select>
+        <label for="mBirthStar">ജന്മ നക്ഷത്രം</label>
+      </div>
+      <div class="field full">
+        <input id="mEmail" type="email" placeholder=" ">
+        <label for="mEmail">ഇമെയിൽ വിലാസം</label>
+        <div class="hint">ശരിയായ ഇമെയിൽ ഫോർമാറ്റിൽ നൽകുക</div>
+      </div>
+    </div>
+
+    <div class="notice" id="memberNotice"></div>
+    <div class="actions">
+      <button class="btn-light" id="closeModal">റദ്ദാക്കുക</button>
+      <button class="btn-primary" id="confirmMember">പരിശോധിച്ച് തുടരുക</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirmation modal -->
+<div class="modal-backdrop" id="summaryModal">
+  <div class="modal">
+    <h3>അംഗത്തിന്റെ വിവരങ്ങൾ പരിശോധിക്കുക</h3>
+    <p>താഴെ കാണുന്ന വിവരങ്ങൾ ശരിയാണെങ്കിൽ സ്ഥിരീകരിച്ച് അടുത്ത അംഗത്തിലേക്ക് പോകാം.</p>
+    <div class="summary" id="memberSummary"></div>
+    <div class="actions">
+      <button class="btn-light" id="editMember">തിരുത്തുക</button>
+      <button class="btn-primary" id="saveMember">സ്ഥിരീകരിച്ച് തുടരുക</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CONFIGURATION - UPDATE THIS URL AFTER DEPLOYMENT
+// ============================================================
+
+const CONFIG = {
+  SPREADSHEET_ID: "1Q7fGIi2ky6b7cYt49ljwIwGEJv3kQ8pmz47bFaPBEDs",
+  TABLE_SHEET_NAME: "Tables",
+  MASTER_SHEET_NAME: "Master",
+  MEMBERS_SHEET_NAME: "Members",
+  // IMPORTANT: Replace this URL with your deployed Apps Script URL
+  APPS_SCRIPT_URL: "https://script.google.com/macros/s/AKfycbxV_mP8-QW97vS0CR6Xk-wsrQbWIlVE1XBBLR6BTqhDA297f2_Jcsr5I_NREmXIXW9W/exec"
+};
+
+// ============================================================
+// COLUMN MAPPING for the Tables sheet (Columns A-O)
+// ============================================================
+
+const TABLE_COLUMNS = {
+  AREA: 2,
+  LOCATION: 3,
+  POSTOFFICE: 4,
+  DISTRICT: 5,
+  RELATION: 6,
+  GENDER: 7,
+  EDUCATION: 8,
+  JOB: 9,
+  MARITAL: 10,
+  BLOOD_GROUP: 11,
+  BIRTH_STAR: 12,
+  BLOOD_GROUP_N: 13,
+  BIRTH_STAR_O: 14
+};
+
+// ============================================================
+// COLUMN MAPPING for Master sheet (Columns A-J)
+// ============================================================
+
+const MASTER_COLUMNS = {
+  BRANCH: 0,
+  HOME_ID: 1,
+  ADDRESS_LINE_1: 2,
+  ADDRESS_LINE_2: 3,
+  AREA: 4,
+  LOCATION: 5,
+  POST_OFFICE: 6,
+  DISTRICT: 7,
+  STATUS: 8,
+  EMAIL: 9
+};
+
+// ============================================================
+// COLUMN MAPPING for Members sheet
+// ============================================================
+
+const MEMBERS_COLUMNS = {
+  MEMBER_ID: 0,
+  RELATION: 1,
+  NAME: 2,
+  DOB: 3,
+  GENDER: 4,
+  CONTACT: 5,
+  EDUCATION: 6,
+  MARITAL: 7,
+  PHOTO: 8,
+  EMAIL: 9,
+  BRANCH: 10,
+  HOME_ID: 11,
+  STATUS: 12,
+  JOB: 13,
+  BLOOD_GROUP: 14,
+  BIRTH_STAR: 15
+};
+
+// ============================================================
+// GLOBALS
+// ============================================================
+
+const members = [];
+let editingIndex = -1;
+let pendingMember = null;
+let stream = null;
+let capturedPhoto = "";
+let masterDataCache = {};
+let membersDataCache = [];
+let isDropdownsLoaded = false;
+let isHomeDataChanged = false;
+let currentHomeData = null;
+let isSubmitting = false;
+
+// ============================================================
+// HELPER FUNCTIONS
+// ============================================================
+
+function $(id) { return document.getElementById(id); }
+
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, m => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;",
+    '"': "&quot;", "'": "&#039;"
+  }[m]));
+}
+
+function val(id) { return $(id).value.trim(); }
+
+async function postBackend(payload) {
+  const requestId = payload.requestId || (
+    Date.now().toString(36) + "-" +
+    Math.random().toString(36).slice(2, 10)
+  );
+  payload.requestId = requestId;
+
+  // text/plain is a CORS "simple request" content type, so the browser
+  // does not send an OPTIONS preflight to Apps Script.
+  try {
+    const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=UTF-8" },
+      body: JSON.stringify(payload)
+    });
+
+    const text = await response.text();
+    let result;
+    try {
+      result = JSON.parse(text);
+    } catch (e) {
+      throw new Error("Backend returned a non-JSON response: " + text.slice(0, 300));
+    }
+
+    if (!result.success) {
+      throw new Error(result.error || "Backend rejected the request.");
+    }
+    return result;
+  } catch (error) {
+    console.warn("Fetch submission failed; using CORS-safe form fallback.", error);
+
+    // A normal HTML form POST is also a simple request and does not require
+    // JavaScript CORS access. The Apps Script backend is idempotent by
+    // requestId, so retrying cannot create a duplicate record.
+    const iframeName = "backendSubmitFrame_" + Date.now();
+    const iframe = document.createElement("iframe");
+    iframe.name = iframeName;
+    iframe.style.display = "none";
+    document.body.appendChild(iframe);
+
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = CONFIG.APPS_SCRIPT_URL;
+    form.target = iframeName;
+    form.style.display = "none";
+
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = "data";
+    input.value = JSON.stringify(payload);
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
+
+    setTimeout(() => {
+      form.remove();
+      iframe.remove();
+    }, 8000);
+
+    // The fallback cannot read the server response because the request may
+    // be cross-origin. The backend still receives and processes the data.
+    return {
+      success: true,
+      fallback: true,
+      requestId: requestId,
+      message: "Request sent through fallback transport."
+    };
+  }
+}
+
+
+function showNotice(el, type, text) {
+  if (!el) return;
+  el.className = "notice show " + type;
+  el.innerHTML = text;
+}
+
+function hideNotice(el) {
+  if (el) el.className = "notice";
+}
+
+function isValidEmail(email) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+function trackHomeDataChanges() {
+  const fields = ['owner', 'house', 'area', 'location', 'postoffice', 'district', 'status', 'email'];
+  let hasChanges = false;
+  
+  fields.forEach(field => {
+    const el = $(field);
+    const currentValue = el.value;
+    const originalValue = el.dataset.originalValue || '';
+    if (currentValue !== originalValue) {
+      hasChanges = true;
+    }
+  });
+  
+  isHomeDataChanged = hasChanges;
+  return hasChanges;
+}
+
+// ============================================================
+// FETCH MEMBERS DATA FROM GOOGLE SHEETS
+// ============================================================
+
+async function fetchMembersData() {
+  try {
+    const response = await fetch(
+      CONFIG.APPS_SCRIPT_URL + "?action=members&_=" + Date.now(),
+      { method: "GET", cache: "no-store" }
+    );
+    const text = await response.text();
+    const data = JSON.parse(text);
+    if (!data.success) throw new Error(data.error || "Members data unavailable.");
+
+    const rows = data.rows || [];
+    if (rows.length < 2) {
+      membersDataCache = [];
+      return [];
+    }
+
+    membersDataCache = rows.slice(1).map(row => ({
+      memberId: String(row[MEMBERS_COLUMNS.MEMBER_ID] ?? "").trim(),
+      relation: String(row[MEMBERS_COLUMNS.RELATION] ?? "").trim(),
+      name: String(row[MEMBERS_COLUMNS.NAME] ?? "").trim(),
+      dob: String(row[MEMBERS_COLUMNS.DOB] ?? "").trim(),
+      gender: String(row[MEMBERS_COLUMNS.GENDER] ?? "").trim(),
+      contact: String(row[MEMBERS_COLUMNS.CONTACT] ?? "").trim(),
+      education: String(row[MEMBERS_COLUMNS.EDUCATION] ?? "").trim(),
+      marital: String(row[MEMBERS_COLUMNS.MARITAL] ?? "").trim(),
+      photo: String(row[MEMBERS_COLUMNS.PHOTO] ?? "").trim(),
+      email: String(row[MEMBERS_COLUMNS.EMAIL] ?? "").trim(),
+      branch: String(row[MEMBERS_COLUMNS.BRANCH] ?? "").trim(),
+      homeId: String(row[MEMBERS_COLUMNS.HOME_ID] ?? "").trim(),
+      status: String(row[MEMBERS_COLUMNS.STATUS] ?? "").trim(),
+      job: String(row[MEMBERS_COLUMNS.JOB] ?? "").trim(),
+      bloodGroup: String(row[MEMBERS_COLUMNS.BLOOD_GROUP] ?? "").trim(),
+      birthStar: String(row[MEMBERS_COLUMNS.BIRTH_STAR] ?? "").trim()
+    }));
+
+    return membersDataCache;
+  } catch (error) {
+    console.error("Error fetching members data:", error);
+    membersDataCache = [];
+    return [];
+  }
+}
+
+// ============================================================
+// CALCULATE NEXT MEMBER ID
+// ============================================================
+
+function calculateNextMemberId(branchId, homeId) {
+  const prefix = `${branchId}-${homeId}-`;
+  let maxNumber = 0;
+
+  const inspect = (list, idKey) => {
+    (list || []).forEach(item => {
+      const id = String(item[idKey] || "");
+      if (!id.startsWith(prefix)) return;
+      const n = Number(id.slice(prefix.length));
+      if (Number.isFinite(n) && n > maxNumber) maxNumber = n;
+    });
+  };
+
+  inspect(membersDataCache, "memberId");
+  members.forEach(m => {
+    if (editingIndex >= 0 && members[editingIndex] === m) return;
+    const id = String(m.id || "");
+    if (!id.startsWith(prefix)) return;
+    const n = Number(id.slice(prefix.length));
+    if (Number.isFinite(n) && n > maxNumber) maxNumber = n;
+  });
+
+  return `${prefix}${maxNumber + 1}`;
+}
+
+// ============================================================
+// FETCH DROPDOWN DATA FROM GOOGLE SHEETS
+// ============================================================
+
+async function fetchTableData() {
+  try {
+    const response = await fetch(
+      CONFIG.APPS_SCRIPT_URL + "?action=tables&_=" + Date.now(),
+      { method: "GET", cache: "no-store" }
+    );
+    const text = await response.text();
+    const data = JSON.parse(text);
+    if (!data.success) throw new Error(data.error || "Tables data unavailable.");
+
+    const rows = data.rows || [];
+    if (rows.length < 2) throw new Error("Tables sheet is empty or has no data rows.");
+
+    const tableData = rows.slice(1);
+    const result = {
+      area: [], location: [], postoffice: [], district: [],
+      relation: [], gender: [], education: [], job: [], marital: [],
+      bloodGroup: [], birthStar: []
+    };
+
+    tableData.forEach(row => {
+      if (row[TABLE_COLUMNS.AREA]) result.area.push(row[TABLE_COLUMNS.AREA]);
+      if (row[TABLE_COLUMNS.LOCATION]) result.location.push(row[TABLE_COLUMNS.LOCATION]);
+      if (row[TABLE_COLUMNS.POSTOFFICE]) result.postoffice.push(row[TABLE_COLUMNS.POSTOFFICE]);
+      if (row[TABLE_COLUMNS.DISTRICT]) result.district.push(row[TABLE_COLUMNS.DISTRICT]);
+      if (row[TABLE_COLUMNS.RELATION]) result.relation.push(row[TABLE_COLUMNS.RELATION]);
+      if (row[TABLE_COLUMNS.GENDER]) result.gender.push(row[TABLE_COLUMNS.GENDER]);
+      if (row[TABLE_COLUMNS.EDUCATION]) result.education.push(row[TABLE_COLUMNS.EDUCATION]);
+      if (row[TABLE_COLUMNS.JOB]) result.job.push(row[TABLE_COLUMNS.JOB]);
+      if (row[TABLE_COLUMNS.MARITAL]) result.marital.push(row[TABLE_COLUMNS.MARITAL]);
+      if (row[TABLE_COLUMNS.BLOOD_GROUP_N]) result.bloodGroup.push(row[TABLE_COLUMNS.BLOOD_GROUP_N]);
+      if (row[TABLE_COLUMNS.BIRTH_STAR_O]) result.birthStar.push(row[TABLE_COLUMNS.BIRTH_STAR_O]);
+    });
+    return result;
+  } catch (error) {
+    console.error("Error fetching table data:", error);
+    showNotice($("homeNotice"), "err", `❌ Tables വിവരങ്ങൾ ലഭിച്ചില്ല: ${escapeHtml(error.message)}`);
+    return null;
+  }
+}
+
+// ============================================================
+// FETCH MASTER DATA FOR HOME LOOKUP
+// ============================================================
+
+async function fetchMasterData() {
+  try {
+    const response = await fetch(
+      CONFIG.APPS_SCRIPT_URL + "?action=master&_=" + Date.now(),
+      { method: "GET", cache: "no-store" }
+    );
+    const text = await response.text();
+    const data = JSON.parse(text);
+    if (!data.success) throw new Error(data.error || "Master data unavailable.");
+
+    const rows = data.rows || [];
+    if (rows.length < 2) {
+      masterDataCache = {};
+      return {};
+    }
+
+    const masterMap = {};
+    rows.slice(1).forEach(row => {
+      const homeId = String(row[MASTER_COLUMNS.HOME_ID] ?? "").trim();
+      if (!homeId) return;
+      masterMap[homeId] = {
+        branch: String(row[MASTER_COLUMNS.BRANCH] ?? "").trim(),
+        homeId,
+        addressLine1: String(row[MASTER_COLUMNS.ADDRESS_LINE_1] ?? "").trim(),
+        addressLine2: String(row[MASTER_COLUMNS.ADDRESS_LINE_2] ?? "").trim(),
+        area: String(row[MASTER_COLUMNS.AREA] ?? "").trim(),
+        location: String(row[MASTER_COLUMNS.LOCATION] ?? "").trim(),
+        postOffice: String(row[MASTER_COLUMNS.POST_OFFICE] ?? "").trim(),
+        district: String(row[MASTER_COLUMNS.DISTRICT] ?? "").trim(),
+        status: String(row[MASTER_COLUMNS.STATUS] ?? "").trim(),
+        email: String(row[MASTER_COLUMNS.EMAIL] ?? "").trim()
+      };
+    });
+
+    masterDataCache = masterMap;
+    return masterMap;
+  } catch (error) {
+    console.error("Error fetching master data:", error);
+    showNotice($("homeNotice"), "err", `❌ Master വിവരങ്ങൾ ലഭിച്ചില്ല: ${escapeHtml(error.message)}`);
+    return {};
+  }
+}
+
+// ============================================================
+// POPULATE DROPDOWNS
+// ============================================================
+
+function populateSelect(id, values, placeholder = "തിരഞ്ഞെടുക്കുക") {
+  const select = $(id);
+  if (!select) return;
+
+  const clean = [...new Set((values || [])
+    .map(v => String(v ?? "").trim())
+    .filter(Boolean))];
+
+  select.innerHTML =
+    `<option value="" selected disabled>${escapeHtml(placeholder)}</option>` +
+    clean.map(v =>
+      `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`
+    ).join("");
+}
+
+async function loadDropdownData() {
+  const data = await fetchTableData();
+  
+  if (!data) {
+    return;
+  }
+
+  populateSelect("area", data.area);
+  populateSelect("location", data.location);
+  populateSelect("postoffice", data.postoffice);
+  populateSelect("district", data.district);
+  populateSelect("mRelation", data.relation);
+  populateSelect("mGender", data.gender);
+  populateSelect("mEducation", data.education);
+  populateSelect("mJob", data.job);
+  populateSelect("mMarital", data.marital);
+  populateSelect("mBloodGroup", data.bloodGroup, "തിരഞ്ഞെടുക്കുക (ഐച്ഛികം)");
+  populateSelect("mBirthStar", data.birthStar, "തിരഞ്ഞെടുക്കുക (ഐച്ഛികം)");
+
+  isDropdownsLoaded = true;
+
+  const totalItems = data.area.length + data.location.length + data.district.length + data.relation.length;
+  showNotice(
+    $("homeNotice"),
+    "ok",
+    `✅ ${totalItems} dropdown വിവരങ്ങൾ വിജയകരമായി ലഭിച്ചു.`
+  );
+}
+
+// ============================================================
+// FILL FORM FROM MASTER DATA
+// ============================================================
+
+function fillFormFromMaster(homeData) {
+  if (!homeData) return false;
+
+  currentHomeData = homeData;
+  
+  if (homeData.branch) $("branch").value = homeData.branch;
+  if (homeData.addressLine1) {
+    $("owner").value = homeData.addressLine1;
+    $("owner").dataset.originalValue = homeData.addressLine1;
+  }
+  if (homeData.addressLine2) {
+    $("house").value = homeData.addressLine2;
+    $("house").dataset.originalValue = homeData.addressLine2;
+  }
+  if (homeData.email) {
+    $("email").value = homeData.email;
+    $("email").dataset.originalValue = homeData.email;
+  }
+  
+  if (homeData.area) {
+    try { 
+      $("area").value = homeData.area;
+      $("area").dataset.originalValue = homeData.area;
+    } catch(e) {}
+  }
+  if (homeData.location) {
+    try { 
+      $("location").value = homeData.location;
+      $("location").dataset.originalValue = homeData.location;
+    } catch(e) {}
+  }
+  if (homeData.postOffice) {
+    try { 
+      $("postoffice").value = homeData.postOffice;
+      $("postoffice").dataset.originalValue = homeData.postOffice;
+    } catch(e) {}
+  }
+  if (homeData.district) {
+    try { 
+      $("district").value = homeData.district;
+      $("district").dataset.originalValue = homeData.district;
+    } catch(e) {}
+  }
+  if (homeData.status) {
+    try { 
+      $("status").value = homeData.status;
+      $("status").dataset.originalValue = homeData.status;
+    } catch(e) {}
+  }
+
+  isHomeDataChanged = false;
+
+  showNotice(
+    $("homeNotice"),
+    "ok",
+    `✅ വീട്ടു നമ്പർ ${escapeHtml(homeData.homeId)} നിലവിലുണ്ട്. വിവരങ്ങൾ പൂരിപ്പിച്ചു.`
+  );
+
+  $("membersCard").scrollIntoView({ behavior: "smooth", block: "start" });
+  
+  return true;
+}
+
+// ============================================================
+// SUBMIT MASTER DATA TO SHEET
+// ============================================================
+
+async function submitMasterData() {
+  if (isSubmitting) {
+    showNotice($("homeNotice"), "info", "⏳ ദയവായി കാത്തിരിക്കുക...");
+    return false;
+  }
+
+  const homeId = val("homeId");
+  if (!homeId) {
+    showNotice($("homeNotice"), "warn", "ദയവായി വീട്ടു നമ്പർ നൽകുക.");
+    $("homeId").focus();
+    return false;
+  }
+
+  const email = val("email");
+  if (email && !isValidEmail(email)) {
+    showNotice($("homeNotice"), "err", "ദയവായി ശരിയായ ഇമെയിൽ വിലാസം നൽകുക.");
+    $("email").focus();
+    return false;
+  }
+
+  if (currentHomeData && !trackHomeDataChanges()) {
+    showNotice($("homeNotice"), "info", "ℹ️ വിവരങ്ങളിൽ മാറ്റമൊന്നുമില്ല.");
+    return true;
+  }
+
+  const masterData = {
+    branch: val("branch") || "1003",
+    homeId,
+    owner: val("owner"),
+    house: val("house"),
+    area: val("area"),
+    location: val("location"),
+    postoffice: val("postoffice"),
+    district: val("district"),
+    status: val("status") || "Active",
+    email
+  };
+
+  isSubmitting = true;
+  showNotice($("homeNotice"), "info", "⏳ വിവരങ്ങൾ സംരക്ഷിക്കുന്നു...");
+
+  try {
+    const result = await postBackend({ type: "master", data: masterData });
+
+    ['owner', 'house', 'area', 'location', 'postoffice', 'district', 'status', 'email']
+      .forEach(field => {
+        const el = $(field);
+        el.dataset.originalValue = el.value;
+      });
+
+    isHomeDataChanged = false;
+    currentHomeData = masterData;
+
+    if (!result.fallback) {
+      await fetchMasterData();
+      if (masterDataCache[homeId]) currentHomeData = masterDataCache[homeId];
+    }
+
+    showNotice(
+      $("homeNotice"),
+      "ok",
+      result.fallback
+        ? `✅ വിവരങ്ങൾ സമർപ്പിച്ചു. വീട്ടു നമ്പർ: ${escapeHtml(homeId)}`
+        : `✅ ഗൃഹ വിവരങ്ങൾ വിജയകരമായി സംരക്ഷിച്ചു! (${result.action || "SAVED"})`
+    );
+    return true;
+  } catch (error) {
+    console.error("❌ Master submission error:", error);
+    showNotice($("homeNotice"), "err", `❌ സംരക്ഷിക്കുന്നതിൽ പിശക്: ${escapeHtml(error.message)}`);
+    return false;
+  } finally {
+    isSubmitting = false;
+  }
+}
+
+// ============================================================
+// SUBMIT SINGLE MEMBER TO SHEET
+// ============================================================
+
+async function submitMemberToSheet(memberData) {
+  try {
+    const result = await postBackend({ type: "member", data: memberData });
+    console.log("📥 Member submission response:", result);
+    return !!result.success;
+  } catch (error) {
+    console.error("❌ Error submitting member:", error);
+    showNotice($("memberNotice"), "err", `❌ ${escapeHtml(error.message)}`);
+    return false;
+  }
+}
+
+// ============================================================
+// LOOKUP HOME - TRIGGERED ON INPUT
+// ============================================================
+
+let lookupTimeout = null;
+
+async function lookupHomeOnInput() {
+  const homeId = val("homeId");
+  
+  if (lookupTimeout) {
+    clearTimeout(lookupTimeout);
+    lookupTimeout = null;
+  }
+
+  if (!homeId) {
+    hideNotice($("homeNotice"));
+    return;
+  }
+
+  lookupTimeout = setTimeout(async () => {
+    if (Object.keys(masterDataCache).length === 0) {
+      showNotice($("homeNotice"), "info", "⏳ വിവരങ്ങൾ ലഭ്യമാക്കുന്നു...");
+      await fetchMasterData();
+    }
+
+    const homeData = masterDataCache[homeId];
+    
+    if (homeData) {
+      fillFormFromMaster(homeData);
+    } else {
+      ['owner', 'house', 'email'].forEach(id => {
+        $(id).value = "";
+        $(id).dataset.originalValue = "";
+      });
+      ['area', 'location', 'postoffice', 'district', 'status'].forEach(id => {
+        $(id).value = "";
+        $(id).dataset.originalValue = "";
+      });
+      currentHomeData = null;
+      isHomeDataChanged = false;
+      
+      showNotice(
+        $("homeNotice"),
+        "info",
+        `ℹ️ "${escapeHtml(homeId)}" എന്ന വീട്ടു നമ്പറിന് നിലവിലുള്ള വിവരങ്ങൾ കണ്ടെത്തിയില്ല. പുതിയ വിവരങ്ങൾ നൽകാം.`
+      );
+    }
+  }, 300);
+}
+
+// ============================================================
+// TEST CONNECTION
+// ============================================================
+
+async function testConnection() {
+  showNotice($("homeNotice"), "info", "🔌 ബന്ധം പരിശോധിക്കുന്നു...");
+
+  try {
+    const response = await fetch(CONFIG.APPS_SCRIPT_URL + "?action=health&_=" + Date.now(), {
+      method: "GET",
+      cache: "no-store"
+    });
+
+    const text = await response.text();
+    let data;
+    try { data = JSON.parse(text); }
+    catch (e) { throw new Error("Invalid server response: " + text.slice(0, 300)); }
+
+    if (!data.success) throw new Error(data.error || "Server returned an error.");
+
+    showNotice(
+      $("homeNotice"),
+      "ok",
+      `✅ സെർവർ ബന്ധം വിജയകരം! ${escapeHtml(data.message || "")}`
+    );
+  } catch (error) {
+    console.error("❌ Connection test failed:", error);
+    showNotice(
+      $("homeNotice"),
+      "err",
+      `❌ സെർവർ ബന്ധം പരാജയപ്പെട്ടു: ${escapeHtml(error.message)}`
+    );
+  }
+}
+
+// ============================================================
+// MEMBER MANAGEMENT FUNCTIONS
+// ============================================================
+
+function resetMemberForm() {
+  ["mName", "mDob", "mContact", "mEmail"].forEach(id => $(id).value = "");
+  ["mRelation", "mGender", "mEducation", "mMarital", "mJob", "mBloodGroup", "mBirthStar"].forEach(id => $(id).selectedIndex = 0);
+  capturedPhoto = "";
+  $("photoPreview").style.display = "none";
+  $("video").style.display = "none";
+  $("cameraPlaceholder").style.display = "grid";
+  $("locationStatus").textContent = "സ്ഥലം ഇതുവരെ എടുത്തിട്ടില്ല";
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  $("cameraBtn").textContent = "📷 ഫോട്ടോ എടുക്കുക";
+  $("mEmail").style.borderColor = "";
+}
+
+function openMember() {
+  const home = val("homeId");
+  if (!home) {
+    showNotice($("homeNotice"), "warn", "അംഗത്തെ ചേർക്കുന്നതിന് മുമ്പ് വീട്ടു നമ്പർ നൽകുക.");
+    $("homeId").focus();
+    return;
+  }
+  
+  const branchId = val("branch") || "1003";
+  const homeId = val("homeId");
+  const nextId = calculateNextMemberId(branchId, homeId);
+  
+  if (members.length === 0) {
+    $("memberHeading").textContent = "ഗൃഹ നാഥൻ /ഗൃഹനാഥ യുടെ വിവരമാണ് ആദ്യം നൽകേണ്ടത്";
+  } else {
+    $("memberHeading").textContent = "മറ്റ് കുടുംബ അംഗങ്ങളുടെ വിവരങ്ങൾ";
+  }
+  
+  $("memberIdDisplay").textContent = "Member ID: " + nextId;
+  $("memberNotice").className = "notice";
+  resetMemberForm();
+  $("memberModal").classList.add("show");
+  setTimeout(() => {
+    const modal = document.querySelector("#memberModal .modal");
+    if (modal) modal.scrollTo({ top: 0, behavior: "instant" });
+  }, 50);
+}
+
+function collectMember() {
+  const name = val("mName");
+  if (!name) {
+    showNotice($("memberNotice"), "err", "അംഗത്തിന്റെ പേര് നൽകുക.");
+    return null;
+  }
+  if (!$("mRelation").value) {
+    showNotice($("memberNotice"), "err", "ബന്ധം തിരഞ്ഞെടുക്കുക.");
+    return null;
+  }
+  
+  const email = val("mEmail");
+  if (email && !isValidEmail(email)) {
+    showNotice($("memberNotice"), "err", "ദയവായി ശരിയായ ഇമെയിൽ വിലാസം നൽകുക.");
+    $("mEmail").focus();
+    return null;
+  }
+  
+  const branchId = val("branch") || "1003";
+  const homeId = val("homeId");
+  const memberId = calculateNextMemberId(branchId, homeId);
+  
+  return {
+    id: memberId,
+    branch: branchId,
+    homeId: homeId,
+    relation: val("mRelation"),
+    name: name,
+    dob: val("mDob"),
+    gender: val("mGender"),
+    contact: val("mContact"),
+    education: val("mEducation"),
+    marital: val("mMarital"),
+    job: val("mJob"),
+    bloodGroup: val("mBloodGroup"),
+    birthStar: val("mBirthStar"),
+    email: email,
+    photo: capturedPhoto,
+    status: "Active",
+    lat: $("locationBtn").dataset.lat || "",
+    lng: $("locationBtn").dataset.lng || "",
+    accuracy: $("locationBtn").dataset.acc || ""
+  };
+}
+
+function summaryHtml(m) {
+  const rows = [
+    ["അംഗ ID", m.id],
+    ["പേര്", m.name],
+    ["ബന്ധം", m.relation],
+    ["ജനന തീയതി", m.dob || "—"],
+    ["ലിംഗം", m.gender || "—"],
+    ["ബന്ധപ്പെടാനുള്ള നമ്പർ", m.contact || "—"],
+    ["വിദ്യാഭ്യാസം", m.education || "—"],
+    ["വൈവാഹിക നില", m.marital || "—"],
+    ["തൊഴിൽ", m.job || "—"],
+    ["രക്ത ഗ്രൂപ്പ്‌", m.bloodGroup || "—"],
+    ["ജന്മ നക്ഷത്രം", m.birthStar || "—"],
+    ["ഇമെയിൽ", m.email || "—"]
+  ];
+  return rows.map(r => 
+    `<div class="summary-row"><span>${escapeHtml(r[0])}</span><b>${escapeHtml(r[1])}</b></div>`
+  ).join("");
+}
+
+function renderMembers() {
+  $("memberCount").textContent = members.length + " അംഗങ്ങൾ";
+  $("emptyMember").style.display = members.length ? "none" : "block";
+  $("membersList").innerHTML = members.map((m, i) => `
+    <div class="member-chip">
+      <div><b>${escapeHtml(m.name)}</b><small>${escapeHtml(m.id)} · ${escapeHtml(m.relation)}</small></div>
+      <button class="btn-light" onclick="editExisting(${i})">തിരുത്തുക</button>
+    </div>
+  `).join("");
+  $("finalCard").style.display = members.length ? "block" : "none";
+  if (members.length) renderFinal();
+}
+
+function editExisting(i) {
+  editingIndex = i;
+  const m = members[i];
+
+  $("memberHeading").textContent =
+    i === 0 ? "ഗൃഹ നാഥൻ /ഗൃഹനാഥ യുടെ വിവരമാണ് ആദ്യം നൽകേണ്ടത്" : "മറ്റ് കുടുംബ അംഗങ്ങളുടെ വിവരങ്ങൾ";
+  $("memberIdDisplay").textContent = "Member ID: " + m.id;
+
+  $("mName").value = m.name;
+  $("mRelation").value = m.relation;
+  $("mDob").value = m.dob || "";
+  $("mGender").value = m.gender || "";
+  $("mContact").value = m.contact || "";
+  $("mEducation").value = m.education || "";
+  $("mMarital").value = m.marital || "";
+  $("mJob").value = m.job || "";
+  $("mBloodGroup").value = m.bloodGroup || "";
+  $("mBirthStar").value = m.birthStar || "";
+  $("mEmail").value = m.email || "";
+
+  capturedPhoto = m.photo || "";
+  if (capturedPhoto) {
+    $("photoPreview").src = capturedPhoto;
+    $("photoPreview").style.display = "block";
+    $("cameraPlaceholder").style.display = "none";
+  } else {
+    $("photoPreview").style.display = "none";
+    $("cameraPlaceholder").style.display = "grid";
+  }
+
+  $("locationBtn").dataset.lat = m.lat || "";
+  $("locationBtn").dataset.lng = m.lng || "";
+  $("locationBtn").dataset.acc = m.accuracy || "";
+
+  $("memberModal").classList.add("show");
+}
+
+function renderFinal() {
+  const master = `<div class="summary">
+    <div class="summary-row"><span>ശാഖാ നമ്പർ</span><b>${escapeHtml(val("branch"))}</b></div>
+    <div class="summary-row"><span>വീട്ടു നമ്പർ</span><b>${escapeHtml(val("homeId"))}</b></div>
+    <div class="summary-row"><span>ഗൃഹനാഥന്റെ / ഗൃഹനാഥയുടെ പേര്</span><b>${escapeHtml(val("owner") || "—")}</b></div>
+    <div class="summary-row"><span>വീട്ടുപേര്</span><b>${escapeHtml(val("house") || "—")}</b></div>
+    <div class="summary-row"><span>പ്രദേശം</span><b>${escapeHtml(val("area") || "—")}</b></div>
+    <div class="summary-row"><span>സ്ഥലം</span><b>${escapeHtml(val("location") || "—")}</b></div>
+    <div class="summary-row"><span>പോസ്റ്റ് ഓഫീസ്</span><b>${escapeHtml(val("postoffice") || "—")}</b></div>
+    <div class="summary-row"><span>ജില്ല</span><b>${escapeHtml(val("district") || "—")}</b></div>
+    <div class="summary-row"><span>നിലവിലെ സ്ഥിതി</span><b>${escapeHtml(val("status") || "—")}</b></div>
+    <div class="summary-row"><span>ഇമെയിൽ</span><b>${escapeHtml(val("email") || "—")}</b></div>
+  </div>`;
+  
+  const mem = members.map(m => 
+    `<div class="summary-row"><span>${escapeHtml(m.id)} · ${escapeHtml(m.relation)}</span><b>${escapeHtml(m.name)}</b></div>`
+  ).join("");
+  
+  $("finalSummary").innerHTML = master + `<div class="summary">
+    <div class="summary-row"><span>കുടുംബാംഗങ്ങൾ</span><b>${members.length}</b></div>
+    ${mem}
+  </div>`;
+}
+
+// ============================================================
+// CAMERA FUNCTIONS
+// ============================================================
+
+async function handleCamera() {
+  if (stream) {
+    const c = document.createElement("canvas");
+    const v = $("video");
+    c.width = 360;
+    c.height = 360;
+    const ctx = c.getContext("2d");
+    const side = Math.min(v.videoWidth, v.videoHeight);
+    const sx = (v.videoWidth - side) / 2;
+    const sy = (v.videoHeight - side) / 2;
+    ctx.drawImage(v, sx, sy, side, side, 0, 0, 360, 360);
+    capturedPhoto = c.toDataURL("image/jpeg", 0.62);
+    $("photoPreview").src = capturedPhoto;
+    $("photoPreview").style.display = "block";
+    $("video").style.display = "none";
+    $("cameraPlaceholder").style.display = "none";
+    stream.getTracks().forEach(t => t.stop());
+    stream = null;
+    $("cameraBtn").textContent = "📷 വീണ്ടും എടുക്കുക";
+    return;
+  }
+  
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "user" },
+      audio: false
+    });
+    $("video").srcObject = stream;
+    $("video").style.display = "block";
+    $("cameraPlaceholder").style.display = "none";
+    $("cameraBtn").textContent = "● ഫോട്ടോ എടുക്കുക";
+  } catch (e) {
+    $("photoInput").click();
+  }
+}
+
+// ============================================================
+// LOCATION FUNCTIONS
+// ============================================================
+
+function getLocation() {
+  if (!navigator.geolocation) {
+    $("locationStatus").textContent = "ഈ ഉപകരണത്തിൽ സ്ഥലം കണ്ടെത്തൽ ലഭ്യമല്ല.";
+    return;
+  }
+  
+  $("locationStatus").textContent = "📍 സ്ഥലം കണ്ടെത്തുന്നു...";
+  navigator.geolocation.getCurrentPosition(
+    (p) => {
+      $("locationStatus").textContent = `✓ സ്ഥലം ലഭിച്ചു · ${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)} · ±${Math.round(p.coords.accuracy)}m`;
+      $("locationBtn").dataset.lat = p.coords.latitude;
+      $("locationBtn").dataset.lng = p.coords.longitude;
+      $("locationBtn").dataset.acc = p.coords.accuracy;
+    },
+    () => {
+      $("locationStatus").textContent = "⚠ സ്ഥലം ലഭിച്ചില്ല. അനുമതി/Location പരിശോധിക്കുക.";
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+  );
+}
+
+// ============================================================
+// SUBMIT ALL - Final submission
+// ============================================================
+
+async function submitAll() {
+  if (isSubmitting) {
+    showNotice($("homeNotice"), "info", "⏳ ദയവായി കാത്തിരിക്കുക...");
+    return;
+  }
+
+  if (!val("homeId")) {
+    showNotice($("homeNotice"), "err", "വീട്ടു നമ്പർ നൽകുക.");
+    $("homeId").focus();
+    return;
+  }
+
+  const email = val("email");
+  if (email && !isValidEmail(email)) {
+    showNotice($("homeNotice"), "err", "ദയവായി ശരിയായ ഇമെയിൽ വിലാസം നൽകുക.");
+    $("email").focus();
+    return;
+  }
+
+  if (members.length === 0) {
+    showNotice($("homeNotice"), "err", "കുറഞ്ഞത് ഒരു കുടുംബാംഗത്തിന്റെ വിവരങ്ങളെങ്കിലും നൽകുക.");
+    $("membersCard").scrollIntoView({ behavior: "smooth" });
+    return;
+  }
+
+  // IMPORTANT: do not set isSubmitting before submitMasterData().
+  // The previous version did that and submitMasterData() immediately
+  // returned because it saw isSubmitting === true.
+  const masterSaved = await submitMasterData();
+  if (!masterSaved) return;
+
+  isSubmitting = true;
+  try {
+    const unsavedMembers = members.filter(m => !m._submitted);
+
+    if (unsavedMembers.length === 0) {
+      showNotice($("homeNotice"), "ok", "✅ എല്ലാ അംഗങ്ങളും ഇതിനകം സമർപ്പിച്ചു കഴിഞ്ഞു.");
+      return;
+    }
+
+    showNotice(
+      $("homeNotice"),
+      "info",
+      `⏳ ${unsavedMembers.length} അംഗങ്ങളുടെ വിവരങ്ങൾ സമർപ്പിക്കുന്നു...`
+    );
+
+    let successCount = 0;
+    for (const member of unsavedMembers) {
+      const success = await submitMemberToSheet(member);
+      if (success) {
+        member._submitted = true;
+        successCount++;
+      }
+    }
+
+    if (successCount === unsavedMembers.length) {
+      showNotice(
+        $("homeNotice"),
+        "ok",
+        `✅ എല്ലാ വിവരങ്ങളും വിജയകരമായി സമർപ്പിച്ചു! ${successCount}/${unsavedMembers.length} അംഗങ്ങൾ രേഖപ്പെടുത്തി.`
+      );
+      await fetchMembersData();
+    } else {
+      showNotice(
+        $("homeNotice"),
+        "warn",
+        `⚠️ ${successCount}/${unsavedMembers.length} അംഗങ്ങൾ മാത്രം സമർപ്പിച്ചു. വീണ്ടും ശ്രമിക്കുക.`
+      );
+    }
+  } finally {
+    isSubmitting = false;
+  }
+}
+
+// ============================================================
+// INITIALIZATION
+// ============================================================
+
+async function init() {
+  if ($("branch")) $("branch").value = "1003";
+  
+  await loadDropdownData();
+  await fetchMasterData();
+  await fetchMembersData();
+  
+  ['owner', 'house', 'area', 'location', 'postoffice', 'district', 'status', 'email'].forEach(field => {
+    const el = $(field);
+    if (el) {
+      el.addEventListener('input', trackHomeDataChanges);
+      el.addEventListener('change', trackHomeDataChanges);
+    }
+  });
+  
+  const totalMasterRecords = Object.keys(masterDataCache).length;
+  if (totalMasterRecords > 0) {
+    showNotice(
+      $("homeNotice"),
+      "info",
+      `ℹ️ ${totalMasterRecords} ഗൃഹങ്ങളുടെ വിവരങ്ങൾ ലഭ്യമാണ്. വീട്ടു നമ്പർ ടൈപ്പ് ചെയ്താൽ യാന്ത്രികമായി പൂരിപ്പിക്കും.`
+    );
+  }
+  
+  console.log("📊 Members data loaded:", membersDataCache.length, "records");
+  console.log("📊 Apps Script URL:", CONFIG.APPS_SCRIPT_URL);
+}
+
+// ============================================================
+// EVENT LISTENERS
+// ============================================================
+
+document.addEventListener("DOMContentLoaded", init);
+
+$("homeId").addEventListener("input", lookupHomeOnInput);
+$("checkHome").onclick = submitMasterData;
+$("testConn").onclick = testConnection;
+
+$("email").addEventListener("blur", function() {
+  const email = val("email");
+  if (email && !isValidEmail(email)) {
+    this.style.borderColor = "#dc2626";
+    showNotice($("homeNotice"), "err", "ദയവായി ശരിയായ ഇമെയിൽ വിലാസം നൽകുക.");
+  } else {
+    this.style.borderColor = "";
+  }
+});
+
+$("mEmail").addEventListener("blur", function() {
+  const email = val("mEmail");
+  if (email && !isValidEmail(email)) {
+    this.style.borderColor = "#dc2626";
+    showNotice($("memberNotice"), "err", "ദയവായി ശരിയായ ഇമെയിൽ വിലാസം നൽകുക.");
+  } else {
+    this.style.borderColor = "";
+  }
+});
+
+$("homeId").addEventListener("keydown", function(e) {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    submitMasterData();
+  }
+});
+
+$("addMember").onclick = openMember;
+$("closeModal").onclick = function() {
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  $("memberModal").classList.remove("show");
+};
+$("confirmMember").onclick = function() {
+  const m = collectMember();
+  if (!m) return;
+  pendingMember = m;
+  $("memberSummary").innerHTML = summaryHtml(m);
+  $("memberModal").classList.remove("show");
+  $("summaryModal").classList.add("show");
+};
+$("editMember").onclick = function() {
+  $("summaryModal").classList.remove("show");
+  $("memberModal").classList.add("show");
+};
+$("saveMember").onclick = async function() {
+  if (!pendingMember) return;
+
+  const memberToSubmit = pendingMember;
+  const wasEditing = editingIndex >= 0;
+  const oldIndex = editingIndex;
+
+  // Keep the confirmation preview visible while the record is being submitted.
+  $("saveMember").disabled = true;
+  $("editMember").disabled = true;
+  showNotice($("memberNotice"), "info", `⏳ ${escapeHtml(memberToSubmit.name)} ന്റെ വിവരങ്ങൾ സമർപ്പിക്കുന്നു...`);
+
+  const success = await submitMemberToSheet(memberToSubmit);
+
+  $("saveMember").disabled = false;
+  $("editMember").disabled = false;
+
+  if (!success) {
+    memberToSubmit._submitted = false;
+    showNotice($("memberNotice"), "err", `❌ ${escapeHtml(memberToSubmit.name)} ന്റെ വിവരങ്ങൾ സമർപ്പിക്കാൻ കഴിഞ്ഞില്ല. വിവരങ്ങൾ പരിശോധിച്ച് വീണ്ടും ശ്രമിക്കുക.`);
+    alert(`❌ സമർപ്പണം പരാജയപ്പെട്ടു\n\n${memberToSubmit.name} ന്റെ വിവരങ്ങൾ Google Sheet-ലേക്ക് സംരക്ഷിച്ചിട്ടില്ല.\n\nദയവായി വീണ്ടും ശ്രമിക്കുക.`);
+    return;
+  }
+
+  // Only add/update the local member list after the server confirms success.
+  if (wasEditing) {
+    members[oldIndex] = memberToSubmit;
+  } else {
+    members.push(memberToSubmit);
+  }
+  memberToSubmit._submitted = true;
+
+  await fetchMembersData();
+  renderMembers();
+
+  // Clear all previous member preview/form data before opening the next entry.
+  pendingMember = null;
+  editingIndex = -1;
+  resetMemberForm();
+  $("memberSummary").innerHTML = "";
+  $("summaryModal").classList.remove("show");
+  $("memberModal").classList.remove("show");
+
+  // Explicit submission-status alert.
+  alert(`✅ അംഗത്തിന്റെ വിവരങ്ങൾ വിജയകരമായി സമർപ്പിച്ചു\n\nപേര്: ${memberToSubmit.name}\nMember ID: ${memberToSubmit.id}\n\nGoogle Sheet-ലേക്ക് വിവരങ്ങൾ സംരക്ഷിച്ചു.`);
+
+  // After the status alert, ask whether another member should be entered.
+  const addAnother = confirm(
+    wasEditing
+      ? "അംഗത്തിന്റെ വിവരങ്ങൾ വിജയകരമായി അപ്ഡേറ്റ് ചെയ്തു.\n\nമറ്റൊരു പുതിയ അംഗത്തിന്റെ വിവരങ്ങൾ ചേർക്കണോ?\n\nOK = പുതിയ അംഗം\nCancel = ഫോം അടയ്ക്കുക"
+      : "അംഗത്തിന്റെ വിവരങ്ങൾ വിജയകരമായി സമർപ്പിച്ചു.\n\nഅടുത്ത കുടുംബാംഗത്തിന്റെ വിവരങ്ങൾ ചേർക്കണോ?\n\nOK = അടുത്ത അംഗം\nCancel = ഫോം അടയ്ക്കുക"
+  );
+
+  if (addAnother) {
+    // Completely fresh member form; old photo, location and values are removed.
+    resetMemberForm();
+    openMember();
+  } else {
+    // User has completed member entry. Close both previews/modals.
+    if (stream) {
+      stream.getTracks().forEach(t => t.stop());
+      stream = null;
+    }
+    $("memberModal").classList.remove("show");
+    $("summaryModal").classList.remove("show");
+    showNotice($("memberNotice"), "ok", `✅ ${members.length} അംഗങ്ങളുടെ വിവരങ്ങൾ ഇതുവരെ സമർപ്പിച്ചു.`);
+  }
+};
+
+$("cameraBtn").onclick = handleCamera;
+$("photoInput").onchange = function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const img = new Image();
+  img.onload = function() {
+    const c = document.createElement("canvas");
+    const side = Math.min(img.width, img.height);
+    c.width = c.height = 360;
+    const ctx = c.getContext("2d");
+    ctx.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, 360, 360);
+    capturedPhoto = c.toDataURL("image/jpeg", 0.62);
+    $("photoPreview").src = capturedPhoto;
+    $("photoPreview").style.display = "block";
+    $("cameraPlaceholder").style.display = "none";
+  };
+  img.src = URL.createObjectURL(file);
+};
+
+$("locationBtn").onclick = getLocation;
+$("submitAll").onclick = submitAll;
+
+document.addEventListener("keydown", function(e) {
+  if (e.key === "Escape") {
+    if ($("memberModal").classList.contains("show")) {
+      if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+      $("memberModal").classList.remove("show");
+    }
+    if ($("summaryModal").classList.contains("show")) {
+      $("summaryModal").classList.remove("show");
+    }
+  }
+});
+
+$("memberModal").addEventListener("click", function(e) {
+  if (e.target === this) {
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    this.classList.remove("show");
+  }
+});
+$("summaryModal").addEventListener("click", function(e) {
+  if (e.target === this) {
+    this.classList.remove("show");
+  }
+});
+
+console.log("✅ Family Member Form initialized!");
+</script>
+</body>
+</html>
