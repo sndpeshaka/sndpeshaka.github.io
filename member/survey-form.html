@@ -42,6 +42,17 @@ body{
   white-space:nowrap;background:#f5ecd2;color:var(--primary2);
   border-radius:999px;padding:5px 9px;font-size:11px;font-weight:700
 }
+.member-count-link{
+  display:inline-flex;align-items:center;justify-content:center;border:0;
+  background:#f5ecd2;color:var(--primary2);border-radius:999px;
+  padding:5px 9px;font:700 11px inherit;cursor:pointer;
+  text-decoration:underline;text-underline-offset:2px
+}
+.member-count-link:hover{background:#efe2bc}
+.member-count-link:disabled{cursor:default;opacity:.75;text-decoration:none}
+.member-name-list{display:grid;gap:9px;margin-bottom:15px}
+.member-name-item{border:1px solid #dce6e5;border-radius:13px;padding:11px 12px;background:#fff;font-size:13px;font-weight:600}
+.member-name-empty{border:1px dashed #d8cfb8;border-radius:13px;padding:14px 12px;color:var(--muted);font-size:12px;text-align:center;background:#fffdf8}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .full{grid-column:1/-1}
 .field{position:relative}
@@ -240,14 +251,14 @@ button{
   <section class="card" id="membersCard">
     <div class="section-head">
       <div><h2>കുടുംബാംഗങ്ങളുടെ വിവരങ്ങൾ</h2><p>ആദ്യം ഗൃഹനാഥൻ / ഗൃഹനാഥയുടെ വിവരങ്ങൾ നൽകുക</p></div>
-      <span class="badge" id="memberCount">0 അംഗങ്ങൾ</span>
+      <button class="member-count-link" id="memberCount" type="button" aria-label="ഈ വീട്ടിലെ രജിസ്റ്റർ ചെയ്ത അംഗങ്ങളുടെ പട്ടിക കാണുക">0 അംഗങ്ങൾ</button>
     </div>
 
     <div id="membersList" class="member-list"></div>
 
     <div id="emptyMember" class="member-title">
-      <strong>ഗൃഹ നാഥൻ /ഗൃഹനാഥ യുടെ വിവരമാണ് ആദ്യം നൽകേണ്ടത്</strong>
-      <span>താഴെയുള്ള ബട്ടൺ ക്ലിക്ക് ചെയ്തു ആദ്യ അംഗത്തിന്റെ വിവരങ്ങൾ ചേർക്കുക</span>
+      <strong id="emptyMemberTitle">ഗൃഹ നാഥൻ /ഗൃഹനാഥ യുടെ വിവരമാണ് ആദ്യം നൽകേണ്ടത്</strong>
+      <span id="emptyMemberSub">താഴെയുള്ള ബട്ടൺ ക്ലിക്ക് ചെയ്തു ആദ്യ അംഗത്തിന്റെ വിവരങ്ങൾ ചേർക്കുക</span>
     </div>
 
     <button class="btn-primary btn-wide" id="addMember">＋ അംഗത്തിന്റെ വിവരങ്ങൾ ചേർക്കുക</button>
@@ -378,6 +389,18 @@ button{
     <div class="actions">
       <button class="btn-light" id="closeModal">റദ്ദാക്കുക</button>
       <button class="btn-primary" id="confirmMember">പരിശോധിച്ച് തുടരുക</button>
+    </div>
+  </div>
+</div>
+
+<!-- Registered household members modal -->
+<div class="modal-backdrop" id="registeredMembersModal">
+  <div class="modal">
+    <h3>രജിസ്റ്റർ ചെയ്ത കുടുംബാംഗങ്ങൾ</h3>
+    <p id="registeredMembersSub">നിലവിലെ വീട്ടു ഐഡിയിൽ രജിസ്റ്റർ ചെയ്ത അംഗങ്ങളുടെ പേരുകൾ</p>
+    <div id="registeredMembersList" class="member-name-list"></div>
+    <div class="actions">
+      <button class="btn-primary btn-wide" id="closeRegisteredMembers" type="button">അടയ്ക്കുക</button>
     </div>
   </div>
 </div>
@@ -1245,10 +1268,11 @@ function openMember() {
   const homeId = val("homeId");
   const nextId = calculateNextMemberId(branchId, homeId);
   
-  if (members.length === 0) {
+  const nextMemberNumber = getMemberNumber(nextId);
+  if (nextMemberNumber === 1) {
     $("memberHeading").textContent = "ഗൃഹ നാഥൻ /ഗൃഹനാഥ യുടെ വിവരമാണ് ആദ്യം നൽകേണ്ടത്";
   } else {
-    $("memberHeading").textContent = "മറ്റ് കുടുംബ അംഗങ്ങളുടെ വിവരങ്ങൾ";
+    $("memberHeading").textContent = "വിട്ടുപോയ അംഗങ്ങളുടെ വിവരങ്ങൾ കൂടി ചേർക്കേണ്ടതുണ്ട്";
   }
   
   $("memberIdDisplay").textContent = "Member ID: " + nextId;
@@ -1323,9 +1347,55 @@ function summaryHtml(m) {
   ).join("");
 }
 
-function renderMembers() {
-  $("memberCount").textContent = members.length + " അംഗങ്ങൾ";
+function getHouseholdMembers(homeId = val("homeId")) {
+  const wanted = String(homeId ?? "").trim().toLocaleLowerCase("ml-IN");
+  if (!wanted) return [];
+  return (membersDataCache || []).filter(m =>
+    String(m.homeId ?? "").trim().toLocaleLowerCase("ml-IN") === wanted
+  );
+}
+
+function getMemberNumber(memberId) {
+  const parts = String(memberId ?? "").trim().split("-");
+  const n = Number(parts[parts.length - 1]);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function updateHouseholdMemberSummary() {
+  const householdMembers = getHouseholdMembers();
+  const count = householdMembers.length;
+  $("memberCount").textContent = count + " അംഗങ്ങൾ";
+  $("memberCount").disabled = count === 0;
+  $("memberCount").setAttribute("aria-label", count ? `${count} അംഗങ്ങൾ - രജിസ്റ്റർ ചെയ്ത പേരുകൾ കാണുക` : "രജിസ്റ്റർ ചെയ്ത അംഗങ്ങൾ ഇല്ല");
+
   $("emptyMember").style.display = members.length ? "none" : "block";
+  if (!members.length) {
+    if (count > 0) {
+      $("emptyMemberTitle").textContent = "വിട്ടുപോയ അംഗങ്ങളുടെ വിവരങ്ങൾ കൂടി ചേർക്കേണ്ടതുണ്ട്";
+      $("emptyMemberSub").textContent = `ഈ വീട്ടിൽ ${count} അംഗങ്ങളുടെ വിവരങ്ങൾ ഇതിനകം രജിസ്റ്റർ ചെയ്തിട്ടുണ്ട്. ബാക്കിയുള്ള അംഗങ്ങളുടെ വിവരങ്ങൾ ചേർക്കുക.`;
+    } else {
+      $("emptyMemberTitle").textContent = "ഗൃഹ നാഥൻ /ഗൃഹനാഥ യുടെ വിവരമാണ് ആദ്യം നൽകേണ്ടത്";
+      $("emptyMemberSub").textContent = "താഴെയുള്ള ബട്ടൺ ക്ലിക്ക് ചെയ്തു ആദ്യ അംഗത്തിന്റെ വിവരങ്ങൾ ചേർക്കുക";
+    }
+  }
+}
+
+function renderRegisteredMembers() {
+  const homeId = val("homeId");
+  const householdMembers = getHouseholdMembers(homeId);
+  $("registeredMembersSub").textContent = homeId
+    ? `${homeId} എന്ന വീട്ടു ഐഡിയിൽ രജിസ്റ്റർ ചെയ്ത അംഗങ്ങളുടെ പേരുകൾ`
+    : "നിലവിലെ വീട്ടു ഐഡിയിൽ രജിസ്റ്റർ ചെയ്ത അംഗങ്ങളുടെ പേരുകൾ";
+
+  $("registeredMembersList").innerHTML = householdMembers.length
+    ? householdMembers.map(m => `<div class="member-name-item">${escapeHtml(m.name || "പേര് ലഭ്യമല്ല")}</div>`).join("")
+    : `<div class="member-name-empty">ഈ Household ID-യിൽ രജിസ്റ്റർ ചെയ്ത അംഗങ്ങളില്ല.</div>`;
+
+  $("registeredMembersModal").classList.add("show");
+}
+
+function renderMembers() {
+  updateHouseholdMemberSummary();
   $("membersList").innerHTML = members.map((m, i) => `
     <div class="member-chip">
       <div><b>${escapeHtml(m.name)}</b><small>${escapeHtml(m.id)} · ${escapeHtml(m.relation)}</small></div>
@@ -1571,6 +1641,7 @@ async function init() {
   await loadDropdownData();
   await fetchMasterData();
   await fetchMembersData();
+  updateHouseholdMemberSummary();
   
   ['owner', 'house', 'area', 'location', 'postoffice', 'district', 'status', 'email'].forEach(field => {
     const el = $(field);
@@ -1606,6 +1677,7 @@ $("area").addEventListener("change", function() {
   } else {
     $("homeId").dataset.validated = "false";
   }
+  updateHouseholdMemberSummary();
   hideNotice($("homeNotice"));
 });
 $("checkHome").onclick = submitMasterData;
@@ -1633,9 +1705,14 @@ function setHomeEntryMode(mode) {
 
 $("newHomeMode").onclick = () => setHomeEntryMode("new");
 $("existingHomeMode").onclick = () => setHomeEntryMode("existing");
+$("homeId").addEventListener("input", function() {
+  updateHouseholdMemberSummary();
+});
+
 $("homeId").addEventListener("blur", async function() {
   if (homeEntryMode === "existing" && val("homeId")) {
     await validateExistingHomeId();
+    updateHouseholdMemberSummary();
   }
 });
 
@@ -1660,6 +1737,13 @@ $("mEmail").addEventListener("blur", function() {
 });
 
 $("addMember").onclick = openMember;
+$("memberCount").onclick = renderRegisteredMembers;
+$("closeRegisteredMembers").onclick = function() {
+  $("registeredMembersModal").classList.remove("show");
+};
+$("registeredMembersModal").addEventListener("click", function(e) {
+  if (e.target === this) this.classList.remove("show");
+});
 $("closeModal").onclick = function() {
   if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
   $("cameraBox").classList.remove("is-live");
@@ -1798,6 +1882,9 @@ document.addEventListener("keydown", function(e) {
     }
     if ($("summaryModal").classList.contains("show")) {
       $("summaryModal").classList.remove("show");
+    }
+    if ($("registeredMembersModal").classList.contains("show")) {
+      $("registeredMembersModal").classList.remove("show");
     }
   }
 });
