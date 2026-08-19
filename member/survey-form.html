@@ -260,6 +260,1491 @@
     </div>
   </div>
 </div>
-<script src="./survey.js"></script>
+
+<script>
+// ============================================================
+// CONFIGURATION - UPDATE THIS URL AFTER DEPLOYMENT
+// ============================================================
+
+const CONFIG = {
+  SPREADSHEET_ID: "1Q7fGIi2ky6b7cYt49ljwIwGEJv3kQ8pmz47bFaPBEDs",
+  TABLE_SHEET_NAME: "Tables",
+  MASTER_SHEET_NAME: "Master",
+  MEMBERS_SHEET_NAME: "Members",
+  // IMPORTANT: Replace this URL with your deployed Apps Script URL
+  APPS_SCRIPT_URL: "https://script.google.com/macros/s/AKfycbxV_mP8-QW97vS0CR6Xk-wsrQbWIlVE1XBBLR6BTqhDA297f2_Jcsr5I_NREmXIXW9W/exec"
+};
+
+// ============================================================
+// COLUMN MAPPING for the Tables sheet (Columns A-O)
+// ============================================================
+
+const TABLE_COLUMNS = {
+  AREA: 2,
+  LOCATION: 3,
+  POSTOFFICE: 4,
+  DISTRICT: 5,
+  RELATION: 6,
+  GENDER: 7,
+  EDUCATION: 8,
+  JOB: 9,
+  MARITAL: 10,
+  BLOOD_GROUP: 11,
+  BIRTH_STAR: 12,
+  BLOOD_GROUP_N: 13,
+  BIRTH_STAR_O: 14
+};
+
+// ============================================================
+// COLUMN MAPPING for Master sheet (Columns A-J)
+// ============================================================
+
+const MASTER_COLUMNS = {
+  BRANCH: 0,
+  HOME_ID: 1,
+  ADDRESS_LINE_1: 2,
+  ADDRESS_LINE_2: 3,
+  AREA: 4,
+  LOCATION: 5,
+  POST_OFFICE: 6,
+  DISTRICT: 7,
+  STATUS: 8,
+  EMAIL: 9
+};
+
+// ============================================================
+// COLUMN MAPPING for Members sheet
+// ============================================================
+
+const MEMBERS_COLUMNS = {
+  MEMBER_ID: 0,
+  RELATION: 1,
+  NAME: 2,
+  DOB: 3,
+  GENDER: 4,
+  CONTACT: 5,
+  EDUCATION: 6,
+  MARITAL: 7,
+  PHOTO: 8,
+  EMAIL: 9,
+  BRANCH: 10,
+  HOME_ID: 11,
+  STATUS: 12,
+  JOB: 13,
+  BLOOD_GROUP: 14,
+  BIRTH_STAR: 15
+};
+
+// ============================================================
+// GLOBALS
+// ============================================================
+
+const members = [];
+let editingIndex = -1;
+let pendingMember = null;
+let stream = null;
+let capturedPhoto = "";
+let masterDataCache = {};
+let masterAreaValuesCache = [];
+let locationAreaMap = {};
+let membersDataCache = [];
+let isDropdownsLoaded = false;
+let isHomeDataChanged = false;
+let currentHomeData = null;
+let isSubmitting = false;
+let homeEntryMode = "new";
+let generatedHomeId = "";
+
+// ============================================================
+// HELPER FUNCTIONS
+// ============================================================
+
+function $(id) { return document.getElementById(id); }
+
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, m => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;",
+    '"': "&quot;", "'": "&#039;"
+  }[m]));
+}
+
+function val(id) { return $(id).value.trim(); }
+
+async function postBackend(payload) {
+  const requestId = payload.requestId || (
+    Date.now().toString(36) + "-" +
+    Math.random().toString(36).slice(2, 10)
+  );
+  payload.requestId = requestId;
+
+  // text/plain is a CORS "simple request" content type, so the browser
+  // does not send an OPTIONS preflight to Apps Script.
+  try {
+    const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=UTF-8" },
+      body: JSON.stringify(payload)
+    });
+
+    const text = await response.text();
+    let result;
+    try {
+      result = JSON.parse(text);
+    } catch (e) {
+      throw new Error("Backend returned a non-JSON response: " + text.slice(0, 300));
+    }
+
+    if (!result.success) {
+      throw new Error(result.error || "Backend rejected the request.");
+    }
+    return result;
+  } catch (error) {
+    console.warn("Fetch submission failed; using CORS-safe form fallback.", error);
+
+    // A normal HTML form POST is also a simple request and does not require
+    // JavaScript CORS access. The Apps Script backend is idempotent by
+    // requestId, so retrying cannot create a duplicate record.
+    const iframeName = "backendSubmitFrame_" + Date.now();
+    const iframe = document.createElement("iframe");
+    iframe.name = iframeName;
+    iframe.style.display = "none";
+    document.body.appendChild(iframe);
+
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = CONFIG.APPS_SCRIPT_URL;
+    form.target = iframeName;
+    form.style.display = "none";
+
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = "data";
+    input.value = JSON.stringify(payload);
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
+
+    setTimeout(() => {
+      form.remove();
+      iframe.remove();
+    }, 8000);
+
+    // The fallback cannot read the server response because the request may
+    // be cross-origin. The backend still receives and processes the data.
+    return {
+      success: true,
+      fallback: true,
+      requestId: requestId,
+      message: "Request sent through fallback transport."
+    };
+  }
+}
+
+
+function showNotice(el, type, text) {
+  if (!el) return;
+  el.className = "notice show " + type;
+  el.innerHTML = text;
+
+  // Important messages are also shown as a prominent popup so they are not missed.
+  const overlay = $("alertOverlay");
+  const box = $("alertBox");
+  const message = $("alertMessage");
+  const icon = $("alertIcon");
+  const title = $("alertTitle");
+  if (overlay && box && message) {
+    const plain = String(text).replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ');
+    const titles = {info:"വിവരം", ok:"വിജയകരം", warn:"ശ്രദ്ധിക്കുക", err:"തുടരാൻ കഴിഞ്ഞില്ല"};
+    const icons = {info:"ℹ️", ok:"✓", warn:"⚠️", err:"✕"};
+    box.className = "alert-box " + (type || "info");
+    title.textContent = titles[type] || "ശ്രദ്ധിക്കുക";
+    icon.textContent = icons[type] || "ℹ️";
+    message.textContent = plain;
+    overlay.classList.add("show");
+  }
+}
+
+function closeAlert(){
+  const overlay = $("alertOverlay");
+  if (overlay) overlay.classList.remove("show");
+}
+
+function hideNotice(el) {
+  if (el) el.className = "notice";
+}
+
+function isValidEmail(email) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+function trackHomeDataChanges() {
+  const fields = ['owner', 'house', 'area', 'location', 'postoffice', 'district', 'status', 'email'];
+  let hasChanges = false;
+  
+  fields.forEach(field => {
+    const el = $(field);
+    const currentValue = el.value;
+    const originalValue = el.dataset.originalValue || '';
+    if (currentValue !== originalValue) {
+      hasChanges = true;
+    }
+  });
+  
+  isHomeDataChanged = hasChanges;
+  return hasChanges;
+}
+
+// ============================================================
+// FETCH MEMBERS DATA 
+// ============================================================
+
+async function fetchMembersData() {
+  try {
+    const response = await fetch(
+      CONFIG.APPS_SCRIPT_URL + "?action=members&_=" + Date.now(),
+      { method: "GET", cache: "no-store" }
+    );
+    const text = await response.text();
+    const data = JSON.parse(text);
+    if (!data.success) throw new Error(data.error || "Members data unavailable.");
+
+    const rows = data.rows || [];
+    if (rows.length < 2) {
+      membersDataCache = [];
+      return [];
+    }
+
+    membersDataCache = rows.slice(1).map(row => ({
+      memberId: String(row[MEMBERS_COLUMNS.MEMBER_ID] ?? "").trim(),
+      relation: String(row[MEMBERS_COLUMNS.RELATION] ?? "").trim(),
+      name: String(row[MEMBERS_COLUMNS.NAME] ?? "").trim(),
+      dob: String(row[MEMBERS_COLUMNS.DOB] ?? "").trim(),
+      gender: String(row[MEMBERS_COLUMNS.GENDER] ?? "").trim(),
+      contact: String(row[MEMBERS_COLUMNS.CONTACT] ?? "").trim(),
+      education: String(row[MEMBERS_COLUMNS.EDUCATION] ?? "").trim(),
+      marital: String(row[MEMBERS_COLUMNS.MARITAL] ?? "").trim(),
+      photo: String(row[MEMBERS_COLUMNS.PHOTO] ?? "").trim(),
+      email: String(row[MEMBERS_COLUMNS.EMAIL] ?? "").trim(),
+      branch: String(row[MEMBERS_COLUMNS.BRANCH] ?? "").trim(),
+      homeId: String(row[MEMBERS_COLUMNS.HOME_ID] ?? "").trim(),
+      status: String(row[MEMBERS_COLUMNS.STATUS] ?? "").trim(),
+      job: String(row[MEMBERS_COLUMNS.JOB] ?? "").trim(),
+      bloodGroup: String(row[MEMBERS_COLUMNS.BLOOD_GROUP] ?? "").trim(),
+      birthStar: String(row[MEMBERS_COLUMNS.BIRTH_STAR] ?? "").trim()
+    }));
+
+    return membersDataCache;
+  } catch (error) {
+    console.error("Error fetching members data:", error);
+    membersDataCache = [];
+    return [];
+  }
+}
+
+// ============================================================
+// CALCULATE NEXT MEMBER ID
+// ============================================================
+
+function calculateNextMemberId(branchId, homeId) {
+  const prefix = `${branchId}-${homeId}-`;
+  let maxNumber = 0;
+
+  const inspect = (list, idKey) => {
+    (list || []).forEach(item => {
+      const id = String(item[idKey] || "");
+      if (!id.startsWith(prefix)) return;
+      const n = Number(id.slice(prefix.length));
+      if (Number.isFinite(n) && n > maxNumber) maxNumber = n;
+    });
+  };
+
+  inspect(membersDataCache, "memberId");
+  members.forEach(m => {
+    if (editingIndex >= 0 && members[editingIndex] === m) return;
+    const id = String(m.id || "");
+    if (!id.startsWith(prefix)) return;
+    const n = Number(id.slice(prefix.length));
+    if (Number.isFinite(n) && n > maxNumber) maxNumber = n;
+  });
+
+  return `${prefix}${maxNumber + 1}`;
+}
+
+// ============================================================
+// FETCH DROPDOWN DATA 
+// ============================================================
+
+async function fetchTableData() {
+  try {
+    const response = await fetch(
+      CONFIG.APPS_SCRIPT_URL + "?action=tables&_=" + Date.now(),
+      { method: "GET", cache: "no-store" }
+    );
+    const text = await response.text();
+    const data = JSON.parse(text);
+    if (!data.success) throw new Error(data.error || "Tables data unavailable.");
+
+    const rows = data.rows || [];
+    if (rows.length < 2) throw new Error("Tables  is empty or has no data rows.");
+
+    const tableData = rows.slice(1);
+    const result = {
+      area: [], location: [], postoffice: [], district: [],
+      relation: [], gender: [], education: [], job: [], marital: [],
+      bloodGroup: [], birthStar: [],
+      locationAreaPairs: []
+    };
+
+    tableData.forEach(row => {
+      const rowArea = String(row[TABLE_COLUMNS.AREA] ?? "").trim();
+      const rowLocation = String(row[TABLE_COLUMNS.LOCATION] ?? "").trim();
+      if (rowArea) result.area.push(rowArea);
+      if (rowLocation) result.location.push(rowLocation);
+      if (rowLocation && rowArea) result.locationAreaPairs.push({ location: rowLocation, area: rowArea });
+      if (row[TABLE_COLUMNS.POSTOFFICE]) result.postoffice.push(row[TABLE_COLUMNS.POSTOFFICE]);
+      if (row[TABLE_COLUMNS.DISTRICT]) result.district.push(row[TABLE_COLUMNS.DISTRICT]);
+      if (row[TABLE_COLUMNS.RELATION]) result.relation.push(row[TABLE_COLUMNS.RELATION]);
+      if (row[TABLE_COLUMNS.GENDER]) result.gender.push(row[TABLE_COLUMNS.GENDER]);
+      if (row[TABLE_COLUMNS.EDUCATION]) result.education.push(row[TABLE_COLUMNS.EDUCATION]);
+      if (row[TABLE_COLUMNS.JOB]) result.job.push(row[TABLE_COLUMNS.JOB]);
+      if (row[TABLE_COLUMNS.MARITAL]) result.marital.push(row[TABLE_COLUMNS.MARITAL]);
+      if (row[TABLE_COLUMNS.BLOOD_GROUP_N]) result.bloodGroup.push(row[TABLE_COLUMNS.BLOOD_GROUP_N]);
+      if (row[TABLE_COLUMNS.BIRTH_STAR_O]) result.birthStar.push(row[TABLE_COLUMNS.BIRTH_STAR_O]);
+    });
+    return result;
+  } catch (error) {
+    console.error("Error fetching table data:", error);
+    showNotice($("homeNotice"), "err", `❌ Tables വിവരങ്ങൾ ലഭിച്ചില്ല: ${escapeHtml(error.message)}`);
+    return null;
+  }
+}
+
+// ============================================================
+// ============================================================
+// HOME ID GENERATION
+// ============================================================
+
+function getAreaAbbreviation(areaValue) {
+  const value = String(areaValue ?? "").trim();
+  if (!value) return "";
+  const parts = value.split("-");
+  if (parts.length < 2) return "";
+  return parts[parts.length - 1].trim().replace(/\s+/g, "").toUpperCase();
+}
+
+function calculateNextHomeId(areaValue, dataMap = masterDataCache) {
+  const abbreviation = getAreaAbbreviation(areaValue);
+  if (!abbreviation) return "";
+
+  // Master column E is the "പ്രദേശം" / area column.
+  // Count every existing Master row whose E value carries the same abbreviation.
+  const areaValues = Array.isArray(masterAreaValuesCache)
+    ? masterAreaValuesCache
+    : Object.values(dataMap || {}).map(item => item?.area);
+
+  let count = 0;
+  areaValues.forEach(existingArea => {
+    if (getAreaAbbreviation(existingArea) === abbreviation) count++;
+  });
+
+  return `${abbreviation}${count + 1}`;
+}
+
+function refreshGeneratedHomeId() {
+  const areaValue = val("area");
+  const homeId = calculateNextHomeId(areaValue);
+  generatedHomeId = homeId;
+  $("homeId").value = homeId;
+  $("homeId").dataset.generatedArea = areaValue;
+  $("homeId").dataset.generatedValue = homeId;
+  return homeId;
+}
+
+function findMasterHomeIdInsensitive(homeId) {
+  const wanted = String(homeId ?? "").trim().toUpperCase();
+  if (!wanted) return null;
+  const keys = Object.keys(masterDataCache || {});
+  const key = keys.find(k => String(k).trim().toUpperCase() === wanted);
+  return key ? masterDataCache[key] : null;
+}
+
+async function validateExistingHomeId() {
+  const entered = val("homeId");
+  if (!entered) {
+    showNotice($("homeNotice"), "warn", "ദയവായി നിലവിലുള്ള ശാഖാ വീട്ടു ഐഡി നമ്പർ നൽകുക.");
+    $("homeId").focus();
+    return false;
+  }
+
+  await fetchMasterData();
+  const homeData = findMasterHomeIdInsensitive(entered);
+  if (!homeData) {
+    showNotice($("homeNotice"), "err", `❌ ${escapeHtml(entered)} എന്ന വീട്ടു ഐഡി  കണ്ടെത്തിയില്ല. ശരിയായ ഐഡി നൽകുക.`);
+    $("homeId").focus();
+    return false;
+  }
+
+  // Use the exact ID stored in Master, while accepting the user's input case-insensitively.
+  $("homeId").value = homeData.homeId;
+  $("homeId").dataset.validated = "true";
+  fillFormFromMaster(homeData);
+  return true;
+}
+
+async function recheckGeneratedHomeId() {
+  if (homeEntryMode === "existing") return validateExistingHomeId();
+
+  await fetchMasterData();
+  const areaValue = val("area");
+  const expectedHomeId = calculateNextHomeId(areaValue, masterDataCache);
+
+  if (!expectedHomeId) {
+    showNotice($("homeNotice"), "warn", "ദയവായി തെരുവ് / പ്രധാന സ്ഥലം തിരഞ്ഞെടുക്കുക.");
+    $("area").focus();
+    return false;
+  }
+
+  const currentId = val("homeId");
+  if (currentId.toUpperCase() !== expectedHomeId.toUpperCase()) {
+    generatedHomeId = expectedHomeId;
+    $("homeId").value = expectedHomeId;
+    $("homeId").dataset.generatedArea = areaValue;
+    $("homeId").dataset.generatedValue = expectedHomeId;
+    showNotice($("homeNotice"), "warn", `⚠️ വീട്ടു ഐഡി പുതുക്കിയിട്ടുണ്ട്. ശരിയായ വീട്ടു ഐഡി: ${escapeHtml(expectedHomeId)}. വീണ്ടും "വീട്ടു വിവരങ്ങൾ ചേർക്കുക" ക്ലിക്ക് ചെയ്യുക.`);
+    return false;
+  }
+
+  generatedHomeId = expectedHomeId;
+  return true;
+}
+
+// FETCH MASTER DATA FOR HOME LOOKUP
+// ============================================================
+
+async function fetchMasterData() {
+  try {
+    const response = await fetch(
+      CONFIG.APPS_SCRIPT_URL + "?action=master&_=" + Date.now(),
+      { method: "GET", cache: "no-store" }
+    );
+    const text = await response.text();
+    const data = JSON.parse(text);
+    if (!data.success) throw new Error(data.error || "Master data unavailable.");
+
+    const rows = data.rows || [];
+    if (rows.length < 2) {
+      masterDataCache = {};
+      masterAreaValuesCache = [];
+      return {};
+    }
+
+    const masterMap = {};
+    masterAreaValuesCache = rows.slice(1).map(row =>
+      String(row[MASTER_COLUMNS.AREA] ?? "").trim()
+    );
+    rows.slice(1).forEach(row => {
+      const homeId = String(row[MASTER_COLUMNS.HOME_ID] ?? "").trim();
+      if (!homeId) return;
+      masterMap[homeId] = {
+        branch: String(row[MASTER_COLUMNS.BRANCH] ?? "").trim(),
+        homeId,
+        addressLine1: String(row[MASTER_COLUMNS.ADDRESS_LINE_1] ?? "").trim(),
+        addressLine2: String(row[MASTER_COLUMNS.ADDRESS_LINE_2] ?? "").trim(),
+        area: String(row[MASTER_COLUMNS.AREA] ?? "").trim(),
+        location: String(row[MASTER_COLUMNS.LOCATION] ?? "").trim(),
+        postOffice: String(row[MASTER_COLUMNS.POST_OFFICE] ?? "").trim(),
+        district: String(row[MASTER_COLUMNS.DISTRICT] ?? "").trim(),
+        status: String(row[MASTER_COLUMNS.STATUS] ?? "").trim(),
+        email: String(row[MASTER_COLUMNS.EMAIL] ?? "").trim()
+      };
+    });
+
+    masterDataCache = masterMap;
+    return masterMap;
+  } catch (error) {
+    console.error("Error fetching master data:", error);
+    showNotice($("homeNotice"), "err", `❌ Master വിവരങ്ങൾ ലഭിച്ചില്ല: ${escapeHtml(error.message)}`);
+    return {};
+  }
+}
+
+// ============================================================
+// POPULATE DROPDOWNS
+// ============================================================
+
+function populateSelect(id, values, placeholder = "തിരഞ്ഞെടുക്കുക") {
+  const select = $(id);
+  if (!select) return;
+
+  const clean = [...new Set((values || [])
+    .map(v => String(v ?? "").trim())
+    .filter(Boolean))]
+    .sort((a,b) => a.localeCompare(b, "ml", { numeric:true, sensitivity:"base" }));
+
+  select.innerHTML =
+    `<option value="" selected disabled>${escapeHtml(placeholder)}</option>` +
+    clean.map(v =>
+      `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`
+    ).join("");
+}
+
+function normalizeText(s) {
+  return String(s ?? "").trim().toLocaleLowerCase("ml-IN").replace(/[\s\-_,.()\/]+/g, "");
+}
+
+function autoSelectAreaFromLocation() {
+  const loc = val("location");
+  const areaSelect = $("area");
+  if (!loc || !areaSelect) return;
+
+  const nloc = normalizeText(loc);
+  if (!nloc) return;
+
+  // Prefer the exact location → area relationship from the Tables sheet.
+  // Example: kollamkonam → Kollamkonam-KKM.
+  const pair = locationAreaMap[nloc];
+  if (pair) {
+    const option = [...areaSelect.options].find(o => normalizeText(o.value) === normalizeText(pair));
+    if (option) {
+      areaSelect.value = option.value;
+      areaSelect.dispatchEvent(new Event("change", {bubbles:true}));
+      return;
+    }
+  }
+
+  // Fallback for minor spelling/format differences.
+  const options = [...areaSelect.options].filter(o => o.value);
+  let best = null, bestScore = 0;
+  options.forEach(o => {
+    const n = normalizeText(o.value);
+    if (!n) return;
+    const areaName = n.replace(/-[^-]+$/, "");
+    let score = 0;
+    if (n === nloc) score = 1000;
+    else if (areaName === nloc) score = 950;
+    else if (n.includes(nloc) || nloc.includes(areaName)) score = 800 - Math.abs(n.length - nloc.length);
+    if (score > bestScore) { bestScore = score; best = o; }
+  });
+  if (best && bestScore >= 700) {
+    areaSelect.value = best.value;
+    areaSelect.dispatchEvent(new Event("change", {bubbles:true}));
+  }
+}
+
+async function loadDropdownData() {
+  const data = await fetchTableData();
+  
+  if (!data) {
+    return;
+  }
+
+  populateSelect("area", data.area);
+  populateSelect("location", data.location);
+
+  // Build a direct location → area lookup from the same Tables rows.
+  locationAreaMap = {};
+  (data.locationAreaPairs || []).forEach(pair => {
+    const key = normalizeText(pair.location);
+    if (key && !locationAreaMap[key]) locationAreaMap[key] = pair.area;
+  });
+  populateSelect("postoffice", data.postoffice);
+  populateSelect("district", data.district);
+  const districtValues = [...new Set((data.district || [])
+    .map(v => String(v ?? "").trim())
+    .filter(Boolean))];
+  if (districtValues.length === 1) {
+    $("district").value = districtValues[0];
+  }
+  populateSelect("mRelation", data.relation);
+  populateSelect("mGender", data.gender);
+  populateSelect("mEducation", data.education);
+  populateSelect("mJob", data.job);
+  populateSelect("mMarital", data.marital);
+  populateSelect("mBloodGroup", data.bloodGroup, "തിരഞ്ഞെടുക്കുക");
+  populateSelect("mBirthStar", data.birthStar, "തിരഞ്ഞെടുക്കുക");
+
+  isDropdownsLoaded = true;
+
+}
+
+// ============================================================
+// FILL FORM FROM MASTER DATA
+// ============================================================
+
+function fillFormFromMaster(homeData) {
+  if (!homeData) return false;
+
+  currentHomeData = homeData;
+  
+  if (homeData.branch) $("branch").value = homeData.branch;
+  if (homeData.addressLine1) {
+    $("owner").value = homeData.addressLine1;
+    $("owner").dataset.originalValue = homeData.addressLine1;
+  }
+  if (homeData.addressLine2) {
+    $("house").value = homeData.addressLine2;
+    $("house").dataset.originalValue = homeData.addressLine2;
+  }
+  if (homeData.email) {
+    $("email").value = homeData.email;
+    $("email").dataset.originalValue = homeData.email;
+  }
+  
+  if (homeData.area) {
+    try { 
+      $("area").value = homeData.area;
+      $("area").dataset.originalValue = homeData.area;
+    } catch(e) {}
+  }
+  if (homeData.location) {
+    try { 
+      $("location").value = homeData.location;
+      $("location").dataset.originalValue = homeData.location;
+    } catch(e) {}
+  }
+  if (homeData.postOffice) {
+    try { 
+      $("postoffice").value = homeData.postOffice;
+      $("postoffice").dataset.originalValue = homeData.postOffice;
+    } catch(e) {}
+  }
+  if (homeData.district) {
+    try { 
+      $("district").value = homeData.district;
+      $("district").dataset.originalValue = homeData.district;
+    } catch(e) {}
+  }
+  if (homeData.status) {
+    try { 
+      $("status").value = homeData.status;
+      $("status").dataset.originalValue = homeData.status;
+    } catch(e) {}
+  }
+
+  isHomeDataChanged = false;
+
+  showNotice(
+    $("homeNotice"),
+    "ok",
+    `✅ വീട്ടു നമ്പർ ${escapeHtml(homeData.homeId)} നിലവിലുണ്ട്. മറ്റു വിവരങ്ങൾ പൂരിപ്പിച്ചു.`
+  );
+
+  $("membersCard").scrollIntoView({ behavior: "smooth", block: "start" });
+  
+  return true;
+}
+
+// ============================================================
+// SUBMIT MASTER DATA TO SHEET
+// ============================================================
+
+async function submitMasterData() {
+  if (isSubmitting) {
+    showNotice($("homeNotice"), "info", "⏳ ദയവായി കാത്തിരിക്കുക...");
+    return false;
+  }
+
+  const homeIdIsValid = await recheckGeneratedHomeId();
+  if (!homeIdIsValid) return false;
+
+  const homeId = val("homeId");
+
+  if (homeEntryMode === "existing") {
+    showNotice($("homeNotice"), "ok", `✅ വീട്ടു ഐഡി ${escapeHtml(homeId)} സാധൂകരിച്ചു. മാസ്റ്റർ വിവരങ്ങൾ ലഭ്യമാക്കി. പുതിയ Master എൻട്രി സൃഷ്ടിച്ചിട്ടില്ല.`);
+    return true;
+  }
+  if (!homeId) {
+    showNotice($("homeNotice"), "warn", "ദയവായി തെരുവ് / പ്രധാന സ്ഥലം തിരഞ്ഞെടുക്കുക.");
+    $("area").focus();
+    return false;
+  }
+
+  const email = val("email");
+  if (email && !isValidEmail(email)) {
+    showNotice($("homeNotice"), "err", "ദയവായി ശരിയായ ഇമെയിൽ വിലാസം നൽകുക.");
+    $("email").focus();
+    return false;
+  }
+
+  if (currentHomeData && !trackHomeDataChanges()) {
+    showNotice($("homeNotice"), "info", "ℹ️ വിവരങ്ങളിൽ മാറ്റമൊന്നുമില്ല.");
+    return true;
+  }
+
+  const masterData = {
+    branch: val("branch") || "1003",
+    homeId,
+    owner: val("owner"),
+    house: val("house"),
+    area: val("area"),
+    location: val("location"),
+    postoffice: val("postoffice"),
+    district: val("district"),
+    status: val("status") || "Active",
+    email
+  };
+
+  isSubmitting = true;
+  showNotice($("homeNotice"), "info", "⏳ വിവരങ്ങൾ സംരക്ഷിക്കുന്നു...");
+
+  try {
+    const result = await postBackend({ type: "master", data: masterData });
+
+    ['owner', 'house', 'area', 'location', 'postoffice', 'district', 'status', 'email']
+      .forEach(field => {
+        const el = $(field);
+        el.dataset.originalValue = el.value;
+      });
+
+    isHomeDataChanged = false;
+    currentHomeData = masterData;
+
+    if (!result.fallback) {
+      await fetchMasterData();
+      if (masterDataCache[homeId]) currentHomeData = masterDataCache[homeId];
+    }
+
+    showNotice(
+      $("homeNotice"),
+      "ok",
+      `✅ നിങ്ങളുടെ വീട് ഐഡി നമ്പർ : ${escapeHtml(homeId)}.<br>മറ്റ് ആവശ്യങ്ങൾക്കായി ഇത് ഉപയോഗിക്കേണ്ടതിനാൽ രേഖപ്പെടുത്തി വയ്ക്കുക.`
+    );
+    return true;
+  } catch (error) {
+    console.error("❌ Master submission error:", error);
+    showNotice($("homeNotice"), "err", `❌ ചേർക്കുന്നതിൽ പിഴവ് സംഭവിച്ചു: ${escapeHtml(error.message)}`);
+    return false;
+  } finally {
+    isSubmitting = false;
+  }
+}
+
+// ============================================================
+// SUBMIT SINGLE MEMBER TO SHEET
+// ============================================================
+
+async function submitMemberToSheet(memberData) {
+  try {
+    const result = await postBackend({ type: "member", data: memberData });
+    console.log("📥 Member submission response:", result);
+    return !!result.success;
+  } catch (error) {
+    console.error("❌ Error submitting member:", error);
+    showNotice($("memberNotice"), "err", `❌ ${escapeHtml(error.message)}`);
+    return false;
+  }
+}
+
+// ============================================================
+// LOOKUP HOME - TRIGGERED ON INPUT
+// ============================================================
+
+let lookupTimeout = null;
+
+async function lookupHomeOnInput() {
+  // Home ID is generated automatically from the selected area.
+}
+
+// ============================================================
+// TEST CONNECTION
+// ============================================================
+
+async function testConnection() {
+  showNotice($("homeNotice"), "info", " പരിശോധിക്കുന്നു...");
+
+  try {
+    const response = await fetch(CONFIG.APPS_SCRIPT_URL + "?action=health&_=" + Date.now(), {
+      method: "GET",
+      cache: "no-store"
+    });
+
+    const text = await response.text();
+    let data;
+    try { data = JSON.parse(text); }
+    catch (e) { throw new Error("Invalid server response: " + text.slice(0, 300)); }
+
+    if (!data.success) throw new Error(data.error || "Server returned an error.");
+
+    showNotice(
+      $("homeNotice"),
+      "ok",
+      `✅ സെർവർ ബന്ധം വിജയകരം! ${escapeHtml(data.message || "")}`
+    );
+  } catch (error) {
+    console.error("❌ Connection test failed:", error);
+    showNotice(
+      $("homeNotice"),
+      "err",
+      `❌ സെർവർ ബന്ധം പരാജയപ്പെട്ടു: ${escapeHtml(error.message)}`
+    );
+  }
+}
+
+// ============================================================
+// MEMBER MANAGEMENT FUNCTIONS
+// ============================================================
+
+function resetMemberForm() {
+  ["mName", "mDob", "mContact", "mEmail"].forEach(id => $(id).value = "");
+  ["mRelation", "mGender", "mEducation", "mMarital", "mJob", "mBloodGroup", "mBirthStar"].forEach(id => $(id).selectedIndex = 0);
+  capturedPhoto = "";
+  galleryImage = null; photoZoom = 1; photoX = 0; photoY = 0;
+  if ($("photoAdjust")) $("photoAdjust").style.display = "none";
+  $("photoPreview").style.display = "none";
+  $("video").style.display = "none";
+  $("cameraPlaceholder").style.display = "grid";
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  $("cameraBtn").textContent = "📷 ക്യാമറ ഉപയോഗിച്ച് ഫോട്ടോ എടുക്കുക";
+  $("mEmail").style.borderColor = "";
+}
+
+function openMember() {
+  const home = val("homeId");
+  if (!home) {
+    showNotice($("homeNotice"), "warn", "അംഗത്തെ ചേർക്കുന്നതിന് മുമ്പ് ശാഖാ വീട്ടു നമ്പർ നൽകുക.");
+    $("homeId").focus();
+    return;
+  }
+  
+  const branchId = val("branch") || "1003";
+  const homeId = val("homeId");
+  const nextId = calculateNextMemberId(branchId, homeId);
+  
+  const nextMemberNumber = getMemberNumber(nextId);
+  if (nextMemberNumber === 1) {
+    $("memberHeading").textContent = "ഗൃഹ നാഥൻ /ഗൃഹനാഥ യുടെ വിവരമാണ് ആദ്യം നൽകേണ്ടത്";
+  } else {
+    $("memberHeading").textContent = "വിട്ടുപോയ അംഗങ്ങളുടെ വിവരങ്ങൾ കൂടി ചേർക്കേണ്ടതുണ്ട്";
+  }
+  
+  $("memberIdDisplay").textContent = "Member ID: " + nextId;
+  $("memberNotice").className = "notice";
+  resetMemberForm();
+  $("memberModal").classList.add("show");
+  setTimeout(() => {
+    const modal = document.querySelector("#memberModal .modal");
+    if (modal) modal.scrollTo({ top: 0, behavior: "instant" });
+  }, 50);
+}
+
+function collectMember() {
+  const name = val("mName");
+  if (!name) {
+    showNotice($("memberNotice"), "err", "അംഗത്തിന്റെ പേര് നൽകുക.");
+    return null;
+  }
+  if (!$("mRelation").value) {
+    showNotice($("memberNotice"), "err", "ബന്ധം തിരഞ്ഞെടുക്കുക.");
+    return null;
+  }
+  
+  const email = val("mEmail");
+  if (email && !isValidEmail(email)) {
+    showNotice($("memberNotice"), "err", "ദയവായി ശരിയായ ഇമെയിൽ വിലാസം നൽകുക.");
+    $("mEmail").focus();
+    return null;
+  }
+  
+  const branchId = val("branch") || "1003";
+  const homeId = val("homeId");
+  const memberId = calculateNextMemberId(branchId, homeId);
+  
+  return {
+    id: memberId,
+    branch: branchId,
+    homeId: homeId,
+    relation: val("mRelation"),
+    name: name,
+    dob: val("mDob"),
+    gender: val("mGender"),
+    contact: val("mContact"),
+    education: val("mEducation"),
+    marital: val("mMarital"),
+    job: val("mJob"),
+    bloodGroup: val("mBloodGroup"),
+    birthStar: val("mBirthStar"),
+    email: email,
+    photo: capturedPhoto,
+    status: "Active",
+  };
+}
+
+function summaryHtml(m) {
+  const rows = [
+    ["അംഗ ID", m.id],
+    ["പേര്", m.name],
+    ["ബന്ധം", m.relation],
+    ["ജനന തീയതി", m.dob || "—"],
+    ["ലിംഗം", m.gender || "—"],
+    ["ബന്ധപ്പെടാനുള്ള നമ്പർ", m.contact || "—"],
+    ["വിദ്യാഭ്യാസം", m.education || "—"],
+    ["വൈവാഹിക നില", m.marital || "—"],
+    ["തൊഴിൽ", m.job || "—"],
+    ["രക്ത ഗ്രൂപ്പ്‌", m.bloodGroup || "—"],
+    ["ജന്മ നക്ഷത്രം", m.birthStar || "—"],
+    ["ഇമെയിൽ", m.email || "—"]
+  ];
+  return rows.map(r => 
+    `<div class="summary-row"><span>${escapeHtml(r[0])}</span><b>${escapeHtml(r[1])}</b></div>`
+  ).join("");
+}
+
+function getHouseholdMembers(homeId = val("homeId")) {
+  const wanted = String(homeId ?? "").trim().toLocaleLowerCase("ml-IN");
+  if (!wanted) return [];
+  return (membersDataCache || []).filter(m =>
+    String(m.homeId ?? "").trim().toLocaleLowerCase("ml-IN") === wanted
+  );
+}
+
+function getMemberNumber(memberId) {
+  const parts = String(memberId ?? "").trim().split("-");
+  const n = Number(parts[parts.length - 1]);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function updateHouseholdMemberSummary() {
+  const householdMembers = getHouseholdMembers();
+  const count = householdMembers.length;
+  $("memberCount").textContent = count + " അംഗങ്ങൾ";
+  $("memberCount").disabled = count === 0;
+  $("memberCount").setAttribute("aria-label", count ? `${count} അംഗങ്ങൾ - രജിസ്റ്റർ ചെയ്ത പേരുകൾ കാണുക` : "രജിസ്റ്റർ ചെയ്ത അംഗങ്ങൾ ഇല്ല");
+
+  $("emptyMember").style.display = members.length ? "none" : "block";
+  if (!members.length) {
+    if (count > 0) {
+      $("emptyMemberTitle").textContent = "വിട്ടുപോയ അംഗങ്ങളുടെ വിവരങ്ങൾ കൂടി ചേർക്കേണ്ടതുണ്ട്";
+      $("emptyMemberSub").textContent = `ഈ വീട്ടിൽ ${count} അംഗങ്ങളുടെ വിവരങ്ങൾ ഇതിനകം രജിസ്റ്റർ ചെയ്തിട്ടുണ്ട്. ബാക്കിയുള്ള അംഗങ്ങളുടെ വിവരങ്ങൾ ചേർക്കുക.`;
+    } else {
+      $("emptyMemberTitle").textContent = "ഗൃഹ നാഥൻ /ഗൃഹനാഥ യുടെ വിവരമാണ് ആദ്യം നൽകേണ്ടത്";
+      $("emptyMemberSub").textContent = "താഴെയുള്ള ബട്ടൺ ക്ലിക്ക് ചെയ്തു ആദ്യ അംഗത്തിന്റെ വിവരങ്ങൾ ചേർക്കുക";
+    }
+  }
+}
+
+function renderRegisteredMembers() {
+  const homeId = val("homeId");
+  const householdMembers = getHouseholdMembers(homeId);
+  $("registeredMembersSub").textContent = homeId
+    ? `${homeId} എന്ന വീട്ടു ഐഡിയിൽ രജിസ്റ്റർ ചെയ്ത അംഗങ്ങളുടെ പേരുകൾ`
+    : "നിലവിലെ വീട്ടു ഐഡിയിൽ രജിസ്റ്റർ ചെയ്ത അംഗങ്ങളുടെ പേരുകൾ";
+
+  $("registeredMembersList").innerHTML = householdMembers.length
+    ? householdMembers.map(m => `<div class="member-name-item">${escapeHtml(m.name || "പേര് ലഭ്യമല്ല")}</div>`).join("")
+    : `<div class="member-name-empty">ഈ Household ID-യിൽ രജിസ്റ്റർ ചെയ്ത അംഗങ്ങളില്ല.</div>`;
+
+  $("registeredMembersModal").classList.add("show");
+}
+
+function renderMembers() {
+  updateHouseholdMemberSummary();
+  $("membersList").innerHTML = members.map((m, i) => `
+    <div class="member-chip">
+      <div><b>${escapeHtml(m.name)}</b><small>${escapeHtml(m.id)} · ${escapeHtml(m.relation)}</small></div>
+      <button class="btn-light" onclick="editExisting(${i})">തിരുത്തുക</button>
+    </div>
+  `).join("");
+  $("finalCard").style.display = members.length ? "block" : "none";
+  if (members.length) renderFinal();
+}
+
+function editExisting(i) {
+  editingIndex = i;
+  const m = members[i];
+
+  $("memberHeading").textContent =
+    i === 0 ? "ഗൃഹ നാഥൻ /ഗൃഹനാഥ യുടെ വിവരമാണ് ആദ്യം നൽകേണ്ടത്" : "മറ്റ് കുടുംബ അംഗങ്ങളുടെ വിവരങ്ങൾ";
+  $("memberIdDisplay").textContent = "Member ID: " + m.id;
+
+  $("mName").value = m.name;
+  $("mRelation").value = m.relation;
+  $("mDob").value = m.dob || "";
+  $("mGender").value = m.gender || "";
+  $("mContact").value = m.contact || "";
+  $("mEducation").value = m.education || "";
+  $("mMarital").value = m.marital || "";
+  $("mJob").value = m.job || "";
+  $("mBloodGroup").value = m.bloodGroup || "";
+  $("mBirthStar").value = m.birthStar || "";
+  $("mEmail").value = m.email || "";
+
+  capturedPhoto = m.photo || "";
+  if (capturedPhoto) {
+    $("photoPreview").src = capturedPhoto;
+    $("photoPreview").style.display = "block";
+    $("cameraPlaceholder").style.display = "none";
+  } else {
+    $("photoPreview").style.display = "none";
+    $("cameraPlaceholder").style.display = "grid";
+  }
+
+  $("memberModal").classList.add("show");
+}
+
+function renderFinal() {
+  const master = `<div class="summary">
+    <div class="summary-row"><span>വീട്ടു നമ്പർ</span><b>${escapeHtml(val("homeId"))}</b></div>
+    <div class="summary-row"><span>ഗൃഹനാഥന്റെ / ഗൃഹനാഥയുടെ പേര്</span><b>${escapeHtml(val("owner") || "—")}</b></div>
+    <div class="summary-row"><span>വീട്ടുപേര്</span><b>${escapeHtml(val("house") || "—")}</b></div>
+    <div class="summary-row"><span>പ്രദേശം</span><b>${escapeHtml(val("area") || "—")}</b></div>
+    <div class="summary-row"><span>സ്ഥലം</span><b>${escapeHtml(val("location") || "—")}</b></div>
+    <div class="summary-row"><span>പോസ്റ്റ് ഓഫീസ്</span><b>${escapeHtml(val("postoffice") || "—")}</b></div>
+    <div class="summary-row"><span>ജില്ല</span><b>${escapeHtml(val("district") || "—")}</b></div>
+    <div class="summary-row"><span>നിലവിലെ സ്ഥിതി</span><b>${escapeHtml(val("status") || "—")}</b></div>
+    <div class="summary-row"><span>ഇമെയിൽ</span><b>${escapeHtml(val("email") || "—")}</b></div>
+  </div>`;
+  
+  const mem = members.map(m => 
+    `<div class="summary-row"><span>${escapeHtml(m.id)} · ${escapeHtml(m.relation)}</span><b>${escapeHtml(m.name)}</b></div>`
+  ).join("");
+  
+  $("finalSummary").innerHTML = master + `<div class="summary">
+    <div class="summary-row"><span>കുടുംബാംഗങ്ങൾ</span><b>${members.length}</b></div>
+    ${mem}
+  </div>`;
+}
+
+// ============================================================
+// CAMERA FUNCTIONS
+// ============================================================
+
+async function captureFacePhoto() {
+  const v = $("video");
+  const c = document.createElement("canvas");
+  c.width = 720; c.height = 720;
+  const ctx = c.getContext("2d");
+  const vw = v.videoWidth, vh = v.videoHeight;
+  if (!vw || !vh) throw new Error("Camera frame ലഭ്യമല്ല.");
+
+  // Try to locate the face so the saved square is centered on it.
+  let cropSide = Math.min(vw, vh);
+  let cx = vw / 2, cy = vh / 2;
+  try {
+    if ("FaceDetector" in window) {
+      const detector = new FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
+      const faces = await detector.detect(v);
+      if (faces && faces[0]) {
+        const b = faces[0].boundingBox;
+        cx = b.x + b.width / 2;
+        cy = b.y + b.height / 2;
+        cropSide = Math.min(cropSide, Math.max(b.width, b.height) * 2.35);
+      }
+    }
+  } catch (e) {
+    console.warn("Face detection unavailable; using centered crop.", e);
+  }
+
+  cropSide = Math.min(cropSide, vw, vh);
+  let sx = cx - cropSide / 2;
+  let sy = cy - cropSide / 2;
+  sx = Math.max(0, Math.min(sx, vw - cropSide));
+  sy = Math.max(0, Math.min(sy, vh - cropSide));
+
+  // Mirror the front-camera preview so the saved portrait looks natural.
+  ctx.save();
+  ctx.translate(c.width, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(v, sx, sy, cropSide, cropSide, 0, 0, c.width, c.height);
+  ctx.restore();
+  return c.toDataURL("image/jpeg", 0.78);
+}
+
+async function handleCamera() {
+  // If camera is already live, take the photo.
+  if (stream) {
+    try {
+      capturedPhoto = await captureFacePhoto();
+      $("photoPreview").src = capturedPhoto;
+      $("photoPreview").style.display = "block";
+      $("video").style.display = "none";
+      $("cameraPlaceholder").style.display = "none";
+      $("photoAdjust").style.display = "none";
+    } catch (e) {
+      showNotice($("memberNotice"), "err", `❌ ഫോട്ടോ എടുക്കാൻ കഴിഞ്ഞില്ല: ${escapeHtml(e.message)}`);
+      return;
+    }
+    stream.getTracks().forEach(t => t.stop());
+    stream = null;
+    $("cameraBox").classList.remove("is-live");
+    $("cameraBtn").textContent = "📷 വീണ്ടും ഫോട്ടോ എടുക്കുക";
+    return;
+  }
+
+  // Start the device camera. Gallery remains available as a separate option.
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error("ഈ ഉപകരണത്തിൽ ക്യാമറ ലഭ്യമല്ല.");
+    }
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "user" }, width: { ideal: 1280 }, height: { ideal: 1280 } },
+      audio: false
+    });
+    $("video").srcObject = stream;
+    $("video").style.display = "block";
+    $("photoPreview").style.display = "none";
+    $("cameraPlaceholder").style.display = "none";
+    $("photoAdjust").style.display = "none";
+    $("cameraBox").classList.add("is-live");
+    $("cameraBtn").textContent = "● ഫോട്ടോ എടുക്കുക";
+  } catch (e) {
+    showNotice($("memberNotice"), "warn", "📷 ക്യാമറ തുറക്കാൻ കഴിഞ്ഞില്ല. ഗ്യാലറിയിൽ നിന്ന് ഫോട്ടോ തിരഞ്ഞെടുക്കാം.");
+  }
+}
+
+// ============================================================
+// LOCATION FUNCTIONS
+// ============================================================
+
+// ============================================================
+// SUBMIT ALL - Final submission
+// ============================================================
+
+async function submitAll() {
+  if (isSubmitting) {
+    showNotice($("homeNotice"), "info", "⏳ ദയവായി കാത്തിരിക്കുക...");
+    return;
+  }
+
+  if (!val("homeId")) {
+    showNotice($("homeNotice"), "err", "വീട്ടു നമ്പർ നൽകുക.");
+    $("homeId").focus();
+    return;
+  }
+
+  const email = val("email");
+  if (email && !isValidEmail(email)) {
+    showNotice($("homeNotice"), "err", "ദയവായി ശരിയായ ഇമെയിൽ വിലാസം നൽകുക.");
+    $("email").focus();
+    return;
+  }
+
+  if (members.length === 0) {
+    showNotice($("homeNotice"), "err", "കുറഞ്ഞത് ഒരു കുടുംബാംഗത്തിന്റെ വിവരങ്ങളെങ്കിലും നൽകുക.");
+    $("membersCard").scrollIntoView({ behavior: "smooth" });
+    return;
+  }
+
+  // IMPORTANT: do not set isSubmitting before submitMasterData().
+  // The previous version did that and submitMasterData() immediately
+  // returned because it saw isSubmitting === true.
+  const masterSaved = await submitMasterData();
+  if (!masterSaved) return;
+
+  isSubmitting = true;
+  try {
+    const unsavedMembers = members.filter(m => !m._submitted);
+
+    if (unsavedMembers.length === 0) {
+      showNotice($("homeNotice"), "ok", "✅ എല്ലാ അംഗങ്ങളും ഇതിനകം സമർപ്പിച്ചു കഴിഞ്ഞു.");
+      return;
+    }
+
+    showNotice(
+      $("homeNotice"),
+      "info",
+      `⏳ ${unsavedMembers.length} അംഗങ്ങളുടെ വിവരങ്ങൾ സമർപ്പിക്കുന്നു...`
+    );
+
+    let successCount = 0;
+    for (const member of unsavedMembers) {
+      const success = await submitMemberToSheet(member);
+      if (success) {
+        member._submitted = true;
+        successCount++;
+      }
+    }
+
+    if (successCount === unsavedMembers.length) {
+      showNotice(
+        $("homeNotice"),
+        "ok",
+        `✅ എല്ലാ വിവരങ്ങളും വിജയകരമായി സമർപ്പിച്ചു! ${successCount}/${unsavedMembers.length} അംഗങ്ങൾ രേഖപ്പെടുത്തി.`
+      );
+      await fetchMembersData();
+    } else {
+      showNotice(
+        $("homeNotice"),
+        "warn",
+        `⚠️ ${successCount}/${unsavedMembers.length} അംഗങ്ങൾ മാത്രം സമർപ്പിച്ചു. വീണ്ടും ശ്രമിക്കുക.`
+      );
+    }
+  } finally {
+    isSubmitting = false;
+  }
+}
+
+// ============================================================
+// INITIALIZATION
+// ============================================================
+
+async function init() {
+  if ($("branch")) $("branch").value = "1003";
+  
+  await loadDropdownData();
+  await fetchMasterData();
+  await fetchMembersData();
+  updateHouseholdMemberSummary();
+  
+  ['owner', 'house', 'area', 'location', 'postoffice', 'district', 'status', 'email'].forEach(field => {
+    const el = $(field);
+    if (el) {
+      el.addEventListener('input', trackHomeDataChanges);
+      el.addEventListener('change', trackHomeDataChanges);
+    }
+  });
+  
+  console.log("📊 Members data loaded:", membersDataCache.length, "records");
+  console.log("📊 Apps Script URL:", CONFIG.APPS_SCRIPT_URL);
+}
+
+// ============================================================
+// EVENT LISTENERS
+// ============================================================
+
+document.addEventListener("DOMContentLoaded", init);
+
+$("alertClose").onclick = closeAlert;
+$("alertOverlay").addEventListener("click", function(e){
+  if(e.target === this) closeAlert();
+});
+
+$("location").addEventListener("change", function() {
+  autoSelectAreaFromLocation();
+  trackHomeDataChanges();
+});
+
+$("area").addEventListener("change", function() {
+  if (homeEntryMode === "new") {
+    refreshGeneratedHomeId();
+  } else {
+    $("homeId").dataset.validated = "false";
+  }
+  updateHouseholdMemberSummary();
+  hideNotice($("homeNotice"));
+});
+$("checkHome").onclick = submitMasterData;
+$("testConn").onclick = testConnection;
+
+function setHomeEntryMode(mode) {
+  homeEntryMode = mode;
+  $("homeModeModal").classList.remove("show");
+  $("homeId").readOnly = mode === "new";
+  $("homeId").value = "";
+  $("homeId").dataset.validated = "false";
+  currentHomeData = null;
+  isHomeDataChanged = false;
+
+  if (mode === "new") {
+    $("homeId").placeholder = "";
+    showNotice($("homeNotice"), "info", "ℹ️ പുതിയ ഗൃഹ വിവരങ്ങൾ രേഖപ്പെടുത്തുന്നതിനുള്ള മോഡ് ആണ്. പ്രദേശം തിരഞ്ഞെടുക്കുമ്പോൾ വീട്ടു ഐഡി സ്വയം ലഭിക്കും.");
+    if ($("area").value) refreshGeneratedHomeId();
+  } else {
+    $("homeId").placeholder = "നിലവിലുള്ള വീട്ടു ഐഡി നൽകുക";
+    showNotice($("homeNotice"), "info", "ℹ️ നിലവിലുള്ള വീട്ടു ഐഡി നൽകുക. വലിയ/ചെറിയ അക്ഷര വ്യത്യാസം പരിഗണിക്കില്ല. പരിശോധിച്ച ശേഷം മാസ്റ്റർ വിവരങ്ങൾ സ്വയം ലഭിക്കും.");
+    $("homeId").focus();
+  }
+}
+
+$("newHomeMode").onclick = () => setHomeEntryMode("new");
+$("existingHomeMode").onclick = () => setHomeEntryMode("existing");
+$("homeId").addEventListener("input", function() {
+  updateHouseholdMemberSummary();
+});
+
+$("homeId").addEventListener("blur", async function() {
+  if (homeEntryMode === "existing" && val("homeId")) {
+    await validateExistingHomeId();
+    updateHouseholdMemberSummary();
+  }
+});
+
+$("email").addEventListener("blur", function() {
+  const email = val("email");
+  if (email && !isValidEmail(email)) {
+    this.style.borderColor = "#dc2626";
+    showNotice($("homeNotice"), "err", "ദയവായി ശരിയായ ഇമെയിൽ വിലാസം നൽകുക.");
+  } else {
+    this.style.borderColor = "";
+  }
+});
+
+$("mEmail").addEventListener("blur", function() {
+  const email = val("mEmail");
+  if (email && !isValidEmail(email)) {
+    this.style.borderColor = "#dc2626";
+    showNotice($("memberNotice"), "err", "ദയവായി ശരിയായ ഇമെയിൽ വിലാസം നൽകുക.");
+  } else {
+    this.style.borderColor = "";
+  }
+});
+
+$("addMember").onclick = openMember;
+$("memberCount").onclick = renderRegisteredMembers;
+$("closeRegisteredMembers").onclick = function() {
+  $("registeredMembersModal").classList.remove("show");
+};
+$("registeredMembersModal").addEventListener("click", function(e) {
+  if (e.target === this) this.classList.remove("show");
+});
+$("closeModal").onclick = function() {
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  $("cameraBox").classList.remove("is-live");
+  $("memberModal").classList.remove("show");
+};
+$("confirmMember").onclick = function() {
+  const m = collectMember();
+  if (!m) return;
+  pendingMember = m;
+  $("memberSummary").innerHTML = summaryHtml(m);
+  $("memberModal").classList.remove("show");
+  $("summaryModal").classList.add("show");
+};
+$("editMember").onclick = function() {
+  $("summaryModal").classList.remove("show");
+  $("memberModal").classList.add("show");
+};
+$("saveMember").onclick = async function() {
+  if (!pendingMember) return;
+
+  const memberToSubmit = pendingMember;
+  const wasEditing = editingIndex >= 0;
+  const oldIndex = editingIndex;
+
+  // Keep the confirmation preview visible while the record is being submitted.
+  $("saveMember").disabled = true;
+  $("editMember").disabled = true;
+  showNotice($("memberNotice"), "info", `⏳ ${escapeHtml(memberToSubmit.name)} ന്റെ വിവരങ്ങൾ സമർപ്പിക്കുന്നു...`);
+
+  const success = await submitMemberToSheet(memberToSubmit);
+
+  $("saveMember").disabled = false;
+  $("editMember").disabled = false;
+
+  if (!success) {
+    memberToSubmit._submitted = false;
+    showNotice($("memberNotice"), "err", `❌ ${escapeHtml(memberToSubmit.name)} ന്റെ വിവരങ്ങൾ സമർപ്പിക്കാൻ കഴിഞ്ഞില്ല. വിവരങ്ങൾ പരിശോധിച്ച് വീണ്ടും ശ്രമിക്കുക.`);
+    alert(`❌ സമർപ്പണം പരാജയപ്പെട്ടു\n\n${memberToSubmit.name} ന്റെ വിവരങ്ങൾ Save ആയിട്ടില്ല.\n\nദയവായി വീണ്ടും ശ്രമിക്കുക.`);
+    return;
+  }
+
+  // Only add/update the local member list after the server confirms success.
+  if (wasEditing) {
+    members[oldIndex] = memberToSubmit;
+  } else {
+    members.push(memberToSubmit);
+  }
+  memberToSubmit._submitted = true;
+
+  await fetchMembersData();
+  renderMembers();
+
+  // Clear all previous member preview/form data before opening the next entry.
+  pendingMember = null;
+  editingIndex = -1;
+  resetMemberForm();
+  $("memberSummary").innerHTML = "";
+  $("summaryModal").classList.remove("show");
+  $("memberModal").classList.remove("show");
+
+  // Explicit submission-status alert.
+  alert(`✅ അംഗത്തിന്റെ വിവരങ്ങൾ വിജയകരമായി സമർപ്പിച്ചു\n\nപേര്: ${memberToSubmit.name}\nMember ID: ${memberToSubmit.id}\n\n വിവരങ്ങൾ സംരക്ഷിച്ചു.`);
+
+  // After the status alert, ask whether another member should be entered.
+  const addAnother = confirm(
+    wasEditing
+      ? "അംഗത്തിന്റെ വിവരങ്ങൾ വിജയകരമായി അപ്ഡേറ്റ് ചെയ്തു.\n\nമറ്റൊരു പുതിയ അംഗത്തിന്റെ വിവരങ്ങൾ ചേർക്കണോ?\n\nOK = പുതിയ അംഗം\nCancel = ഫോം അടയ്ക്കുക"
+      : "അംഗത്തിന്റെ വിവരങ്ങൾ വിജയകരമായി സമർപ്പിച്ചു.\n\nഅടുത്ത കുടുംബാംഗത്തിന്റെ വിവരങ്ങൾ ചേർക്കണോ?\n\nOK = അടുത്ത അംഗം\nCancel = ഫോം അടയ്ക്കുക"
+  );
+
+  if (addAnother) {
+    // Completely fresh member form; old photo, location and values are removed.
+    resetMemberForm();
+    openMember();
+  } else {
+    // User has completed member entry. Close both previews/modals.
+    if (stream) {
+      stream.getTracks().forEach(t => t.stop());
+      stream = null;
+    }
+    $("memberModal").classList.remove("show");
+    $("summaryModal").classList.remove("show");
+    showNotice($("memberNotice"), "ok", `✅ ${members.length} അംഗങ്ങളുടെ വിവരങ്ങൾ ഇതുവരെ സമർപ്പിച്ചു.`);
+  }
+};
+
+$("cameraBtn").onclick = handleCamera;
+$("galleryBtn").onclick = function() { $("photoInput").click(); };
+let galleryImage = null;
+let photoZoom = 1, photoX = 0, photoY = 0;
+
+function renderGalleryPhoto() {
+  if (!galleryImage) return;
+  const c = document.createElement("canvas"); c.width = c.height = 360;
+  const ctx = c.getContext("2d");
+  const side = Math.min(galleryImage.width, galleryImage.height) / photoZoom;
+  const maxX = Math.max(0, galleryImage.width - side);
+  const maxY = Math.max(0, galleryImage.height - side);
+  const sx = Math.max(0, Math.min(maxX, maxX/2 + (photoX/100)*(maxX/2)));
+  const sy = Math.max(0, Math.min(maxY, maxY/2 + (photoY/100)*(maxY/2)));
+  ctx.drawImage(galleryImage, sx, sy, side, side, 0, 0, 360, 360);
+  capturedPhoto = c.toDataURL("image/jpeg", 0.72);
+  $("photoPreview").src = capturedPhoto;
+  $("photoPreview").style.display = "block";
+  $("cameraPlaceholder").style.display = "none";
+  $("photoAdjust").style.display = "block";
+}
+
+$("photoInput").onchange = function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const img = new Image();
+  img.onload = function() {
+    galleryImage = img; photoZoom = 1; photoX = 0; photoY = 0;
+    $("photoZoom").value = 1; $("photoX").value = 0; $("photoY").value = 0;
+    renderGalleryPhoto();
+    URL.revokeObjectURL(img.src);
+  };
+  img.src = URL.createObjectURL(file);
+};
+["photoZoom","photoX","photoY"].forEach(id => {
+  $(id).addEventListener("input", () => {
+    photoZoom = Number($("photoZoom").value); photoX = Number($("photoX").value); photoY = Number($("photoY").value);
+    renderGalleryPhoto();
+  });
+});
+
+$("submitAll").onclick = submitAll;
+
+document.addEventListener("keydown", function(e) {
+  if (e.key === "Escape") {
+    if ($("alertOverlay").classList.contains("show")) { closeAlert(); return; }
+    if ($("memberModal").classList.contains("show")) {
+      if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+      $("memberModal").classList.remove("show");
+    }
+    if ($("summaryModal").classList.contains("show")) {
+      $("summaryModal").classList.remove("show");
+    }
+    if ($("registeredMembersModal").classList.contains("show")) {
+      $("registeredMembersModal").classList.remove("show");
+    }
+  }
+});
+
+$("memberModal").addEventListener("click", function(e) {
+  if (e.target === this) {
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    this.classList.remove("show");
+  }
+});
+$("summaryModal").addEventListener("click", function(e) {
+  if (e.target === this) {
+    this.classList.remove("show");
+  }
+});
+
+console.log("✅ Family Member Form initialized!");
+</script>
 </body>
 </html>
