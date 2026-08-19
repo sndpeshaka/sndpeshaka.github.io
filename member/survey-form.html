@@ -200,7 +200,7 @@ button{
       </div>
       <div class="field">
         <input id="house" placeholder=" ">
-        <label for="house">വീട്ടു പേര്</label>
+        <label for="house">വീട്ടുപേര്</label>
       </div>
       <div class="field">
         <select id="location" required>
@@ -955,38 +955,25 @@ function autoSelectAreaFromLocation() {
   const areaSelect = $("area");
   if (!loc || !areaSelect) return;
 
-  const nloc = normalizeText(loc);
-  if (!nloc) return;
+  // Use ONLY the exact Location → Area relationship from the Tables sheet.
+  // Do not use fuzzy/partial matching because it can select the wrong Area.
+  // If the same Location is mapped to more than one Area, the relationship is
+  // ambiguous, so leave the Area selection unchanged and let the user choose.
+  const locationKey = String(loc).trim();
+  const matchedAreas = locationAreaMap[locationKey];
 
-  // Prefer the exact location → area relationship from the Tables sheet.
-  // Example: kollamkonam → Kollamkonam-KKM.
-  const pair = locationAreaMap[nloc];
-  if (pair) {
-    const option = [...areaSelect.options].find(o => normalizeText(o.value) === normalizeText(pair));
-    if (option) {
-      areaSelect.value = option.value;
-      areaSelect.dispatchEvent(new Event("change", {bubbles:true}));
-      return;
-    }
-  }
+  if (!matchedAreas || matchedAreas.size !== 1) return;
 
-  // Fallback for minor spelling/format differences.
-  const options = [...areaSelect.options].filter(o => o.value);
-  let best = null, bestScore = 0;
-  options.forEach(o => {
-    const n = normalizeText(o.value);
-    if (!n) return;
-    const areaName = n.replace(/-[^-]+$/, "");
-    let score = 0;
-    if (n === nloc) score = 1000;
-    else if (areaName === nloc) score = 950;
-    else if (n.includes(nloc) || nloc.includes(areaName)) score = 800 - Math.abs(n.length - nloc.length);
-    if (score > bestScore) { bestScore = score; best = o; }
-  });
-  if (best && bestScore >= 700) {
-    areaSelect.value = best.value;
-    areaSelect.dispatchEvent(new Event("change", {bubbles:true}));
-  }
+  const exactArea = [...matchedAreas][0];
+  const option = [...areaSelect.options].find(o =>
+    String(o.value ?? "").trim() === exactArea
+  );
+
+  // If no exact Area option exists, do not auto-select anything.
+  if (!option) return;
+
+  areaSelect.value = option.value;
+  areaSelect.dispatchEvent(new Event("change", {bubbles:true}));
 }
 
 async function loadDropdownData() {
@@ -999,11 +986,17 @@ async function loadDropdownData() {
   populateSelect("area", data.area);
   populateSelect("location", data.location);
 
-  // Build a direct location → area lookup from the same Tables rows.
+  // Build an exact Location → Area lookup from the same Tables rows.
+  // Keep ALL Area values for a Location so duplicate/ambiguous mappings are
+  // never silently resolved to the first row.
   locationAreaMap = {};
   (data.locationAreaPairs || []).forEach(pair => {
-    const key = normalizeText(pair.location);
-    if (key && !locationAreaMap[key]) locationAreaMap[key] = pair.area;
+    const key = String(pair.location ?? "").trim();
+    const area = String(pair.area ?? "").trim();
+    if (!key || !area) return;
+
+    if (!locationAreaMap[key]) locationAreaMap[key] = new Set();
+    locationAreaMap[key].add(area);
   });
   populateSelect("postoffice", data.postoffice);
   populateSelect("district", data.district);
