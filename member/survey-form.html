@@ -300,8 +300,9 @@ button{
       </div>
     </div>
     <div class="actions" style="margin-top:-5px;margin-bottom:14px">
-      <button class="btn-light" id="cameraBtn">🖼️ ഗ്യാലറിയിൽ നിന്ന് ഫോട്ടോ തിരഞ്ഞെടുക്കുക</button>
-      <div class="hint full" style="text-align:center">മുഖം വൃത്തത്തിനുള്ളിൽ, കഴിയുന്നത്ര മധ്യഭാഗത്ത് കൊണ്ടുവന്ന് ഫോട്ടോ എടുക്കുക.</div>
+      <button class="btn-primary" id="cameraBtn">📷 ക്യാമറ ഉപയോഗിച്ച് ഫോട്ടോ എടുക്കുക</button>
+      <button class="btn-light" id="galleryBtn" type="button">🖼️ ഗ്യാലറിയിൽ നിന്ന് ഫോട്ടോ തിരഞ്ഞെടുക്കുക</button>
+      <div class="hint full" style="text-align:center">ക്യാമറ ഉപയോഗിച്ച് നേരിട്ട് ഫോട്ടോ എടുക്കാം. ആവശ്യമെങ്കിൽ ഗ്യാലറിയിൽ നിന്നുള്ള ഫോട്ടോയും തിരഞ്ഞെടുക്കാം.</div>
       <input id="photoInput" type="file" accept="image/*" style="display:none">
       <div id="photoAdjust" class="photo-adjust" style="display:none">
         <div class="hint">ഫോട്ടോ വൃത്തത്തിനുള്ളിൽ ശരിയായി ക്രമീകരിക്കാൻ Zoom / Horizontal / Vertical ഉപയോഗിക്കുക.</div>
@@ -479,6 +480,7 @@ let stream = null;
 let capturedPhoto = "";
 let masterDataCache = {};
 let masterAreaValuesCache = [];
+let locationAreaMap = {};
 let membersDataCache = [];
 let isDropdownsLoaded = false;
 let isHomeDataChanged = false;
@@ -724,12 +726,16 @@ async function fetchTableData() {
     const result = {
       area: [], location: [], postoffice: [], district: [],
       relation: [], gender: [], education: [], job: [], marital: [],
-      bloodGroup: [], birthStar: []
+      bloodGroup: [], birthStar: [],
+      locationAreaPairs: []
     };
 
     tableData.forEach(row => {
-      if (row[TABLE_COLUMNS.AREA]) result.area.push(row[TABLE_COLUMNS.AREA]);
-      if (row[TABLE_COLUMNS.LOCATION]) result.location.push(row[TABLE_COLUMNS.LOCATION]);
+      const rowArea = String(row[TABLE_COLUMNS.AREA] ?? "").trim();
+      const rowLocation = String(row[TABLE_COLUMNS.LOCATION] ?? "").trim();
+      if (rowArea) result.area.push(rowArea);
+      if (rowLocation) result.location.push(rowLocation);
+      if (rowLocation && rowArea) result.locationAreaPairs.push({ location: rowLocation, area: rowArea });
       if (row[TABLE_COLUMNS.POSTOFFICE]) result.postoffice.push(row[TABLE_COLUMNS.POSTOFFICE]);
       if (row[TABLE_COLUMNS.DISTRICT]) result.district.push(row[TABLE_COLUMNS.DISTRICT]);
       if (row[TABLE_COLUMNS.RELATION]) result.relation.push(row[TABLE_COLUMNS.RELATION]);
@@ -925,24 +931,36 @@ function autoSelectAreaFromLocation() {
   const loc = val("location");
   const areaSelect = $("area");
   if (!loc || !areaSelect) return;
-  const options = [...areaSelect.options].filter(o => o.value);
+
   const nloc = normalizeText(loc);
   if (!nloc) return;
+
+  // Prefer the exact location → area relationship from the Tables sheet.
+  // Example: kollamkonam → Kollamkonam-KKM.
+  const pair = locationAreaMap[nloc];
+  if (pair) {
+    const option = [...areaSelect.options].find(o => normalizeText(o.value) === normalizeText(pair));
+    if (option) {
+      areaSelect.value = option.value;
+      areaSelect.dispatchEvent(new Event("change", {bubbles:true}));
+      return;
+    }
+  }
+
+  // Fallback for minor spelling/format differences.
+  const options = [...areaSelect.options].filter(o => o.value);
   let best = null, bestScore = 0;
   options.forEach(o => {
     const n = normalizeText(o.value);
     if (!n) return;
+    const areaName = n.replace(/-[^-]+$/, "");
     let score = 0;
     if (n === nloc) score = 1000;
-    else if (n.includes(nloc) || nloc.includes(n)) score = 800 - Math.abs(n.length-nloc.length);
-    else {
-      const a = new Set(nloc); let common = 0;
-      for (const ch of n) if (a.has(ch)) common++;
-      score = (common / Math.max(n.length, nloc.length)) * 100;
-    }
+    else if (areaName === nloc) score = 950;
+    else if (n.includes(nloc) || nloc.includes(areaName)) score = 800 - Math.abs(n.length - nloc.length);
     if (score > bestScore) { bestScore = score; best = o; }
   });
-  if (best && bestScore >= 55) {
+  if (best && bestScore >= 700) {
     areaSelect.value = best.value;
     areaSelect.dispatchEvent(new Event("change", {bubbles:true}));
   }
@@ -957,6 +975,13 @@ async function loadDropdownData() {
 
   populateSelect("area", data.area);
   populateSelect("location", data.location);
+
+  // Build a direct location → area lookup from the same Tables rows.
+  locationAreaMap = {};
+  (data.locationAreaPairs || []).forEach(pair => {
+    const key = normalizeText(pair.location);
+    if (key && !locationAreaMap[key]) locationAreaMap[key] = pair.area;
+  });
   populateSelect("postoffice", data.postoffice);
   populateSelect("district", data.district);
   const districtValues = [...new Set((data.district || [])
@@ -1204,7 +1229,7 @@ function resetMemberForm() {
   $("video").style.display = "none";
   $("cameraPlaceholder").style.display = "grid";
   if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
-  $("cameraBtn").textContent = "🖼️ ഗ്യാലറിയിൽ നിന്ന് ഫോട്ടോ തിരഞ്ഞെടുക്കുക";
+  $("cameraBtn").textContent = "📷 ക്യാമറ ഉപയോഗിച്ച് ഫോട്ടോ എടുക്കുക";
   $("mEmail").style.borderColor = "";
 }
 
@@ -1413,8 +1438,7 @@ async function captureFacePhoto() {
 }
 
 async function handleCamera() {
-  $("photoInput").click();
-  return;
+  // If camera is already live, take the photo.
   if (stream) {
     try {
       capturedPhoto = await captureFacePhoto();
@@ -1422,6 +1446,7 @@ async function handleCamera() {
       $("photoPreview").style.display = "block";
       $("video").style.display = "none";
       $("cameraPlaceholder").style.display = "none";
+      $("photoAdjust").style.display = "none";
     } catch (e) {
       showNotice($("memberNotice"), "err", `❌ ഫോട്ടോ എടുക്കാൻ കഴിഞ്ഞില്ല: ${escapeHtml(e.message)}`);
       return;
@@ -1429,11 +1454,15 @@ async function handleCamera() {
     stream.getTracks().forEach(t => t.stop());
     stream = null;
     $("cameraBox").classList.remove("is-live");
-    $("cameraBtn").textContent = "🖼️ മറ്റൊരു ഫോട്ടോ തിരഞ്ഞെടുക്കുക";
+    $("cameraBtn").textContent = "📷 വീണ്ടും ഫോട്ടോ എടുക്കുക";
     return;
   }
 
+  // Start the device camera. Gallery remains available as a separate option.
   try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error("ഈ ഉപകരണത്തിൽ ക്യാമറ ലഭ്യമല്ല.");
+    }
     stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: "user" }, width: { ideal: 1280 }, height: { ideal: 1280 } },
       audio: false
@@ -1442,10 +1471,11 @@ async function handleCamera() {
     $("video").style.display = "block";
     $("photoPreview").style.display = "none";
     $("cameraPlaceholder").style.display = "none";
+    $("photoAdjust").style.display = "none";
     $("cameraBox").classList.add("is-live");
     $("cameraBtn").textContent = "● ഫോട്ടോ എടുക്കുക";
   } catch (e) {
-    $("photoInput").click();
+    showNotice($("memberNotice"), "warn", "📷 ക്യാമറ തുറക്കാൻ കഴിഞ്ഞില്ല. ഗ്യാലറിയിൽ നിന്ന് ഫോട്ടോ തിരഞ്ഞെടുക്കാം.");
   }
 }
 
@@ -1563,6 +1593,11 @@ document.addEventListener("DOMContentLoaded", init);
 $("alertClose").onclick = closeAlert;
 $("alertOverlay").addEventListener("click", function(e){
   if(e.target === this) closeAlert();
+});
+
+$("location").addEventListener("change", function() {
+  autoSelectAreaFromLocation();
+  trackHomeDataChanges();
 });
 
 $("area").addEventListener("change", function() {
@@ -1712,6 +1747,7 @@ $("saveMember").onclick = async function() {
 };
 
 $("cameraBtn").onclick = handleCamera;
+$("galleryBtn").onclick = function() { $("photoInput").click(); };
 let galleryImage = null;
 let photoZoom = 1, photoX = 0, photoY = 0;
 
