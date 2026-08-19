@@ -244,7 +244,7 @@ button{
     <p>ഈ ഫോമിൽ ആദ്യമായിട്ടാണോ ഈ വീട്ടിന്റെ വിവരങ്ങൾ രേഖപ്പെടുത്തുന്നത്?</p>
     <div class="notice show info" style="margin-top:12px">
       <b>ആദ്യമായിട്ടാണ്</b> തിരഞ്ഞെടുക്കുകയാണെങ്കിൽ പുതിയ വീട്ടു ഐഡി സ്വയം സൃഷ്ടിക്കും.
-      <br><b>അല്ല</b> തിരഞ്ഞെടുക്കുകയാണെങ്കിൽ നിലവിലുള്ള വീട്ടു ഐഡി നൽകി പരിശോധിച്ച് മാസ്റ്റർ ഷീറ്റിലെ വിവരങ്ങൾ സ്വയം ലഭ്യമാക്കാം.
+      <br><b>അല്ല</b> തിരഞ്ഞെടുക്കുകയാണെങ്കിൽ നിലവിലുള്ള വീട്ടു ഐഡി നൽകി പരിശോധിച്ച് അഡ്രസ്സ്  ലഭ്യമാക്കാം.
     </div>
     <div class="actions">
       <button class="btn-primary" id="newHomeMode">ആദ്യമായിട്ടാണ്</button>
@@ -575,7 +575,7 @@ function trackHomeDataChanges() {
 }
 
 // ============================================================
-// FETCH MEMBERS DATA FROM GOOGLE SHEETS
+// FETCH MEMBERS DATA 
 // ============================================================
 
 async function fetchMembersData() {
@@ -651,7 +651,7 @@ function calculateNextMemberId(branchId, homeId) {
 }
 
 // ============================================================
-// FETCH DROPDOWN DATA FROM GOOGLE SHEETS
+// FETCH DROPDOWN DATA 
 // ============================================================
 
 async function fetchTableData() {
@@ -665,7 +665,7 @@ async function fetchTableData() {
     if (!data.success) throw new Error(data.error || "Tables data unavailable.");
 
     const rows = data.rows || [];
-    if (rows.length < 2) throw new Error("Tables sheet is empty or has no data rows.");
+    if (rows.length < 2) throw new Error("Tables  is empty or has no data rows.");
 
     const tableData = rows.slice(1);
     const result = {
@@ -755,7 +755,7 @@ async function validateExistingHomeId() {
   await fetchMasterData();
   const homeData = findMasterHomeIdInsensitive(entered);
   if (!homeData) {
-    showNotice($("homeNotice"), "err", `❌ ${escapeHtml(entered)} എന്ന വീട്ടു ഐഡി മാസ്റ്റർ ഷീറ്റിൽ കണ്ടെത്തിയില്ല. ശരിയായ ഐഡി നൽകുക.`);
+    showNotice($("homeNotice"), "err", `❌ ${escapeHtml(entered)} എന്ന വീട്ടു ഐഡി  കണ്ടെത്തിയില്ല. ശരിയായ ഐഡി നൽകുക.`);
     $("homeId").focus();
     return false;
   }
@@ -975,7 +975,7 @@ async function submitMasterData() {
   const homeId = val("homeId");
 
   if (homeEntryMode === "existing") {
-    showNotice($("homeNotice"), "ok", `✅ വീട്ടു ഐഡി ${escapeHtml(homeId)} സാധൂകരിച്ചു. മാസ്റ്റർ ഷീറ്റിലെ നിലവിലുള്ള വിവരങ്ങൾ ലഭ്യമാക്കി. പുതിയ Master എൻട്രി സൃഷ്ടിച്ചിട്ടില്ല.`);
+    showNotice($("homeNotice"), "ok", `✅ വീട്ടു ഐഡി ${escapeHtml(homeId)} സാധൂകരിച്ചു. മാസ്റ്റർ വിവരങ്ങൾ ലഭ്യമാക്കി. പുതിയ Master എൻട്രി സൃഷ്ടിച്ചിട്ടില്ല.`);
     return true;
   }
   if (!homeId) {
@@ -1526,7 +1526,7 @@ function setHomeEntryMode(mode) {
     if ($("area").value) refreshGeneratedHomeId();
   } else {
     $("homeId").placeholder = "നിലവിലുള്ള വീട്ടു ഐഡി നൽകുക";
-    showNotice($("homeNotice"), "info", "ℹ️ നിലവിലുള്ള വീട്ടു ഐഡി നൽകുക. വലിയ/ചെറിയ അക്ഷര വ്യത്യാസം പരിഗണിക്കില്ല. പരിശോധിച്ച ശേഷം മാസ്റ്റർ ഷീറ്റിലെ വിവരങ്ങൾ സ്വയം ലഭിക്കും.");
+    showNotice($("homeNotice"), "info", "ℹ️ നിലവിലുള്ള വീട്ടു ഐഡി നൽകുക. വലിയ/ചെറിയ അക്ഷര വ്യത്യാസം പരിഗണിക്കില്ല. പരിശോധിച്ച ശേഷം മാസ്റ്റർ വിവരങ്ങൾ സ്വയം ലഭിക്കും.");
     $("homeId").focus();
   }
 }
@@ -1597,7 +1597,7 @@ $("saveMember").onclick = async function() {
   if (!success) {
     memberToSubmit._submitted = false;
     showNotice($("memberNotice"), "err", `❌ ${escapeHtml(memberToSubmit.name)} ന്റെ വിവരങ്ങൾ സമർപ്പിക്കാൻ കഴിഞ്ഞില്ല. വിവരങ്ങൾ പരിശോധിച്ച് വീണ്ടും ശ്രമിക്കുക.`);
-    alert(`❌ സമർപ്പണം പരാജയപ്പെട്ടു\n\n${memberToSubmit.name} ന്റെ വിവരങ്ങൾ Google Sheet-ലേക്ക് സംരക്ഷിച്ചിട്ടില്ല.\n\nദയവായി വീണ്ടും ശ്രമിക്കുക.`);
+    alert(`❌ സമർപ്പണം പരാജയപ്പെട്ടു\n\n${memberToSubmit.name} ന്റെ വിവരങ്ങൾ Save ആയിട്ടില്ല.\n\nദയവായി വീണ്ടും ശ്രമിക്കുക.`);
     return;
   }
 
@@ -1621,7 +1621,7 @@ $("saveMember").onclick = async function() {
   $("memberModal").classList.remove("show");
 
   // Explicit submission-status alert.
-  alert(`✅ അംഗത്തിന്റെ വിവരങ്ങൾ വിജയകരമായി സമർപ്പിച്ചു\n\nപേര്: ${memberToSubmit.name}\nMember ID: ${memberToSubmit.id}\n\nGoogle Sheet-ലേക്ക് വിവരങ്ങൾ സംരക്ഷിച്ചു.`);
+  alert(`✅ അംഗത്തിന്റെ വിവരങ്ങൾ വിജയകരമായി സമർപ്പിച്ചു\n\nപേര്: ${memberToSubmit.name}\nMember ID: ${memberToSubmit.id}\n\n വിവരങ്ങൾ സംരക്ഷിച്ചു.`);
 
   // After the status alert, ask whether another member should be entered.
   const addAnother = confirm(
