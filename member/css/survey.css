@@ -49,12 +49,12 @@ body{
 .field input,.field select,.field textarea{
   width:100%;border:1px solid var(--line);border-radius:13px;
   background:#fff;color:var(--text);font:inherit;font-size:14px;
-  outline:none;transition:.18s;padding:17px 13px 8px;min-height:52px;
+  outline:none;transition:.18s;padding:10px 13px 2px;min-height:52px;
 }
 .field textarea{min-height:86px;resize:vertical;padding-top:20px}
-.field select{appearance:auto;padding-top:28px}
+.field select{appearance:auto;padding-top:12px}
 .field label{
-  position:absolute;left:11px;top:16px;color:var(--muted);
+  position:absolute;left:11px;top:10px;color:var(--muted);
   font-size:13px;pointer-events:none;background:transparent;
   transition:.16s;padding:0 3px;
 }
