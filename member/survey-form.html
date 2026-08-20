@@ -37,7 +37,7 @@
       <input id="branch" type="hidden" value="1003">
       <div class="field">
         <input id="homeId" placeholder=" " autocomplete="off">
-        <label for="homeId">ശാഖാ കുടുംബട് ഐഡി നമ്പർ</label>
+        <label for="homeId">ശാഖാ കുടുംബ ഐഡി നമ്പർ</label>
        <!-- <div class="hint">തെരുവ് / പ്രധാന സ്ഥലം തിരഞ്ഞെടുക്കുമ്പോൾ കുടുംബ  ഐഡി  സ്വയം ലഭിക്കും.</div>-->
         <button type="button" class="forgot-home-link" id="forgotHomeIdLink">കുടുംബട് ഐഡി  മറന്നുപോയോ?</button>
       </div>
@@ -1191,7 +1191,7 @@ function openMember() {
   
   const nextMemberNumber = getMemberNumber(nextId);
   if (nextMemberNumber === 1) {
-    $("memberHeading").textContent = "ഗൃഹ നാഥൻ /ഗൃഹനാഥ യുടെ വിവരമാണ് ആദ്യം നൽകേണ്ടത്";
+    $("memberHeading").textContent = "ഗൃഹനാഥൻ /ഗൃഹനാഥ യുടെ വിവരമാണ് ആദ്യം നൽകേണ്ടത്";
   } else {
     $("memberHeading").textContent = "വിട്ടുപോയ അംഗങ്ങളുടെ വിവരങ്ങൾ കൂടി ചേർക്കേണ്ടതുണ്ട്";
   }
@@ -1293,7 +1293,7 @@ function updateHouseholdMemberSummary() {
   if (!members.length) {
     if (count > 0) {
       $("emptyMemberTitle").textContent = "വിട്ടുപോയ അംഗങ്ങളുടെ വിവരങ്ങൾ കൂടി ചേർക്കേണ്ടതുണ്ട്";
-      $("emptyMemberSub").textContent = `ഈ കുടുംബടിൽ ${count} അംഗങ്ങളുടെ വിവരങ്ങൾ ഇതിനകം രജിസ്റ്റർ ചെയ്തിട്ടുണ്ട്. ബാക്കിയുള്ള അംഗങ്ങളുടെ വിവരങ്ങൾ ചേർക്കുക.`;
+      $("emptyMemberSub").textContent = `ഈ കുടുംബത്തിൽ ${count} അംഗങ്ങളുടെ വിവരങ്ങൾ ഇതിനകം രജിസ്റ്റർ ചെയ്തിട്ടുണ്ട്. ബാക്കിയുള്ള അംഗങ്ങളുടെ വിവരങ്ങൾ ചേർക്കുക.`;
     } else {
       $("emptyMemberTitle").textContent = "ഗൃഹ നാഥൻ /ഗൃഹനാഥ യുടെ വിവരമാണ് ആദ്യം നൽകേണ്ടത്";
       $("emptyMemberSub").textContent = "താഴെയുള്ള ബട്ടൺ ക്ലിക്ക് ചെയ്തു ആദ്യ അംഗത്തിന്റെ വിവരങ്ങൾ ചേർക്കുക";
@@ -1332,7 +1332,7 @@ function editExisting(i) {
   const m = members[i];
 
   $("memberHeading").textContent =
-    i === 0 ? "ഗൃഹ നാഥൻ /ഗൃഹനാഥ യുടെ വിവരമാണ് ആദ്യം നൽകേണ്ടത്" : "മറ്റ് കുടുംബ അംഗങ്ങളുടെ വിവരങ്ങൾ";
+    i === 0 ? "ഗൃഹനാഥൻ /ഗൃഹനാഥ യുടെ വിവരമാണ് ആദ്യം നൽകേണ്ടത്" : "മറ്റ് കുടുംബ അംഗങ്ങളുടെ വിവരങ്ങൾ";
   $("memberIdDisplay").textContent = "Member ID: " + m.id;
 
   $("mName").value = m.name;
@@ -1364,7 +1364,7 @@ function renderFinal() {
   const master = `<div class="summary">
     <div class="summary-row"><span>കുടുംബ  നമ്പർ</span><b>${escapeHtml(val("homeId"))}</b></div>
     <div class="summary-row"><span>ഗൃഹനാഥന്റെ / ഗൃഹനാഥയുടെ പേര്</span><b>${escapeHtml(val("owner") || "—")}</b></div>
-    <div class="summary-row"><span>കുടുംബ പേര്</span><b>${escapeHtml(val("house") || "—")}</b></div>
+    <div class="summary-row"><span>വീട്ടിന്റെ പേര്</span><b>${escapeHtml(val("house") || "—")}</b></div>
     <div class="summary-row"><span>പ്രദേശം</span><b>${escapeHtml(val("area") || "—")}</b></div>
     <div class="summary-row"><span>സ്ഥലം</span><b>${escapeHtml(val("location") || "—")}</b></div>
     <div class="summary-row"><span>പോസ്റ്റ് ഓഫീസ്</span><b>${escapeHtml(val("postoffice") || "—")}</b></div>
@@ -1619,7 +1619,7 @@ function setHomeEntryMode(mode) {
     if ($("area").value) refreshGeneratedHomeId();
   } else {
     $("homeId").placeholder = "നിലവിലുള്ള കുടുംബ  ഐഡി നൽകുക";
-    showNotice($("homeNotice"), "info", "ℹ️ നിങ്ങളുടെ  കുടുംബ  ഐഡി നല്കി വിവരങ്ങൾ ലഭ്യമാകുന്നത് വരെ വെയിറ്റ് ചെയ്യുക, ലഭ്യമാകുന്ന വീട്ട് വിവരങ്ങൾ പരിശോധിച്ച് ഉറപ്പായകിയ ശേഷം അംഗങ്ങളെ ചേർക്കുക.");
+    showNotice($("homeNotice"), "info", "ℹ️ നിങ്ങളുടെ  കുടുംബ  ഐഡി നല്കി വിവരങ്ങൾ ലഭ്യമാകുന്നത് വരെ വെയിറ്റ് ചെയ്യുക, ലഭ്യമാകുന്ന വീട്ട് വിവരങ്ങൾ പരിശോധിച്ച് ഉറപ്പാക്കിയ ശേഷം അംഗങ്ങളെ ചേർക്കുക.");
     $("homeId").focus();
   }
 }
