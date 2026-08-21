@@ -588,8 +588,11 @@ async function findHomeIdByMobile() {
 
   $("findForgotHomeId").disabled = true;
   $("findForgotHomeId").textContent = "തിരയുന്നു...";
+  resultBox.className = "lookup-result show";
+  resultBox.innerHTML = "🔎 രജിസ്റ്റർ ചെയ്ത വിവരങ്ങളിൽ കുടുംബ ഐഡി തിരയുന്നു...";
 
   try {
+    // First find the family/home ID from the registered member mobile number.
     await fetchMembersData();
     const matchedHomeIds = [...new Set(
       membersDataCache
@@ -598,20 +601,74 @@ async function findHomeIdByMobile() {
         .filter(Boolean)
     )];
 
-    resultBox.className = "lookup-result show";
-    if (matchedHomeIds.length === 1) {
-      resultBox.innerHTML = `ഈ മൊബൈൽ നമ്പറുമായി ബന്ധപ്പെട്ട കുടുംബ  ഐഡി  :<b>${escapeHtml(matchedHomeIds[0])}</b>`;
-    } else if (matchedHomeIds.length > 1) {
-      resultBox.innerHTML = `ഈ മൊബൈൽ നമ്പറുമായി ബന്ധപ്പെട്ട കുടുംബ  ഐഡി  കൾ:<b>${matchedHomeIds.map(escapeHtml).join("<br>")}</b>`;
-    } else {
-      resultBox.textContent = "ഈ മൊബൈൽ നമ്പറിന് ബന്ധപ്പെട്ട കുടുംബ  ഐഡി   കണ്ടെത്താനായില്ല.";
+    if (matchedHomeIds.length === 0) {
+      resultBox.className = "lookup-result show";
+      resultBox.textContent = "ഈ മൊബൈൽ നമ്പറുമായി ബന്ധപ്പെട്ട കുടുംബ ഐഡി കണ്ടെത്താനായില്ല.";
+      return;
     }
+
+    // Do not guess when one mobile number is linked to multiple families.
+    if (matchedHomeIds.length > 1) {
+      resultBox.className = "lookup-result show";
+      resultBox.innerHTML = `ഈ മൊബൈൽ നമ്പറുമായി ബന്ധപ്പെട്ട ഒന്നിലധികം കുടുംബ ഐഡികൾ കണ്ടെത്തി:<br><b>${matchedHomeIds.map(escapeHtml).join("<br>")}</b><br><small>ദയവായി കുടുംബ ഐഡി നേരിട്ട് നൽകുക.</small>`;
+      return;
+    }
+
+    const foundHomeId = matchedHomeIds[0];
+
+    // Immediately update the main Family ID field with the found ID.
+    homeEntryMode = "existing";
+    $("homeId").readOnly = false;
+    $("homeId").value = foundHomeId;
+    $("homeId").dataset.validated = "false";
+    generatedHomeId = "";
+
+    // Tell the user that the corresponding house/family information is now being fetched.
+    showNotice(
+      $("homeNotice"),
+      "info",
+      `🔎 കുടുംബ ഐഡി <b>${escapeHtml(foundHomeId)}</b> ലഭിച്ചു.<br>വീട്ടു വിവരങ്ങൾ തിരയുന്നു...`
+    );
+
+    // Fetch the latest Master sheet and populate all available family/house fields.
+    await fetchMasterData();
+    const homeData = findMasterHomeIdInsensitive(foundHomeId);
+
+    if (!homeData) {
+      closeAlert();
+      resultBox.className = "lookup-result show";
+      resultBox.innerHTML = `കുടുംബ ഐഡി <b>${escapeHtml(foundHomeId)}</b> ലഭിച്ചെങ്കിലും അതിന്റെ വീട്ടു വിവരങ്ങൾ Master-ൽ കണ്ടെത്താനായില്ല.`;
+      $("homeId").focus();
+      return;
+    }
+
+    // Use the exact ID stored in Master and populate the complete house/family section.
+    $("homeId").value = homeData.homeId;
+    $("homeId").dataset.validated = "true";
+    fillFormFromMaster(homeData);
+
+    closeForgotHomeIdModal();
+    closeAlert();
+
+    showNotice(
+      $("homeNotice"),
+      "ok",
+      `✅ കുടുംബ ഐഡി <b>${escapeHtml(homeData.homeId)}</b> സ്ഥിരീകരിച്ചു.<br>കുടുംബ / വീട്ടു വിവരങ്ങൾ Master-ൽ നിന്ന് ലഭ്യമാക്കി.`
+    );
+
+    // Keep the existing-family mode so submitting this form will not create a duplicate Master entry.
+    homeEntryMode = "existing";
+    $("homeId").readOnly = false;
+
+    $("membersCard").scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (error) {
+    console.error("❌ Family ID lookup error:", error);
+    closeAlert();
     resultBox.className = "lookup-result show";
-    resultBox.textContent = "കുടുംബ  ഐഡി   കണ്ടെത്തുന്നതിൽ പിഴവ് സംഭവിച്ചു. വീണ്ടും ശ്രമിക്കുക.";
+    resultBox.textContent = "കുടുംബ ഐഡിയും വീട്ടു വിവരങ്ങളും കണ്ടെത്തുന്നതിൽ പിഴവ് സംഭവിച്ചു. വീണ്ടും ശ്രമിക്കുക.";
   } finally {
     $("findForgotHomeId").disabled = false;
-    $("findForgotHomeId").textContent = "കുടുംബ  ഐഡി   കണ്ടെത്തുക";
+    $("findForgotHomeId").textContent = "കുടുംബ ഐഡി കണ്ടെത്തുക";
   }
 }
 
