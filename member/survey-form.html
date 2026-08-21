@@ -811,6 +811,20 @@ function findMasterHomeIdInsensitive(homeId) {
   return key ? masterDataCache[key] : null;
 }
 
+
+function setHomeDataLoading(show) {
+  const box = $("homeDataLoading");
+  if (!box) return;
+  box.style.display = show ? "block" : "none";
+  if (show) {
+    box.textContent = "⏳ കുടുംബ വിവരങ്ങൾ അപ്ഡേറ്റ് ചെയ്യുന്നു...";
+  }
+}
+
+function clearHomeDataLoading() {
+  setHomeDataLoading(false);
+}
+
 async function validateExistingHomeId() {
   const entered = val("homeId");
   if (!entered) {
@@ -1698,9 +1712,37 @@ $("homeId").addEventListener("input", function() {
 });
 
 $("homeId").addEventListener("blur", async function() {
-  if (homeEntryMode === "existing" && val("homeId")) {
-    await validateExistingHomeId();
+  if (homeEntryMode !== "existing" || !val("homeId")) return;
+
+  setHomeDataLoading(true);
+  try {
+    const valid = await validateExistingHomeId();
+
+    // The ID remains in the main form. If the lookup succeeded,
+    // close the initial "കുടുംബ വിവരങ്ങൾ" mode-selection modal.
+    if (valid) {
+      const modeModal = $("homeModeModal");
+      if (modeModal) modeModal.classList.remove("show");
+
+      // Give the user an explicit indication while master data is being
+      // copied into the form, so they don't start editing fields manually.
+      showNotice(
+        $("homeDataLoading"),
+        "info",
+        "⏳ കുടുംബ വിവരങ്ങൾ അപ്ഡേറ്റ് ചെയ്യുന്നു..."
+      );
+    }
+
     updateHouseholdMemberSummary();
+  } finally {
+    // validateExistingHomeId() performs the master-data update. Keep the
+    // message visible briefly after the fields are populated so the change
+    // is noticeable to the user, then hide it.
+    if (valid) {
+      setTimeout(clearHomeDataLoading, 700);
+    } else {
+      clearHomeDataLoading();
+    }
   }
 });
 
