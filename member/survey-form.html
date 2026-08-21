@@ -375,6 +375,10 @@ let masterAreaValuesCache = [];
 let locationAreaMap = {};
 let membersDataCache = [];
 let isDropdownsLoaded = false;
+let dropdownDataCache = null;
+let dropdownFetchPromise = null;
+const DROPDOWN_CACHE_KEY = "sndp_eshaka_tables_v2";
+const DROPDOWN_CACHE_TTL = 10 * 60 * 1000;
 let isHomeDataChanged = false;
 let currentHomeData = null;
 let isSubmitting = false;
@@ -588,11 +592,8 @@ async function findHomeIdByMobile() {
 
   $("findForgotHomeId").disabled = true;
   $("findForgotHomeId").textContent = "തിരയുന്നു...";
-  resultBox.className = "lookup-result show";
-  resultBox.innerHTML = "🔎 രജിസ്റ്റർ ചെയ്ത വിവരങ്ങളിൽ കുടുംബ ഐഡി തിരയുന്നു...";
 
   try {
-    // First find the family/home ID from the registered member mobile number.
     await fetchMembersData();
     const matchedHomeIds = [...new Set(
       membersDataCache
@@ -601,74 +602,30 @@ async function findHomeIdByMobile() {
         .filter(Boolean)
     )];
 
-    if (matchedHomeIds.length === 0) {
-      resultBox.className = "lookup-result show";
-      resultBox.textContent = "ഈ മൊബൈൽ നമ്പറുമായി ബന്ധപ്പെട്ട കുടുംബ ഐഡി കണ്ടെത്താനായില്ല.";
-      return;
-    }
-
-    // Do not guess when one mobile number is linked to multiple families.
-    if (matchedHomeIds.length > 1) {
-      resultBox.className = "lookup-result show";
-      resultBox.innerHTML = `ഈ മൊബൈൽ നമ്പറുമായി ബന്ധപ്പെട്ട ഒന്നിലധികം കുടുംബ ഐഡികൾ കണ്ടെത്തി:<br><b>${matchedHomeIds.map(escapeHtml).join("<br>")}</b><br><small>ദയവായി കുടുംബ ഐഡി നേരിട്ട് നൽകുക.</small>`;
-      return;
-    }
-
-    const foundHomeId = matchedHomeIds[0];
-
-    // Immediately update the main Family ID field with the found ID.
-    homeEntryMode = "existing";
-    $("homeId").readOnly = false;
-    $("homeId").value = foundHomeId;
-    $("homeId").dataset.validated = "false";
-    generatedHomeId = "";
-
-    // Tell the user that the corresponding house/family information is now being fetched.
-    showNotice(
-      $("homeNotice"),
-      "info",
-      `🔎 കുടുംബ ഐഡി <b>${escapeHtml(foundHomeId)}</b> ലഭിച്ചു.<br>വീട്ടു വിവരങ്ങൾ തിരയുന്നു...`
-    );
-
-    // Fetch the latest Master sheet and populate all available family/house fields.
-    await fetchMasterData();
-    const homeData = findMasterHomeIdInsensitive(foundHomeId);
-
-    if (!homeData) {
-      closeAlert();
-      resultBox.className = "lookup-result show";
-      resultBox.innerHTML = `കുടുംബ ഐഡി <b>${escapeHtml(foundHomeId)}</b> ലഭിച്ചെങ്കിലും അതിന്റെ വീട്ടു വിവരങ്ങൾ Master-ൽ കണ്ടെത്താനായില്ല.`;
-      $("homeId").focus();
-      return;
-    }
-
-    // Use the exact ID stored in Master and populate the complete house/family section.
-    $("homeId").value = homeData.homeId;
-    $("homeId").dataset.validated = "true";
-    fillFormFromMaster(homeData);
-
-    closeForgotHomeIdModal();
-    closeAlert();
-
-    showNotice(
-      $("homeNotice"),
-      "ok",
-      `✅ കുടുംബ ഐഡി <b>${escapeHtml(homeData.homeId)}</b> സ്ഥിരീകരിച്ചു.<br>കുടുംബ / വീട്ടു വിവരങ്ങൾ Master-ൽ നിന്ന് ലഭ്യമാക്കി.`
-    );
-
-    // Keep the existing-family mode so submitting this form will not create a duplicate Master entry.
-    homeEntryMode = "existing";
-    $("homeId").readOnly = false;
-
-    $("membersCard").scrollIntoView({ behavior: "smooth", block: "start" });
-  } catch (error) {
-    console.error("❌ Family ID lookup error:", error);
-    closeAlert();
     resultBox.className = "lookup-result show";
-    resultBox.textContent = "കുടുംബ ഐഡിയും വീട്ടു വിവരങ്ങളും കണ്ടെത്തുന്നതിൽ പിഴവ് സംഭവിച്ചു. വീണ്ടും ശ്രമിക്കുക.";
+    if (matchedHomeIds.length === 1) {
+      const foundHomeId = matchedHomeIds[0];
+      $("homeId").value = foundHomeId;
+      $("homeId").dataset.validated = "false";
+      resultBox.innerHTML = `ഈ മൊബൈൽ നമ്പറുമായി ബന്ധപ്പെട്ട കുടുംബ  ഐഡി  :<b>${escapeHtml(foundHomeId)}</b>`;
+      // ID is now copied into the main field; close the lookup modal automatically.
+      setTimeout(() => {
+        closeForgotHomeIdModal();
+        if (homeEntryMode === "existing") {
+          $("homeId").dispatchEvent(new Event("blur"));
+        }
+      }, 250);
+    } else if (matchedHomeIds.length > 1) {
+      resultBox.innerHTML = `ഈ മൊബൈൽ നമ്പറുമായി ബന്ധപ്പെട്ട കുടുംബ  ഐഡി  കൾ:<b>${matchedHomeIds.map(escapeHtml).join("<br>")}</b>`;
+    } else {
+      resultBox.textContent = "ഈ മൊബൈൽ നമ്പറിന് ബന്ധപ്പെട്ട കുടുംബ  ഐഡി   കണ്ടെത്താനായില്ല.";
+    }
+  } catch (error) {
+    resultBox.className = "lookup-result show";
+    resultBox.textContent = "കുടുംബ  ഐഡി   കണ്ടെത്തുന്നതിൽ പിഴവ് സംഭവിച്ചു. വീണ്ടും ശ്രമിക്കുക.";
   } finally {
     $("findForgotHomeId").disabled = false;
-    $("findForgotHomeId").textContent = "കുടുംബ ഐഡി കണ്ടെത്തുക";
+    $("findForgotHomeId").textContent = "കുടുംബ  ഐഡി   കണ്ടെത്തുക";
   }
 }
 
@@ -717,48 +674,91 @@ function calculateNextMemberId(branchId, homeId) {
 // FETCH DROPDOWN DATA 
 // ============================================================
 
-async function fetchTableData() {
-  try {
-    const response = await fetch(
-      CONFIG.APPS_SCRIPT_URL + "?action=tables&_=" + Date.now(),
-      { method: "GET", cache: "no-store" }
-    );
-    const text = await response.text();
-    const data = JSON.parse(text);
-    if (!data.success) throw new Error(data.error || "Tables data unavailable.");
+async function fetchTableData(options = {}) {
+  const { silent = false, retries = 3 } = options;
 
-    const rows = data.rows || [];
-    if (rows.length < 2) throw new Error("Tables  is empty or has no data rows.");
+  if (dropdownFetchPromise) return dropdownFetchPromise;
 
-    const tableData = rows.slice(1);
-    const result = {
-      area: [], location: [], postoffice: [], district: [],
-      relation: [], gender: [], education: [], job: [], marital: [],
-      bloodGroup: [], birthStar: [],
-      locationAreaPairs: []
-    };
+  const request = (async () => {
+    let lastError = null;
 
-    tableData.forEach(row => {
-      const rowArea = String(row[TABLE_COLUMNS.AREA] ?? "").trim();
-      const rowLocation = String(row[TABLE_COLUMNS.LOCATION] ?? "").trim();
-      if (rowArea) result.area.push(rowArea);
-      if (rowLocation) result.location.push(rowLocation);
-      if (rowLocation && rowArea) result.locationAreaPairs.push({ location: rowLocation, area: rowArea });
-      if (row[TABLE_COLUMNS.POSTOFFICE]) result.postoffice.push(row[TABLE_COLUMNS.POSTOFFICE]);
-      if (row[TABLE_COLUMNS.DISTRICT]) result.district.push(row[TABLE_COLUMNS.DISTRICT]);
-      if (row[TABLE_COLUMNS.RELATION]) result.relation.push(row[TABLE_COLUMNS.RELATION]);
-      if (row[TABLE_COLUMNS.GENDER]) result.gender.push(row[TABLE_COLUMNS.GENDER]);
-      if (row[TABLE_COLUMNS.EDUCATION]) result.education.push(row[TABLE_COLUMNS.EDUCATION]);
-      if (row[TABLE_COLUMNS.JOB]) result.job.push(row[TABLE_COLUMNS.JOB]);
-      if (row[TABLE_COLUMNS.MARITAL]) result.marital.push(row[TABLE_COLUMNS.MARITAL]);
-      if (row[TABLE_COLUMNS.BLOOD_GROUP_N]) result.bloodGroup.push(row[TABLE_COLUMNS.BLOOD_GROUP_N]);
-      if (row[TABLE_COLUMNS.BIRTH_STAR_O]) result.birthStar.push(row[TABLE_COLUMNS.BIRTH_STAR_O]);
-    });
-    return result;
-  } catch (error) {
-    console.error("Error fetching table data:", error);
-    showNotice($("homeNotice"), "err", `❌ Tables വിവരങ്ങൾ ലഭിച്ചില്ല: ${escapeHtml(error.message)}`);
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 12000);
+
+      try {
+        const response = await fetch(
+          CONFIG.APPS_SCRIPT_URL + "?action=tables&_=" + Date.now(),
+          { method: "GET", cache: "no-store", signal: controller.signal }
+        );
+
+        const text = await response.text();
+        if (!response.ok) throw new Error("Server HTTP " + response.status);
+
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          throw new Error("Backend returned a non-JSON response.");
+        }
+
+        if (!data.success) throw new Error(data.error || "Tables data unavailable.");
+
+        const rows = data.rows || [];
+        if (rows.length < 2) throw new Error("Tables is empty or has no data rows.");
+
+        const tableData = rows.slice(1);
+        const result = {
+          area: [], location: [], postoffice: [], district: [],
+          relation: [], gender: [], education: [], job: [], marital: [],
+          bloodGroup: [], birthStar: [], locationAreaPairs: []
+        };
+
+        tableData.forEach(row => {
+          const rowArea = String(row[TABLE_COLUMNS.AREA] ?? "").trim();
+          const rowLocation = String(row[TABLE_COLUMNS.LOCATION] ?? "").trim();
+          if (rowArea) result.area.push(rowArea);
+          if (rowLocation) result.location.push(rowLocation);
+          if (rowLocation && rowArea) result.locationAreaPairs.push({ location: rowLocation, area: rowArea });
+          if (row[TABLE_COLUMNS.POSTOFFICE]) result.postoffice.push(String(row[TABLE_COLUMNS.POSTOFFICE]).trim());
+          if (row[TABLE_COLUMNS.DISTRICT]) result.district.push(String(row[TABLE_COLUMNS.DISTRICT]).trim());
+          if (row[TABLE_COLUMNS.RELATION]) result.relation.push(String(row[TABLE_COLUMNS.RELATION]).trim());
+          if (row[TABLE_COLUMNS.GENDER]) result.gender.push(String(row[TABLE_COLUMNS.GENDER]).trim());
+          if (row[TABLE_COLUMNS.EDUCATION]) result.education.push(String(row[TABLE_COLUMNS.EDUCATION]).trim());
+          if (row[TABLE_COLUMNS.JOB]) result.job.push(String(row[TABLE_COLUMNS.JOB]).trim());
+          if (row[TABLE_COLUMNS.MARITAL]) result.marital.push(String(row[TABLE_COLUMNS.MARITAL]).trim());
+          if (row[TABLE_COLUMNS.BLOOD_GROUP_N]) result.bloodGroup.push(String(row[TABLE_COLUMNS.BLOOD_GROUP_N]).trim());
+          if (row[TABLE_COLUMNS.BIRTH_STAR_O]) result.birthStar.push(String(row[TABLE_COLUMNS.BIRTH_STAR_O]).trim());
+        });
+
+        dropdownDataCache = result;
+        try {
+          sessionStorage.setItem(DROPDOWN_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), data: result }));
+        } catch (e) {}
+
+        return result;
+      } catch (error) {
+        lastError = error;
+        if (attempt < retries) {
+          await new Promise(resolve => setTimeout(resolve, 350 * attempt));
+        }
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+
+    console.error("Error fetching table data:", lastError);
+    if (!silent) {
+      showNotice($("homeNotice"), "err", `❌ Dropdown വിവരങ്ങൾ ലഭ്യമാക്കാൻ കഴിഞ്ഞില്ല. വീണ്ടും ശ്രമിക്കുക.`);
+    }
     return null;
+  })();
+
+  dropdownFetchPromise = request;
+  try {
+    return await request;
+  } finally {
+    dropdownFetchPromise = null;
   }
 }
 
@@ -961,36 +961,28 @@ function autoSelectAreaFromLocation() {
   areaSelect.dispatchEvent(new Event("change", {bubbles:true}));
 }
 
-async function loadDropdownData() {
-  const data = await fetchTableData();
-  
-  if (!data) {
-    return;
-  }
+function applyDropdownData(data) {
+  if (!data) return false;
 
   populateSelect("area", data.area);
   populateSelect("location", data.location);
 
   // Build an exact Location → Area lookup from the same Tables rows.
-  // Keep ALL Area values for a Location so duplicate/ambiguous mappings are
-  // never silently resolved to the first row.
   locationAreaMap = {};
   (data.locationAreaPairs || []).forEach(pair => {
     const key = String(pair.location ?? "").trim();
     const area = String(pair.area ?? "").trim();
     if (!key || !area) return;
-
     if (!locationAreaMap[key]) locationAreaMap[key] = new Set();
     locationAreaMap[key].add(area);
   });
+
   populateSelect("postoffice", data.postoffice);
   populateSelect("district", data.district);
   const districtValues = [...new Set((data.district || [])
-    .map(v => String(v ?? "").trim())
-    .filter(Boolean))];
-  if (districtValues.length === 1) {
-    $("district").value = districtValues[0];
-  }
+    .map(v => String(v ?? "").trim()).filter(Boolean))];
+  if (districtValues.length === 1) $("district").value = districtValues[0];
+
   populateSelect("mRelation", data.relation);
   populateSelect("mGender", data.gender);
   populateSelect("mEducation", data.education);
@@ -998,10 +990,25 @@ async function loadDropdownData() {
   populateSelect("mMarital", data.marital);
   populateSelect("mBloodGroup", data.bloodGroup, "തിരഞ്ഞെടുക്കുക");
   populateSelect("mBirthStar", data.birthStar, "തിരഞ്ഞെടുക്കുക");
-
   isDropdownsLoaded = true;
-
+  return true;
 }
+
+async function loadDropdownData() {
+  // Show cached values immediately so the form is usable without waiting for Apps Script.
+  try {
+    const cached = JSON.parse(sessionStorage.getItem(DROPDOWN_CACHE_KEY) || "null");
+    if (cached?.data && Date.now() - Number(cached.savedAt || 0) < DROPDOWN_CACHE_TTL) {
+      dropdownDataCache = cached.data;
+      applyDropdownData(cached.data);
+    }
+  } catch (e) {}
+
+  const data = await fetchTableData({ silent: !!isDropdownsLoaded, retries: 3 });
+  if (data) applyDropdownData(data);
+  return !!data;
+}
+
 
 // ============================================================
 // FILL FORM FROM MASTER DATA
@@ -1615,10 +1622,13 @@ async function submitAll() {
 
 async function init() {
   if ($("branch")) $("branch").value = "1003";
-  
-  await loadDropdownData();
-  await fetchMasterData();
-  await fetchMembersData();
+
+  // These requests are independent; fetch them in parallel for a faster first load.
+  await Promise.all([
+    loadDropdownData(),
+    fetchMasterData(),
+    fetchMembersData()
+  ]);
   updateHouseholdMemberSummary();
   
   ['owner', 'house', 'area', 'location', 'postoffice', 'district', 'status', 'email'].forEach(field => {
