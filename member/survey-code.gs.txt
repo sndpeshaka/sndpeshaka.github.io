@@ -1,0 +1,431 @@
+/**
+ * Family Data Collection - Google Apps Script Backend
+ * Robust version: no custom CORS headers, simple POST payloads,
+ * idempotent requests, LockService protection, and JSON responses.
+ */
+
+const CONFIG = {
+  SPREADSHEET_ID: "1Q7fGIi2ky6b7cYt49ljwIwGEJv3kQ8pmz47bFaPBEDs",
+  MASTER_SHEET_NAME: "Master",
+  MEMBERS_SHEET_NAME: "Members",
+  MAX_PHOTO_CELL_CHARS: 45000
+};
+
+const MASTER_COLS = {
+  BRANCH: 0, HOME_ID: 1, ADDRESS_LINE_1: 2, ADDRESS_LINE_2: 3,
+  AREA: 4, LOCATION: 5, POST_OFFICE: 6, DISTRICT: 7, STATUS: 8, EMAIL: 9
+};
+
+const MEMBER_COLS = {
+  MEMBER_ID: 0, RELATION: 1, NAME: 2, DOB: 3, GENDER: 4, CONTACT: 5,
+  EDUCATION: 6, MARITAL: 7, PHOTO: 8, EMAIL: 9, BRANCH: 10, HOME_ID: 11,
+  STATUS: 12, JOB: 13, BLOOD_GROUP: 14, BIRTH_STAR: 15
+};
+
+function json_(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * Apps Script Web Apps do not support arbitrary response headers through
+ * ContentService. In particular, TextOutput has no setHeader() method.
+ * Therefore this backend intentionally does NOT try to add CORS headers.
+ *
+ * The HTML client sends a "simple" text/plain POST so the browser does not
+ * perform a CORS OPTIONS preflight.
+ */
+function doPost(e) {
+  try {
+    const raw = getRequestBody_(e);
+    if (!raw) throw new Error("No request data received.");
+
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch (err) {
+      throw new Error("Invalid JSON payload: " + err.message);
+    }
+
+    const requestId = String(data.requestId || "");
+    if (requestId) {
+      const cached = getCachedResult_(requestId);
+      if (cached) return json_(cached);
+    }
+
+    let result;
+    switch (String(data.type || "").toLowerCase()) {
+      case "master":
+        result = processMasterSubmission(data.data || {});
+        break;
+      case "member":
+        result = processMemberSubmission(data.data || {});
+        break;
+      case "family_form":
+        result = processFullFamilySubmission(data);
+        break;
+      default:
+        throw new Error("Unknown request type: " + data.type);
+    }
+
+    const response = { success: true, requestId: requestId, ...result };
+    if (requestId) cacheResult_(requestId, response);
+    return json_(response);
+
+  } catch (err) {
+    console.error(err);
+    return json_({
+      success: false,
+      error: err && err.message ? err.message : String(err)
+    });
+  }
+}
+
+function doGet(e) {
+  const action = String((e && e.parameter && e.parameter.action) || "health").toLowerCase();
+
+  try {
+    if (action === "health") {
+      return json_({
+        success: true,
+        message: "Apps Script backend is running.",
+        timestamp: new Date().toISOString(),
+        spreadsheetId: CONFIG.SPREADSHEET_ID,
+        masterSheet: CONFIG.MASTER_SHEET_NAME,
+        membersSheet: CONFIG.MEMBERS_SHEET_NAME
+      });
+    }
+
+    if (action === "master") {
+      return json_({ success: true, rows: readSheet_(CONFIG.MASTER_SHEET_NAME) });
+    }
+
+    if (action === "members") {
+      return json_({ success: true, rows: readMembersForClient_() });
+    }
+
+    if (action === "tables") {
+      return json_({ success: true, rows: readSheet_("Tables") });
+    }
+
+    throw new Error("Unknown GET action: " + action);
+  } catch (err) {
+    return json_({ success: false, error: err.message });
+  }
+}
+
+function getRequestBody_(e) {
+  if (e && e.postData && e.postData.contents) return e.postData.contents;
+  if (e && e.parameter && e.parameter.data) return e.parameter.data;
+  return "";
+}
+
+function getSpreadsheet_() {
+  return SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+}
+
+function getSheet_(name) {
+  const sheet = getSpreadsheet_().getSheetByName(name);
+  if (!sheet) throw new Error("Sheet not found: " + name);
+  return sheet;
+}
+
+function ensureHeaders_(sheet, headers) {
+  if (sheet.getLastRow() === 0) {
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    return;
+  }
+  const firstRow = sheet.getRange(1, 1, 1, headers.length).getDisplayValues()[0];
+  const hasAnyHeader = firstRow.some(v => String(v || "").trim() !== "");
+  if (!hasAnyHeader) sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+}
+
+function processMasterSubmission(data) {
+  const homeId = clean_(data.homeId);
+  if (!homeId) throw new Error("Home ID is required.");
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    const sheet = getSheet_(CONFIG.MASTER_SHEET_NAME);
+    ensureHeaders_(sheet, [
+      "Branch", "Home ID", "Address Line 1", "Address Line 2",
+      "Area", "Location", "Post Office", "District", "Status", "Email"
+    ]);
+
+    const rowData = [
+      clean_(data.branch) || "1003",
+      homeId,
+      clean_(data.owner),
+      clean_(data.house),
+      clean_(data.area),
+      clean_(data.location),
+      clean_(data.postoffice),
+      clean_(data.district),
+      clean_(data.status) || "Active",
+      clean_(data.email)
+    ];
+
+    const row = findRowByValue_(sheet, MASTER_COLS.HOME_ID + 1, homeId);
+    if (row > 0) {
+      sheet.getRange(row, 1, 1, rowData.length).setValues([rowData]);
+      SpreadsheetApp.flush();
+      return { type: "master", action: "UPDATE", homeId: homeId, row: row };
+    }
+
+    const newRow = Math.max(sheet.getLastRow() + 1, 2);
+    sheet.getRange(newRow, 1, 1, rowData.length).setValues([rowData]);
+    SpreadsheetApp.flush();
+    return { type: "master", action: "INSERT", homeId: homeId, row: newRow };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function processMemberSubmission(data) {
+  const name = clean_(data.name);
+  const relation = clean_(data.relation);
+  const homeId = clean_(data.homeId);
+
+  if (!name) throw new Error("Member name is required.");
+  if (!relation) throw new Error("Relation is required.");
+  if (!homeId) throw new Error("Home ID is required.");
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    const sheet = getSheet_(CONFIG.MEMBERS_SHEET_NAME);
+    ensureHeaders_(sheet, [
+      "Member ID", "Relation", "Name", "DOB", "Gender", "Contact no.",
+      "Education", "Marital status", "Photo data", "email", "Branch",
+      "Home ID", "Status", "Job", "blood group", "birth star"
+    ]);
+
+    const memberId = clean_(data.id);
+    let photo = clean_(data.photo);
+
+    // Google Sheets cells have a 50,000-character limit. Do not allow an
+    // oversized base64 image to make the whole write fail.
+    if (photo.length > CONFIG.MAX_PHOTO_CELL_CHARS) {
+      photo = "[Photo omitted: image data exceeded the sheet cell limit]";
+    }
+
+    const rowData = [
+      memberId,
+      relation,
+      name,
+      clean_(data.dob),
+      clean_(data.gender),
+      clean_(data.contact),
+      clean_(data.education),
+      clean_(data.marital),
+      photo,
+      clean_(data.email),
+      clean_(data.branch) || "1003",
+      homeId,
+      clean_(data.status) || "Active",
+      clean_(data.job),
+      clean_(data.bloodGroup),
+      clean_(data.birthStar)
+    ];
+
+    let row = memberId ? findRowByValue_(sheet, MEMBER_COLS.MEMBER_ID + 1, memberId) : -1;
+
+    // Fallback duplicate protection if the client did not send an ID.
+    if (row < 0 && !memberId) {
+      const last = sheet.getLastRow();
+      if (last >= 2) {
+        const values = sheet.getRange(2, 1, last - 1, 16).getDisplayValues();
+        for (let i = 0; i < values.length; i++) {
+          if (clean_(values[i][MEMBER_COLS.NAME]) === name &&
+              clean_(values[i][MEMBER_COLS.HOME_ID]) === homeId) {
+            row = i + 2;
+            break;
+          }
+        }
+      }
+    }
+
+    if (row > 0) {
+      sheet.getRange(row, 1, 1, rowData.length).setValues([rowData]);
+      SpreadsheetApp.flush();
+      return { type: "member", action: "UPDATE", memberId: memberId, name: name, homeId: homeId, row: row };
+    }
+
+    const newRow = Math.max(sheet.getLastRow() + 1, 2);
+    sheet.getRange(newRow, 1, 1, rowData.length).setValues([rowData]);
+    SpreadsheetApp.flush();
+    return { type: "member", action: "INSERT", memberId: memberId, name: name, homeId: homeId, row: newRow };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function processFullFamilySubmission(data) {
+  const result = {
+    master: null,
+    members: [],
+    totalMembers: Array.isArray(data.members) ? data.members.length : 0,
+    successfulMembers: 0
+  };
+
+  if (data.homeId) {
+    result.master = processMasterSubmission(data);
+  }
+
+  (Array.isArray(data.members) ? data.members : []).forEach(function(member) {
+    try {
+      const memberData = Object.assign({}, member, {
+        branch: member.branch || data.branch || "1003",
+        homeId: member.homeId || data.homeId,
+        status: member.status || data.status || "Active"
+      });
+      result.members.push(processMemberSubmission(memberData));
+      result.successfulMembers++;
+    } catch (err) {
+      result.members.push({
+        success: false,
+        name: clean_(member.name) || "Unknown",
+        error: err.message
+      });
+    }
+  });
+
+  if (result.master && result.master.error) {
+    throw new Error(result.master.error);
+  }
+
+  if (result.successfulMembers !== result.totalMembers) {
+    throw new Error(
+      "Only " + result.successfulMembers + " of " + result.totalMembers + " members were saved."
+    );
+  }
+
+  return {
+    type: "family_form",
+    master: result.master,
+    members: result.members,
+    totalMembers: result.totalMembers,
+    successfulMembers: result.successfulMembers
+  };
+}
+
+function findRowByValue_(sheet, columnNumber, wanted) {
+  const last = sheet.getLastRow();
+  if (last < 2) return -1;
+
+  const values = sheet.getRange(2, columnNumber, last - 1, 1).getDisplayValues();
+  const target = clean_(wanted);
+
+  for (let i = 0; i < values.length; i++) {
+    if (clean_(values[i][0]) === target) return i + 2;
+  }
+  return -1;
+}
+
+function clean_(value) {
+  return value === null || value === undefined ? "" : String(value).trim();
+}
+
+function readSheet_(sheetName) {
+  const sheet = getSheet_(sheetName);
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow === 0 || lastCol === 0) return [];
+  return sheet.getRange(1, 1, lastRow, lastCol).getDisplayValues();
+}
+
+
+function readMembersForClient_() {
+  const sheet = getSheet_(CONFIG.MEMBERS_SHEET_NAME);
+  const lastRow = sheet.getLastRow();
+  if (lastRow === 0) return [];
+
+  const colCount = Math.max(16, sheet.getLastColumn());
+  const rows = sheet.getRange(1, 1, lastRow, colCount).getDisplayValues();
+
+  // The browser only needs member metadata for ID generation. Do not send
+  // base64 photo data back to every browser request.
+  if (rows.length > 1) {
+    for (let i = 1; i < rows.length; i++) rows[i][MEMBER_COLS.PHOTO] = "";
+  }
+  return rows;
+}
+
+/**
+ * Idempotency cache. Prevents duplicate rows when a browser retries a
+ * request after a CORS/network timeout.
+ */
+function getCachedResult_(requestId) {
+  const raw = PropertiesService.getScriptProperties().getProperty("REQ_" + requestId);
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch (e) { return null; }
+}
+
+function cacheResult_(requestId, response) {
+  try {
+    PropertiesService.getScriptProperties()
+      .setProperty("REQ_" + requestId, JSON.stringify(response));
+  } catch (e) {
+    console.warn("Could not cache request: " + e.message);
+  }
+}
+
+/* ---------- Diagnostic functions ---------- */
+
+function testBackend() {
+  const ss = getSpreadsheet_();
+  const master = ss.getSheetByName(CONFIG.MASTER_SHEET_NAME);
+  const members = ss.getSheetByName(CONFIG.MEMBERS_SHEET_NAME);
+  const result = {
+    ok: true,
+    spreadsheetId: CONFIG.SPREADSHEET_ID,
+    masterExists: !!master,
+    membersExists: !!members,
+    masterRows: master ? master.getLastRow() : 0,
+    membersRows: members ? members.getLastRow() : 0
+  };
+  console.log(JSON.stringify(result, null, 2));
+  return result;
+}
+
+function testMasterSubmission() {
+  return processMasterSubmission({
+    branch: "1003",
+    homeId: "TEST-HOME-001",
+    owner: "Test Owner",
+    house: "Test House",
+    area: "Test Area",
+    location: "Test Location",
+    postoffice: "Test PO",
+    district: "Test District",
+    status: "Active",
+    email: "test@example.com"
+  });
+}
+
+function testMemberSubmission() {
+  return processMemberSubmission({
+    id: "1003-TEST-HOME-001-1",
+    branch: "1003",
+    homeId: "TEST-HOME-001",
+    relation: "Head",
+    name: "Test Member",
+    dob: "1990-01-01",
+    gender: "Male",
+    contact: "1234567890",
+    education: "Graduate",
+    marital: "Married",
+    job: "Engineer",
+    bloodGroup: "O+",
+    birthStar: "Aswathi",
+    email: "member@example.com",
+    photo: "",
+    status: "Active"
+  });
+}
+
+function checkSheetStructure() {
+  return testBackend();
+}
