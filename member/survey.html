@@ -395,7 +395,7 @@ button{
       <button class="btn-primary" id="cameraBtn">📷 ക്യാമറ ഉപയോഗിച്ച് ഫോട്ടോ എടുക്കുക</button>
       <button class="btn-light" id="galleryBtn" type="button">🖼️ ഗ്യാലറിയിൽ നിന്ന് ഫോട്ടോ തിരഞ്ഞെടുക്കുക</button>
       <div class="hint full" style="text-align:center">ക്യാമറ ഉപയോഗിച്ച് നേരിട്ട് ഫോട്ടോ എടുക്കാം. ആവശ്യമെങ്കിൽ ഗ്യാലറിയിൽ നിന്നുള്ള ഫോട്ടോയും തിരഞ്ഞെടുക്കാം.</div>
-      <input id="photoInput" type="file" accept="image/*" capture="user" style="display:none">
+      <input id="photoInput" type="file" accept="image/*" style="display:none">
       <div id="photoAdjust" class="photo-adjust" style="display:none">
         <div class="hint">ഫോട്ടോ വൃത്തത്തിനുള്ളിൽ ശരിയായി ക്രമീകരിക്കാൻ Zoom / Horizontal / Vertical ഉപയോഗിക്കുക.</div>
         <label>Zoom <input id="photoZoom" type="range" min="1" max="2.5" step="0.01" value="1"></label>
@@ -1684,12 +1684,28 @@ async function handleCamera() {
       if (!v.videoWidth || !v.videoHeight) {
         await new Promise(resolve => setTimeout(resolve, 300));
       }
-      capturedPhoto = await captureFacePhoto();
-      $("photoPreview").src = capturedPhoto;
-      $("photoPreview").style.display = "block";
+      // Capture the camera frame first.
+      const cameraDataUrl = await captureFacePhoto();
+      capturedPhoto = cameraDataUrl;
+
+      // Send the camera image through the SAME adjustment pipeline as Gallery.
+      // This enables Zoom / Horizontal / Vertical and updates capturedPhoto
+      // with the final cropped image that is submitted to the Sheet.
+      const cameraImg = new Image();
+      cameraImg.onload = function() {
+        galleryImage = cameraImg;
+        photoZoom = 1;
+        photoX = 0;
+        photoY = 0;
+        $("photoZoom").value = 1;
+        $("photoX").value = 0;
+        $("photoY").value = 0;
+        renderGalleryPhoto();
+      };
+      cameraImg.src = cameraDataUrl;
+
       $("video").style.display = "none";
       $("cameraPlaceholder").style.display = "none";
-      $("photoAdjust").style.display = "none";
       stream.getTracks().forEach(t => t.stop());
       stream = null;
       $("cameraBox").classList.remove("is-live");
