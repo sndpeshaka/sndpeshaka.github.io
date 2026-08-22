@@ -6,7 +6,17 @@
 <meta name="theme-color" content="#0f766e">
 <title>SNDP eShaka കുടുംബ വിവര ശേഖരണം</title>
 <link rel="icon" type="" href="./images/favicon-72x72.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Malayalam:wght@100..900&display=swap" rel="stylesheet">
 <style>
+
+.noto-serif-malayalam-<uniquifier> {
+  font-family: "Noto Serif Malayalam", serif;
+  font-optical-sizing: auto;
+  font-weight: <weight>;
+  font-style: normal;
+}
 :root{
   --primary:#b88916; --primary2:#8f6910; --bg:#f7f5ef; --card:#fff;
   --text:#302a1b; --muted:#766f5d; --line:#d8cfb8; --danger:#b52b2b;
@@ -476,21 +486,20 @@ button{
 
 <script>
 // ============================================================
-// CONFIGURATION - NEW SPREADSHEET WITH SEPARATE SHEETS
+// CONFIGURATION
 // ============================================================
 
 const CONFIG = {
-  // NEW SPREADSHEET WITH SEPARATE SHEETS (from eShaka Tables.xlsx)
-  SPREADSHEET_ID: "17S0h2zcGLfOI5alDx-A7X811T4xrP6dr3a1Ih4doL2I",
-  // Master and Members sheets remain in the same spreadsheet
-  MASTER_SHEET_NAME: "Master",
-  MEMBERS_SHEET_NAME: "Members",
-  // IMPORTANT: Replace this URL with your deployed Apps Script URL
-  APPS_SCRIPT_URL: "https://script.google.com/macros/s/AKfycbw1Bqj2lEuBBe1V_VWSialzBwdACIkMuZG5de-Bh-0lRo1EJvk-SAdbFzk2XY7JJ0aA/exec"
+
+  DATA_TABLE_ID: "1Q7fGIi2ky6b7cYt49ljwIwGEJv3kQ8pmz47bFaPBEDs",
+  DROPDOWN_TABLE_ID: "17S0h2zcGLfOI5alDx-A7X811T4xrP6dr3a1Ih4doL2I",
+  MASTER_TABLE_NAME: "Master",
+  MEMBERS_TABLE_NAME: "Members",
+  APP_POST_URL: "https://script.google.com/macros/s/AKfycbw1Bqj2lEuBBe1V_VWSialzBwdACIkMuZG5de-Bh-0lRo1EJvk-SAdbFzk2XY7JJ0aA/exec"
 };
 
-// Sheet names in the new spreadsheet (from eShaka Tables.xlsx)
-const SHEET_NAMES = {
+// Sheet names in the dropdown spreadsheet (from eShaka Tables.xlsx)
+const TABLE_NAMES = {
   AREA_LOCATIONS: "Area_and_Locations",
   POST_OFFICE: "Post Office",
   DISTRICT: "District",
@@ -502,21 +511,6 @@ const SHEET_NAMES = {
   BLOOD_GROUP: "Blood group",
   BIRTH_STAR: "Birth star",
   MASTER_STATUS: "Master Status"
-};
-
-// Map dropdown IDs to their corresponding sheet names
-const DROPDOWN_SHEET_MAP = {
-  area: { sheet: SHEET_NAMES.AREA_LOCATIONS, column: 'Area' },
-  location: { sheet: SHEET_NAMES.AREA_LOCATIONS, column: 'Location' },
-  postoffice: { sheet: SHEET_NAMES.POST_OFFICE, column: 'Post Office' },
-  district: { sheet: SHEET_NAMES.DISTRICT, column: 'District' },
-  mRelation: { sheet: SHEET_NAMES.RELATION, column: 'Relation' },
-  mGender: { sheet: SHEET_NAMES.GENDER, column: 'Gender' },
-  mEducation: { sheet: SHEET_NAMES.EDUCATION, column: 'Education' },
-  mJob: { sheet: SHEET_NAMES.JOBS, column: 'Jobs' },
-  mMarital: { sheet: SHEET_NAMES.MARITAL_STATUS, column: 'Marital status' },
-  mBloodGroup: { sheet: SHEET_NAMES.BLOOD_GROUP, column: 'Blood group' },
-  mBirthStar: { sheet: SHEET_NAMES.BIRTH_STAR, column: 'Birth star' }
 };
 
 // ============================================================
@@ -608,7 +602,7 @@ async function postBackend(payload) {
   payload.requestId = requestId;
 
   try {
-    const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+    const response = await fetch(CONFIG.APP_POST_URL, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=UTF-8" },
       body: JSON.stringify(payload)
@@ -637,7 +631,7 @@ async function postBackend(payload) {
 
     const form = document.createElement("form");
     form.method = "POST";
-    form.action = CONFIG.APPS_SCRIPT_URL;
+    form.action = CONFIG.APP_POST_URL;
     form.target = iframeName;
     form.style.display = "none";
 
@@ -724,7 +718,7 @@ function trackHomeDataChanges() {
 async function fetchMembersData() {
   try {
     const response = await fetch(
-      CONFIG.APPS_SCRIPT_URL + "?action=members&_=" + Date.now(),
+      CONFIG.APP_POST_URL + "?action=members&_=" + Date.now(),
       { method: "GET", cache: "no-store" }
     );
     const text = await response.text();
@@ -892,12 +886,14 @@ async function fetchTableData(options = {}) {
       const timeout = setTimeout(() => controller.abort(), 12000);
 
       try {
-        // Build URL with all sheet names
-        const sheetNames = Object.values(SHEET_NAMES).join(",");
-        const url = CONFIG.APPS_SCRIPT_URL + 
-          "?action=tables&spreadsheetId=" + encodeURIComponent(CONFIG.SPREADSHEET_ID) +
+        // Build URL with all sheet names - use DROPDOWN_TABLE_ID
+        const sheetNames = Object.values(TABLE_NAMES).join(",");
+        const url = CONFIG.APP_POST_URL + 
+          "?action=tables" +
+          "&spreadsheetId=" + encodeURIComponent(CONFIG.DROPDOWN_TABLE_ID) +
           "&sheets=" + encodeURIComponent(sheetNames) +
           "&_=" + Date.now();
+
 
         const response = await fetch(url, {
           method: "GET",
@@ -912,6 +908,7 @@ async function fetchTableData(options = {}) {
         try {
           data = JSON.parse(text);
         } catch (e) {
+          console.error("Failed to parse JSON:", text.substring(0, 200));
           throw new Error("Backend returned a non-JSON response.");
         }
 
@@ -933,12 +930,14 @@ async function fetchTableData(options = {}) {
           locationAreaPairs: []
         };
 
-        // Process each sheet's data
+        // Process each sheet's data from the response
         const sheets = data.sheets || {};
-        
-        // Area_and_Locations sheet - columns: Area, Location
-        if (sheets[SHEET_NAMES.AREA_LOCATIONS]) {
-          const rows = sheets[SHEET_NAMES.AREA_LOCATIONS] || [];
+
+
+        // Area_and_Locations  table - columns: Area (col 0), Location (col 1)
+        if (sheets[TABLE_NAMES.AREA_LOCATIONS]) {
+          const rows = sheets[TABLE_NAMES.AREA_LOCATIONS] || [];
+
           // Skip header row (first row)
           rows.slice(1).forEach(row => {
             const area = String(row[0] || "").trim();
@@ -951,87 +950,95 @@ async function fetchTableData(options = {}) {
           });
         }
 
-        // Post Office sheet - column: Post Office
-        if (sheets[SHEET_NAMES.POST_OFFICE]) {
-          const rows = sheets[SHEET_NAMES.POST_OFFICE] || [];
+        // Post Office  table - column A (col 0)
+        if (sheets[TABLE_NAMES.POST_OFFICE]) {
+          const rows = sheets[TABLE_NAMES.POST_OFFICE] || [];
+
           rows.slice(1).forEach(row => {
             const val = String(row[0] || "").trim();
             if (val) result.postoffice.push(val);
           });
         }
 
-        // District sheet - column: District
-        if (sheets[SHEET_NAMES.DISTRICT]) {
-          const rows = sheets[SHEET_NAMES.DISTRICT] || [];
+        // District  table - column A (col 0)
+        if (sheets[TABLE_NAMES.DISTRICT]) {
+          const rows = sheets[TABLE_NAMES.DISTRICT] || [];
+
           rows.slice(1).forEach(row => {
             const val = String(row[0] || "").trim();
             if (val) result.district.push(val);
           });
         }
 
-        // Relation sheet - column: Relation
-        if (sheets[SHEET_NAMES.RELATION]) {
-          const rows = sheets[SHEET_NAMES.RELATION] || [];
+        // Relation  table - column A (col 0)
+        if (sheets[TABLE_NAMES.RELATION]) {
+          const rows = sheets[TABLE_NAMES.RELATION] || [];
+
           rows.slice(1).forEach(row => {
             const val = String(row[0] || "").trim();
             if (val) result.relation.push(val);
           });
         }
 
-        // Gender sheet - column: Gender
-        if (sheets[SHEET_NAMES.GENDER]) {
-          const rows = sheets[SHEET_NAMES.GENDER] || [];
+        // Gender  table - column A (col 0)
+        if (sheets[TABLE_NAMES.GENDER]) {
+          const rows = sheets[TABLE_NAMES.GENDER] || [];
+
           rows.slice(1).forEach(row => {
             const val = String(row[0] || "").trim();
             if (val) result.gender.push(val);
           });
         }
 
-        // Education sheet - column: Education
-        if (sheets[SHEET_NAMES.EDUCATION]) {
-          const rows = sheets[SHEET_NAMES.EDUCATION] || [];
+        // Education  table - column A (col 0)
+        if (sheets[TABLE_NAMES.EDUCATION]) {
+          const rows = sheets[TABLE_NAMES.EDUCATION] || [];
+
           rows.slice(1).forEach(row => {
             const val = String(row[0] || "").trim();
             if (val) result.education.push(val);
           });
         }
 
-        // Jobs sheet - column: Jobs
-        if (sheets[SHEET_NAMES.JOBS]) {
-          const rows = sheets[SHEET_NAMES.JOBS] || [];
+        // Jobs  table - column A (col 0)
+        if (sheets[TABLE_NAMES.JOBS]) {
+          const rows = sheets[TABLE_NAMES.JOBS] || [];
+
           rows.slice(1).forEach(row => {
             const val = String(row[0] || "").trim();
             if (val) result.job.push(val);
           });
         }
 
-        // Marital status sheet - column: Marital status
-        if (sheets[SHEET_NAMES.MARITAL_STATUS]) {
-          const rows = sheets[SHEET_NAMES.MARITAL_STATUS] || [];
+        // Marital status  table - column A (col 0)
+        if (sheets[TABLE_NAMES.MARITAL_STATUS]) {
+          const rows = sheets[TABLE_NAMES.MARITAL_STATUS] || [];
+
           rows.slice(1).forEach(row => {
             const val = String(row[0] || "").trim();
             if (val) result.marital.push(val);
           });
         }
 
-        // Blood group sheet - column: Blood group
-        if (sheets[SHEET_NAMES.BLOOD_GROUP]) {
-          const rows = sheets[SHEET_NAMES.BLOOD_GROUP] || [];
+        // Blood group  table - column A (col 0)
+        if (sheets[TABLE_NAMES.BLOOD_GROUP]) {
+          const rows = sheets[TABLE_NAMES.BLOOD_GROUP] || [];
+
           rows.slice(1).forEach(row => {
             const val = String(row[0] || "").trim();
             if (val) result.bloodGroup.push(val);
           });
         }
 
-        // Birth star sheet - column: Birth star
-        if (sheets[SHEET_NAMES.BIRTH_STAR]) {
-          const rows = sheets[SHEET_NAMES.BIRTH_STAR] || [];
+        // Birth star  table - column A (col 0)
+        if (sheets[TABLE_NAMES.BIRTH_STAR]) {
+          const rows = sheets[TABLE_NAMES.BIRTH_STAR] || [];
+   
           rows.slice(1).forEach(row => {
             const val = String(row[0] || "").trim();
             if (val) result.birthStar.push(val);
           });
         }
-
         dropdownDataCache = result;
         try {
           sessionStorage.setItem(DROPDOWN_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), data: result }));
@@ -1040,6 +1047,7 @@ async function fetchTableData(options = {}) {
         return result;
       } catch (error) {
         lastError = error;
+        console.warn(`Attempt ${attempt} failed:`, error.message);
         if (attempt < retries) {
           await new Promise(resolve => setTimeout(resolve, 350 * attempt));
         }
@@ -1107,6 +1115,8 @@ function autoSelectAreaFromLocation() {
 function applyDropdownData(data) {
   if (!data) return false;
 
+ 
+  
   populateSelect("area", data.area);
   populateSelect("location", data.location);
 
@@ -1134,6 +1144,8 @@ function applyDropdownData(data) {
   populateSelect("mBloodGroup", data.bloodGroup, "തിരഞ്ഞെടുക്കുക");
   populateSelect("mBirthStar", data.birthStar, "തിരഞ്ഞെടുക്കുക");
   isDropdownsLoaded = true;
+  
+
   return true;
 }
 
@@ -1144,9 +1156,11 @@ async function loadDropdownData() {
     if (cached?.data && Date.now() - Number(cached.savedAt || 0) < DROPDOWN_CACHE_TTL) {
       dropdownDataCache = cached.data;
       applyDropdownData(cached.data);
+     
     }
   } catch (e) {}
 
+  // Fetch fresh data
   const data = await fetchTableData({ silent: !!isDropdownsLoaded, retries: 3 });
   if (data) applyDropdownData(data);
   return !!data;
@@ -1351,7 +1365,7 @@ async function testConnection() {
   showNotice($("homeNotice"), "info", " പരിശോധിക്കുന്നു...");
 
   try {
-    const response = await fetch(CONFIG.APPS_SCRIPT_URL + "?action=health&_=" + Date.now(), {
+    const response = await fetch(CONFIG.APP_POST_URL + "?action=health&_=" + Date.now(), {
       method: "GET",
       cache: "no-store"
     });
@@ -1686,10 +1700,6 @@ async function handleCamera() {
 }
 
 // ============================================================
-// LOCATION FUNCTIONS
-// ============================================================
-
-// ============================================================
 // SUBMIT ALL - Final submission
 // ============================================================
 
@@ -1771,6 +1781,7 @@ async function submitAll() {
 async function init() {
   if ($("branch")) $("branch").value = "1003";
 
+
   await Promise.all([
     loadDropdownData(),
     fetchMasterData(),
@@ -1787,8 +1798,7 @@ async function init() {
   });
   
   updateHomeIdSearchButton();
-  console.log("📊 Members data loaded:", membersDataCache.length, "records");
-  console.log("📊 Apps Script URL:", CONFIG.APPS_SCRIPT_URL);
+ 
 }
 
 // ============================================================
@@ -1844,7 +1854,7 @@ function findMasterHomeIdInsensitive(homeId) {
 async function fetchMasterData() {
   try {
     const response = await fetch(
-      CONFIG.APPS_SCRIPT_URL + "?action=master&_=" + Date.now(),
+      CONFIG.APP_POST_URL + "?action=master&_=" + Date.now(),
       { method: "GET", cache: "no-store" }
     );
     const text = await response.text();
