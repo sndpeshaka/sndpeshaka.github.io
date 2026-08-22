@@ -6,17 +6,7 @@
 <meta name="theme-color" content="#0f766e">
 <title>SNDP eShaka കുടുംബ വിവര ശേഖരണം</title>
 <link rel="icon" type="" href="./images/favicon-72x72.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Malayalam:wght@100..900&display=swap" rel="stylesheet">
 <style>
-
-.noto-serif-malayalam-<uniquifier> {
-  font-family: "Noto Serif Malayalam", serif;
-  font-optical-sizing: auto;
-  font-weight: <weight>;
-  font-style: normal;
-}
 :root{
   --primary:#b88916; --primary2:#8f6910; --bg:#f7f5ef; --card:#fff;
   --text:#302a1b; --muted:#766f5d; --line:#d8cfb8; --danger:#b52b2b;
@@ -178,16 +168,6 @@ button{
 @media(max-width:560px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.app{padding:10px 9px 75px}.card{padding:15px}.topbar{border-radius:18px}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 
-
-.mobile-home-lookup-link{
-  display:block;width:100%;margin:7px 0 0;padding:4px 2px;
-  border:0;background:transparent;color:var(--primary2);
-  font:inherit;font-size:12px;font-weight:700;text-align:left;
-  cursor:pointer;text-decoration:none;
-}
-.mobile-home-lookup-link:hover{text-decoration:underline}
-.mobile-home-lookup-link:active{opacity:.75}
-
 #homeIdSearchNotice {
   margin-top: 8px;
   text-align: center;
@@ -241,7 +221,6 @@ button{
           <div class="notice info" id="homeIdSearchNotice" style="display:none" aria-live="polite">
             ⏳ കുടുംബ ഐഡി തിരയുന്നു...
           </div>
-          <button type="button" class="mobile-home-lookup-link" id="openMobileHomeLookup">📱 മൊബൈൽ നമ്പർ ഉപയോഗിച്ച് കുടുംബ ഐഡി കണ്ടെത്തുക</button>
         </div>
         <button type="button" class="home-id-search-btn" id="searchHomeIdMain" aria-label="കുടുംബ ഐഡി ഉപയോഗിച്ച് മാസ്റ്റർ വിവരങ്ങൾ തിരയുക" title="കുടുംബ ഐഡി തിരയുക" disabled>
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="M16 16l5 5"></path></svg>
@@ -390,7 +369,7 @@ button{
       <button class="btn-primary" id="cameraBtn">📷 ക്യാമറ ഉപയോഗിച്ച് ഫോട്ടോ എടുക്കുക</button>
       <button class="btn-light" id="galleryBtn" type="button">🖼️ ഗ്യാലറിയിൽ നിന്ന് ഫോട്ടോ തിരഞ്ഞെടുക്കുക</button>
       <div class="hint full" style="text-align:center">ക്യാമറ ഉപയോഗിച്ച് നേരിട്ട് ഫോട്ടോ എടുക്കാം. ആവശ്യമെങ്കിൽ ഗ്യാലറിയിൽ നിന്നുള്ള ഫോട്ടോയും തിരഞ്ഞെടുക്കാം.</div>
-      <input id="photoInput" type="file" accept="image/*" capture="user" style="display:none">
+      <input id="photoInput" type="file" accept="image/*" style="display:none">
       <div id="photoAdjust" class="photo-adjust" style="display:none">
         <div class="hint">ഫോട്ടോ വൃത്തത്തിനുള്ളിൽ ശരിയായി ക്രമീകരിക്കാൻ Zoom / Horizontal / Vertical ഉപയോഗിക്കുക.</div>
         <label>Zoom <input id="photoZoom" type="range" min="1" max="2.5" step="0.01" value="1"></label>
@@ -497,31 +476,36 @@ button{
 
 <script>
 // ============================================================
-// CONFIGURATION
+// CONFIGURATION - UPDATE THIS URL AFTER DEPLOYMENT
 // ============================================================
 
 const CONFIG = {
-
-  DATA_TABLE_ID: "1Q7fGIi2ky6b7cYt49ljwIwGEJv3kQ8pmz47bFaPBEDs",
-  DROPDOWN_TABLE_ID: "17S0h2zcGLfOI5alDx-A7X811T4xrP6dr3a1Ih4doL2I",
-  MASTER_TABLE_NAME: "Master",
-  MEMBERS_TABLE_NAME: "Members",
-  APP_POST_URL: "https://script.google.com/macros/s/AKfycbw1Bqj2lEuBBe1V_VWSialzBwdACIkMuZG5de-Bh-0lRo1EJvk-SAdbFzk2XY7JJ0aA/exec"
+  SPREADSHEET_ID: "1Q7fGIi2ky6b7cYt49ljwIwGEJv3kQ8pmz47bFaPBEDs",
+  TABLE_SHEET_NAME: "Tables",
+  MASTER_SHEET_NAME: "Master",
+  MEMBERS_SHEET_NAME: "Members",
+  // IMPORTANT: Replace this URL with your deployed Apps Script URL
+  APPS_SCRIPT_URL: "https://script.google.com/macros/s/AKfycbxV_mP8-QW97vS0CR6Xk-wsrQbWIlVE1XBBLR6BTqhDA297f2_Jcsr5I_NREmXIXW9W/exec"
 };
 
-// Sheet names in the dropdown spreadsheet (from eShaka Tables.xlsx)
-const TABLE_NAMES = {
-  AREA_LOCATIONS: "Area_and_Locations",
-  POST_OFFICE: "Post Office",
-  DISTRICT: "District",
-  RELATION: "Relation",
-  GENDER: "Gender",
-  EDUCATION: "Education",
-  JOBS: "Jobs",
-  MARITAL_STATUS: "Marital status",
-  BLOOD_GROUP: "Blood group",
-  BIRTH_STAR: "Birth star",
-  MASTER_STATUS: "Master Status"
+// ============================================================
+// COLUMN MAPPING for the Tables sheet (Columns A-O)
+// ============================================================
+
+const TABLE_COLUMNS = {
+  AREA: 2,
+  LOCATION: 3,
+  POSTOFFICE: 4,
+  DISTRICT: 5,
+  RELATION: 6,
+  GENDER: 7,
+  EDUCATION: 8,
+  JOB: 9,
+  MARITAL: 10,
+  BLOOD_GROUP: 11,
+  BIRTH_STAR: 12,
+  BLOOD_GROUP_N: 13,
+  BIRTH_STAR_O: 14
 };
 
 // ============================================================
@@ -580,7 +564,7 @@ let membersDataCache = [];
 let isDropdownsLoaded = false;
 let dropdownDataCache = null;
 let dropdownFetchPromise = null;
-const DROPDOWN_CACHE_KEY = "sndp_eshaka_tables_v4";
+const DROPDOWN_CACHE_KEY = "sndp_eshaka_tables_v2";
 const DROPDOWN_CACHE_TTL = 10 * 60 * 1000;
 let isHomeDataChanged = false;
 let currentHomeData = null;
@@ -588,6 +572,7 @@ let isSubmitting = false;
 let homeEntryMode = "new";
 let generatedHomeId = "";
 
+// Existing-family lookup is explicit. It must never be triggered by blur/focus.
 let homeLookupInProgress = false;
 
 // ============================================================
@@ -612,8 +597,10 @@ async function postBackend(payload) {
   );
   payload.requestId = requestId;
 
+  // text/plain is a CORS "simple request" content type, so the browser
+  // does not send an OPTIONS preflight to Apps Script.
   try {
-    const response = await fetch(CONFIG.APP_POST_URL, {
+    const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=UTF-8" },
       body: JSON.stringify(payload)
@@ -634,6 +621,9 @@ async function postBackend(payload) {
   } catch (error) {
     console.warn("Fetch submission failed; using CORS-safe form fallback.", error);
 
+    // A normal HTML form POST is also a simple request and does not require
+    // JavaScript CORS access. The Apps Script backend is idempotent by
+    // requestId, so retrying cannot create a duplicate record.
     const iframeName = "backendSubmitFrame_" + Date.now();
     const iframe = document.createElement("iframe");
     iframe.name = iframeName;
@@ -642,7 +632,7 @@ async function postBackend(payload) {
 
     const form = document.createElement("form");
     form.method = "POST";
-    form.action = CONFIG.APP_POST_URL;
+    form.action = CONFIG.APPS_SCRIPT_URL;
     form.target = iframeName;
     form.style.display = "none";
 
@@ -659,6 +649,8 @@ async function postBackend(payload) {
       iframe.remove();
     }, 8000);
 
+    // The fallback cannot read the server response because the request may
+    // be cross-origin. The backend still receives and processes the data.
     return {
       success: true,
       fallback: true,
@@ -674,6 +666,7 @@ function showNotice(el, type, text) {
   el.className = "notice show " + type;
   el.innerHTML = text;
 
+  // Important messages are also shown as a prominent popup so they are not missed.
   const overlay = $("alertOverlay");
   const box = $("alertBox");
   const message = $("alertMessage");
@@ -729,7 +722,7 @@ function trackHomeDataChanges() {
 async function fetchMembersData() {
   try {
     const response = await fetch(
-      CONFIG.APP_POST_URL + "?action=members&_=" + Date.now(),
+      CONFIG.APPS_SCRIPT_URL + "?action=members&_=" + Date.now(),
       { method: "GET", cache: "no-store" }
     );
     const text = await response.text();
@@ -803,6 +796,7 @@ async function findHomeIdByMobile() {
     if (matchedHomeIds.length === 1) {
       const foundHomeId = matchedHomeIds[0];
 
+      // Put the ID in the main form.
       $("homeId").value = foundHomeId;
       $("homeId").dataset.validated = "false";
       $("homeId").dataset.validatedHomeId = "";
@@ -814,14 +808,16 @@ async function findHomeIdByMobile() {
         `കുടുംബ ഐഡി ലഭിച്ചു:<b>${escapeHtml(foundHomeId)}</b><br>` +
         `<span>⏳ കുടുംബ വിവരങ്ങൾ അപ്ഡേറ്റ് ചെയ്യുന്നു...</span>`;
 
+      // Close every modal and return to the main form.
       closeAllAppModals();
 
       const valid = await validateExistingHomeId({ force: true });
 
       if (valid) {
         updateHouseholdMemberSummary();
+
+        // Do not steal focus back to the Home ID after lookup.
         $("homeId").blur();
-        closeForgotHomeIdModal();
       }
 
     } else if (matchedHomeIds.length > 1) {
@@ -882,7 +878,7 @@ function calculateNextMemberId(branchId, homeId) {
 }
 
 // ============================================================
-// FETCH DROPDOWN DATA FROM NEW SPREADSHEET
+// FETCH DROPDOWN DATA 
 // ============================================================
 
 async function fetchTableData(options = {}) {
@@ -898,20 +894,10 @@ async function fetchTableData(options = {}) {
       const timeout = setTimeout(() => controller.abort(), 12000);
 
       try {
-        // Build URL with all sheet names - use DROPDOWN_TABLE_ID
-        const sheetNames = Object.values(TABLE_NAMES).join(",");
-        const url = CONFIG.APP_POST_URL + 
-          "?action=tables" +
-          "&spreadsheetId=" + encodeURIComponent(CONFIG.DROPDOWN_TABLE_ID) +
-          "&sheets=" + encodeURIComponent(sheetNames) +
-          "&_=" + Date.now();
-
-
-        const response = await fetch(url, {
-          method: "GET",
-          cache: "no-store",
-          signal: controller.signal
-        });
+        const response = await fetch(
+          CONFIG.APPS_SCRIPT_URL + "?action=tables&_=" + Date.now(),
+          { method: "GET", cache: "no-store", signal: controller.signal }
+        );
 
         const text = await response.text();
         if (!response.ok) throw new Error("Server HTTP " + response.status);
@@ -920,137 +906,38 @@ async function fetchTableData(options = {}) {
         try {
           data = JSON.parse(text);
         } catch (e) {
-          console.error("Failed to parse JSON:", text.substring(0, 200));
           throw new Error("Backend returned a non-JSON response.");
         }
 
         if (!data.success) throw new Error(data.error || "Tables data unavailable.");
 
-        // Parse the response - each sheet returns its data
+        const rows = data.rows || [];
+        if (rows.length < 2) throw new Error("Tables is empty or has no data rows.");
+
+        const tableData = rows.slice(1);
         const result = {
-          area: [],
-          location: [],
-          postoffice: [],
-          district: [],
-          relation: [],
-          gender: [],
-          education: [],
-          job: [],
-          marital: [],
-          bloodGroup: [],
-          birthStar: [],
-          locationAreaPairs: []
+          area: [], location: [], postoffice: [], district: [],
+          relation: [], gender: [], education: [], job: [], marital: [],
+          bloodGroup: [], birthStar: [], locationAreaPairs: []
         };
 
-        // Process each sheet's data from the response
-        const sheets = data.sheets || {};
+        tableData.forEach(row => {
+          const rowArea = String(row[TABLE_COLUMNS.AREA] ?? "").trim();
+          const rowLocation = String(row[TABLE_COLUMNS.LOCATION] ?? "").trim();
+          if (rowArea) result.area.push(rowArea);
+          if (rowLocation) result.location.push(rowLocation);
+          if (rowLocation && rowArea) result.locationAreaPairs.push({ location: rowLocation, area: rowArea });
+          if (row[TABLE_COLUMNS.POSTOFFICE]) result.postoffice.push(String(row[TABLE_COLUMNS.POSTOFFICE]).trim());
+          if (row[TABLE_COLUMNS.DISTRICT]) result.district.push(String(row[TABLE_COLUMNS.DISTRICT]).trim());
+          if (row[TABLE_COLUMNS.RELATION]) result.relation.push(String(row[TABLE_COLUMNS.RELATION]).trim());
+          if (row[TABLE_COLUMNS.GENDER]) result.gender.push(String(row[TABLE_COLUMNS.GENDER]).trim());
+          if (row[TABLE_COLUMNS.EDUCATION]) result.education.push(String(row[TABLE_COLUMNS.EDUCATION]).trim());
+          if (row[TABLE_COLUMNS.JOB]) result.job.push(String(row[TABLE_COLUMNS.JOB]).trim());
+          if (row[TABLE_COLUMNS.MARITAL]) result.marital.push(String(row[TABLE_COLUMNS.MARITAL]).trim());
+          if (row[TABLE_COLUMNS.BLOOD_GROUP_N]) result.bloodGroup.push(String(row[TABLE_COLUMNS.BLOOD_GROUP_N]).trim());
+          if (row[TABLE_COLUMNS.BIRTH_STAR_O]) result.birthStar.push(String(row[TABLE_COLUMNS.BIRTH_STAR_O]).trim());
+        });
 
-
-        // Area_and_Locations  table - columns: Area (col 0), Location (col 1)
-        if (sheets[TABLE_NAMES.AREA_LOCATIONS]) {
-          const rows = sheets[TABLE_NAMES.AREA_LOCATIONS] || [];
-
-          // Skip header row (first row)
-          rows.slice(1).forEach(row => {
-            const area = String(row[0] || "").trim();
-            const location = String(row[1] || "").trim();
-            if (area) result.area.push(area);
-            if (location) result.location.push(location);
-            if (area && location) {
-              result.locationAreaPairs.push({ location, area });
-            }
-          });
-        }
-
-        // Post Office  table - column A (col 0)
-        if (sheets[TABLE_NAMES.POST_OFFICE]) {
-          const rows = sheets[TABLE_NAMES.POST_OFFICE] || [];
-
-          rows.slice(1).forEach(row => {
-            const val = String(row[0] || "").trim();
-            if (val) result.postoffice.push(val);
-          });
-        }
-
-        // District  table - column A (col 0)
-        if (sheets[TABLE_NAMES.DISTRICT]) {
-          const rows = sheets[TABLE_NAMES.DISTRICT] || [];
-
-          rows.slice(1).forEach(row => {
-            const val = String(row[0] || "").trim();
-            if (val) result.district.push(val);
-          });
-        }
-
-        // Relation  table - column A (col 0)
-        if (sheets[TABLE_NAMES.RELATION]) {
-          const rows = sheets[TABLE_NAMES.RELATION] || [];
-
-          rows.slice(1).forEach(row => {
-            const val = String(row[0] || "").trim();
-            if (val) result.relation.push(val);
-          });
-        }
-
-        // Gender  table - column A (col 0)
-        if (sheets[TABLE_NAMES.GENDER]) {
-          const rows = sheets[TABLE_NAMES.GENDER] || [];
-
-          rows.slice(1).forEach(row => {
-            const val = String(row[0] || "").trim();
-            if (val) result.gender.push(val);
-          });
-        }
-
-        // Education  table - column A (col 0)
-        if (sheets[TABLE_NAMES.EDUCATION]) {
-          const rows = sheets[TABLE_NAMES.EDUCATION] || [];
-
-          rows.slice(1).forEach(row => {
-            const val = String(row[0] || "").trim();
-            if (val) result.education.push(val);
-          });
-        }
-
-        // Jobs  table - column A (col 0)
-        if (sheets[TABLE_NAMES.JOBS]) {
-          const rows = sheets[TABLE_NAMES.JOBS] || [];
-
-          rows.slice(1).forEach(row => {
-            const val = String(row[0] || "").trim();
-            if (val) result.job.push(val);
-          });
-        }
-
-        // Marital status  table - column A (col 0)
-        if (sheets[TABLE_NAMES.MARITAL_STATUS]) {
-          const rows = sheets[TABLE_NAMES.MARITAL_STATUS] || [];
-
-          rows.slice(1).forEach(row => {
-            const val = String(row[0] || "").trim();
-            if (val) result.marital.push(val);
-          });
-        }
-
-        // Blood group  table - column A (col 0)
-        if (sheets[TABLE_NAMES.BLOOD_GROUP]) {
-          const rows = sheets[TABLE_NAMES.BLOOD_GROUP] || [];
-
-          rows.slice(1).forEach(row => {
-            const val = String(row[0] || "").trim();
-            if (val) result.bloodGroup.push(val);
-          });
-        }
-
-        // Birth star  table - column A (col 0)
-        if (sheets[TABLE_NAMES.BIRTH_STAR]) {
-          const rows = sheets[TABLE_NAMES.BIRTH_STAR] || [];
-   
-          rows.slice(1).forEach(row => {
-            const val = String(row[0] || "").trim();
-            if (val) result.birthStar.push(val);
-          });
-        }
         dropdownDataCache = result;
         try {
           sessionStorage.setItem(DROPDOWN_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), data: result }));
@@ -1059,7 +946,6 @@ async function fetchTableData(options = {}) {
         return result;
       } catch (error) {
         lastError = error;
-        console.warn(`Attempt ${attempt} failed:`, error.message);
         if (attempt < retries) {
           await new Promise(resolve => setTimeout(resolve, 350 * attempt));
         }
@@ -1084,6 +970,281 @@ async function fetchTableData(options = {}) {
 }
 
 // ============================================================
+// ============================================================
+// HOME ID GENERATION
+// ============================================================
+
+function getAreaAbbreviation(areaValue) {
+  const value = String(areaValue ?? "").trim();
+  if (!value) return "";
+  const parts = value.split("-");
+  if (parts.length < 2) return "";
+  return parts[parts.length - 1].trim().replace(/\s+/g, "").toUpperCase();
+}
+
+function calculateNextHomeId(areaValue, dataMap = masterDataCache) {
+  const abbreviation = getAreaAbbreviation(areaValue);
+  if (!abbreviation) return "";
+
+  // Master column E is the "പ്രദേശം" / area column.
+  // Count every existing Master row whose E value carries the same abbreviation.
+  const areaValues = Array.isArray(masterAreaValuesCache)
+    ? masterAreaValuesCache
+    : Object.values(dataMap || {}).map(item => item?.area);
+
+  let count = 0;
+  areaValues.forEach(existingArea => {
+    if (getAreaAbbreviation(existingArea) === abbreviation) count++;
+  });
+
+  return `${abbreviation}${count + 1}`;
+}
+
+function refreshGeneratedHomeId() {
+  const areaValue = val("area");
+  const homeId = calculateNextHomeId(areaValue);
+  generatedHomeId = homeId;
+  $("homeId").value = homeId;
+  $("homeId").dataset.generatedArea = areaValue;
+  $("homeId").dataset.generatedValue = homeId;
+  return homeId;
+}
+
+function findMasterHomeIdInsensitive(homeId) {
+  const wanted = String(homeId ?? "").trim().toUpperCase();
+  if (!wanted) return null;
+  const keys = Object.keys(masterDataCache || {});
+  const key = keys.find(k => String(k).trim().toUpperCase() === wanted);
+  return key ? masterDataCache[key] : null;
+}
+
+
+function closeAllAppModals() {
+  document.querySelectorAll(".modal-backdrop.show, .modal-overlay.show, .modal.show").forEach(el => el.classList.remove("show"));
+  ["homeModeModal", "forgotHomeIdModal", "memberModal", "summaryModal", "registeredMembersModal"].forEach(id => {
+    const el = $(id);
+    if (el) el.classList.remove("show");
+  });
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  if ($("cameraBox")) $("cameraBox").classList.remove("is-live");
+}
+
+
+function setHomeIdSearchNotice(show, message = "⏳ കുടുംബ ഐഡി തിരയുന്നു...") {
+  const box = $("homeIdSearchNotice");
+  if (!box) return;
+  box.style.display = show ? "block" : "none";
+  if (show) box.textContent = message;
+}
+
+function showHomeLookupPopup(type, message) {
+  const overlay = $("alertOverlay");
+  const messageBox = $("alertMessage");
+  if (!overlay || !messageBox) return;
+
+  messageBox.textContent = message;
+  overlay.classList.add("show");
+
+  const title = $("alertTitle");
+  if (title) {
+    title.textContent =
+      type === "error" ? "❌ കുടുംബ ഐഡി പരിശോധിക്കൽ" :
+      type === "success" ? "✅ കുടുംബ ഐഡി പരിശോധിച്ചു" :
+      "ℹ️ കുടുംബ ഐഡി വിവരം";
+  }
+}
+
+function setHomeDataLoading(show) {
+  const box = $("homeDataLoading");
+  if (!box) return;
+  box.style.display = show ? "block" : "none";
+  if (show) {
+    box.textContent = "⏳ കുടുംബ വിവരങ്ങൾ അപ്ഡേറ്റ് ചെയ്യുന്നു...";
+  }
+}
+
+function clearHomeDataLoading() {
+  setHomeDataLoading(false);
+}
+
+async function validateExistingHomeId(options = {}) {
+  const { force = false, showResult = true } = options;
+  const homeIdEl = $("homeId");
+  const entered = val("homeId");
+
+  if (!entered) {
+    showNotice($("homeNotice"), "warn", "ദയവായി നിലവിലുള്ള ശാഖാ കുടുംബ ഐഡി നമ്പർ നൽകുക.");
+    homeIdEl.focus();
+    return false;
+  }
+
+  const validatedId = String(homeIdEl.dataset.validatedHomeId || "").trim();
+
+  // Already validated? Do not fetch Master and refill the form again.
+  if (
+    !force &&
+    homeIdEl.dataset.validated === "true" &&
+    validatedId &&
+    validatedId.toUpperCase() === entered.toUpperCase() &&
+    currentHomeData
+  ) {
+    return true;
+  }
+
+  if (homeLookupInProgress) return false;
+  homeLookupInProgress = true;
+  setHomeDataLoading(true);
+
+  try {
+    await fetchMasterData();
+    const homeData = findMasterHomeIdInsensitive(entered);
+
+    if (!homeData) {
+      homeIdEl.dataset.validated = "false";
+      homeIdEl.dataset.validatedHomeId = "";
+      currentHomeData = null;
+      const errorMessage =
+        `${entered} എന്ന കുടുംബ ഐഡി കണ്ടെത്തിയില്ല. ശരിയായ ഐഡി നൽകുക.`;
+
+      showNotice($("homeNotice"), "err", `❌ ${escapeHtml(errorMessage)}`);
+      showHomeLookupPopup("error", errorMessage);
+      homeIdEl.focus();
+      return false;
+    }
+
+    homeIdEl.value = homeData.homeId;
+    homeIdEl.dataset.validated = "true";
+    homeIdEl.dataset.validatedHomeId = homeData.homeId;
+
+    fillFormFromMaster(homeData);
+
+    if (showResult) {
+      const statusMessage =
+        `കുടുംബ നമ്പർ ${homeData.homeId} നിലവിലുണ്ട്. ` +
+        `മാസ്റ്റർ വിവരങ്ങൾ മെയിൻ ഫോമിൽ പൂരിപ്പിച്ചു.`;
+
+      showNotice($("homeNotice"), "ok", `✅ ${escapeHtml(statusMessage)}`);
+      showHomeLookupPopup("success", statusMessage);
+    }
+
+    return true;
+  } catch (error) {
+    console.error("❌ Existing family lookup error:", error);
+    showNotice(
+      $("homeNotice"),
+      "err",
+      `❌ കുടുംബ വിവരങ്ങൾ ലഭ്യമാക്കുന്നതിൽ പിഴവ് സംഭവിച്ചു: ${escapeHtml(error.message)}`
+    );
+    return false;
+  } finally {
+    homeLookupInProgress = false;
+    clearHomeDataLoading();
+  }
+}
+
+async function recheckGeneratedHomeId() {
+  if (homeEntryMode === "existing") {
+    const homeIdEl = $("homeId");
+    const entered = val("homeId");
+    const validatedId = String(homeIdEl.dataset.validatedHomeId || "").trim();
+
+    if (
+      homeIdEl.dataset.justRegistered === "true" &&
+      validatedId &&
+      entered &&
+      validatedId.toUpperCase() === entered.toUpperCase()
+    ) {
+      return true;
+    }
+
+    if (
+      homeIdEl.dataset.validated === "true" &&
+      validatedId &&
+      entered &&
+      validatedId.toUpperCase() === entered.toUpperCase() &&
+      currentHomeData
+    ) {
+      return true;
+    }
+
+    return validateExistingHomeId({ force: true });
+  }
+
+  await fetchMasterData();
+  const areaValue = val("area");
+  const expectedHomeId = calculateNextHomeId(areaValue, masterDataCache);
+
+  if (!expectedHomeId) {
+    showNotice($("homeNotice"), "warn", "ദയവായി തെരുവ് / പ്രധാന സ്ഥലം തിരഞ്ഞെടുക്കുക.");
+    $("area").focus();
+    return false;
+  }
+
+  const currentId = val("homeId");
+  if (currentId.toUpperCase() !== expectedHomeId.toUpperCase()) {
+    generatedHomeId = expectedHomeId;
+    $("homeId").value = expectedHomeId;
+    $("homeId").dataset.generatedArea = areaValue;
+    $("homeId").dataset.generatedValue = expectedHomeId;
+    showNotice($("homeNotice"), "warn", `⚠️ കുടുംബ ഐഡി പുതുക്കിയിട്ടുണ്ട്. ശരിയായ കുടുംബ ഐഡി: ${escapeHtml(expectedHomeId)}. വീണ്ടും "കുടുംബ വിവരങ്ങൾ ചേർക്കുക" ക്ലിക്ക് ചെയ്യുക.`);
+    return false;
+  }
+
+  generatedHomeId = expectedHomeId;
+  return true;
+}
+
+// FETCH MASTER DATA FOR HOME LOOKUP
+// ============================================================
+
+async function fetchMasterData() {
+  try {
+    const response = await fetch(
+      CONFIG.APPS_SCRIPT_URL + "?action=master&_=" + Date.now(),
+      { method: "GET", cache: "no-store" }
+    );
+    const text = await response.text();
+    const data = JSON.parse(text);
+    if (!data.success) throw new Error(data.error || "Master data unavailable.");
+
+    const rows = data.rows || [];
+    if (rows.length < 2) {
+      masterDataCache = {};
+      masterAreaValuesCache = [];
+      return {};
+    }
+
+    const masterMap = {};
+    masterAreaValuesCache = rows.slice(1).map(row =>
+      String(row[MASTER_COLUMNS.AREA] ?? "").trim()
+    );
+    rows.slice(1).forEach(row => {
+      const homeId = String(row[MASTER_COLUMNS.HOME_ID] ?? "").trim();
+      if (!homeId) return;
+      masterMap[homeId] = {
+        branch: String(row[MASTER_COLUMNS.BRANCH] ?? "").trim(),
+        homeId,
+        addressLine1: String(row[MASTER_COLUMNS.ADDRESS_LINE_1] ?? "").trim(),
+        addressLine2: String(row[MASTER_COLUMNS.ADDRESS_LINE_2] ?? "").trim(),
+        area: String(row[MASTER_COLUMNS.AREA] ?? "").trim(),
+        location: String(row[MASTER_COLUMNS.LOCATION] ?? "").trim(),
+        postOffice: String(row[MASTER_COLUMNS.POST_OFFICE] ?? "").trim(),
+        district: String(row[MASTER_COLUMNS.DISTRICT] ?? "").trim(),
+        status: String(row[MASTER_COLUMNS.STATUS] ?? "").trim(),
+        email: String(row[MASTER_COLUMNS.EMAIL] ?? "").trim()
+      };
+    });
+
+    masterDataCache = masterMap;
+    return masterMap;
+  } catch (error) {
+    console.error("Error fetching master data:", error);
+    showNotice($("homeNotice"), "err", `❌ Master വിവരങ്ങൾ ലഭിച്ചില്ല: ${escapeHtml(error.message)}`);
+    return {};
+  }
+}
+
+// ============================================================
 // POPULATE DROPDOWNS
 // ============================================================
 
@@ -1103,11 +1264,19 @@ function populateSelect(id, values, placeholder = "തിരഞ്ഞെടു�
     ).join("");
 }
 
+function normalizeText(s) {
+  return String(s ?? "").trim().toLocaleLowerCase("ml-IN").replace(/[\s\-_,.()\/]+/g, "");
+}
+
 function autoSelectAreaFromLocation() {
   const loc = val("location");
   const areaSelect = $("area");
   if (!loc || !areaSelect) return;
 
+  // Use ONLY the exact Location → Area relationship from the Tables sheet.
+  // Do not use fuzzy/partial matching because it can select the wrong Area.
+  // If the same Location is mapped to more than one Area, the relationship is
+  // ambiguous, so leave the Area selection unchanged and let the user choose.
   const locationKey = String(loc).trim();
   const matchedAreas = locationAreaMap[locationKey];
 
@@ -1118,6 +1287,7 @@ function autoSelectAreaFromLocation() {
     String(o.value ?? "").trim() === exactArea
   );
 
+  // If no exact Area option exists, do not auto-select anything.
   if (!option) return;
 
   areaSelect.value = option.value;
@@ -1127,12 +1297,10 @@ function autoSelectAreaFromLocation() {
 function applyDropdownData(data) {
   if (!data) return false;
 
- 
-  
   populateSelect("area", data.area);
   populateSelect("location", data.location);
 
-  // Build an exact Location → Area lookup
+  // Build an exact Location → Area lookup from the same Tables rows.
   locationAreaMap = {};
   (data.locationAreaPairs || []).forEach(pair => {
     const key = String(pair.location ?? "").trim();
@@ -1156,23 +1324,19 @@ function applyDropdownData(data) {
   populateSelect("mBloodGroup", data.bloodGroup, "തിരഞ്ഞെടുക്കുക");
   populateSelect("mBirthStar", data.birthStar, "തിരഞ്ഞെടുക്കുക");
   isDropdownsLoaded = true;
-  
-
   return true;
 }
 
 async function loadDropdownData() {
-  // Show cached values immediately
+  // Show cached values immediately so the form is usable without waiting for Apps Script.
   try {
     const cached = JSON.parse(sessionStorage.getItem(DROPDOWN_CACHE_KEY) || "null");
     if (cached?.data && Date.now() - Number(cached.savedAt || 0) < DROPDOWN_CACHE_TTL) {
       dropdownDataCache = cached.data;
       applyDropdownData(cached.data);
-     
     }
   } catch (e) {}
 
-  // Fetch fresh data
   const data = await fetchTableData({ silent: !!isDropdownsLoaded, retries: 3 });
   if (data) applyDropdownData(data);
   return !!data;
@@ -1377,7 +1541,7 @@ async function testConnection() {
   showNotice($("homeNotice"), "info", " പരിശോധിക്കുന്നു...");
 
   try {
-    const response = await fetch(CONFIG.APP_POST_URL + "?action=health&_=" + Date.now(), {
+    const response = await fetch(CONFIG.APPS_SCRIPT_URL + "?action=health&_=" + Date.now(), {
       method: "GET",
       cache: "no-store"
     });
@@ -1640,6 +1804,7 @@ async function captureFacePhoto() {
   const vw = v.videoWidth, vh = v.videoHeight;
   if (!vw || !vh) throw new Error("Camera frame ലഭ്യമല്ല.");
 
+  // Try to locate the face so the saved square is centered on it.
   let cropSide = Math.min(vw, vh);
   let cx = vw / 2, cy = vh / 2;
   try {
@@ -1663,6 +1828,7 @@ async function captureFacePhoto() {
   sx = Math.max(0, Math.min(sx, vw - cropSide));
   sy = Math.max(0, Math.min(sy, vh - cropSide));
 
+  // Mirror the front-camera preview so the saved portrait looks natural.
   ctx.save();
   ctx.translate(c.width, 0);
   ctx.scale(-1, 1);
@@ -1672,73 +1838,50 @@ async function captureFacePhoto() {
 }
 
 async function handleCamera() {
-  // Second tap: capture the live camera frame.
+  // If camera is already live, take the photo.
   if (stream) {
     try {
-      const v = $("video");
-      if (!v.videoWidth || !v.videoHeight) {
-        await new Promise(resolve => setTimeout(resolve, 300));
-      }
       capturedPhoto = await captureFacePhoto();
       $("photoPreview").src = capturedPhoto;
       $("photoPreview").style.display = "block";
       $("video").style.display = "none";
       $("cameraPlaceholder").style.display = "none";
       $("photoAdjust").style.display = "none";
-      stream.getTracks().forEach(t => t.stop());
-      stream = null;
-      $("cameraBox").classList.remove("is-live");
-      $("cameraBtn").textContent = "📷 വീണ്ടും ഫോട്ടോ എടുക്കുക";
     } catch (e) {
-      console.error("Camera capture error:", e);
-      showNotice($("memberNotice"), "err", `❌ ഫോട്ടോ എടുക്കാൻ കഴിഞ്ഞില്ല: ${escapeHtml(e.message || "Camera capture failed")}`);
+      showNotice($("memberNotice"), "err", `❌ ഫോട്ടോ എടുക്കാൻ കഴിഞ്ഞില്ല: ${escapeHtml(e.message)}`);
+      return;
     }
+    stream.getTracks().forEach(t => t.stop());
+    stream = null;
+    $("cameraBox").classList.remove("is-live");
+    $("cameraBtn").textContent = "📷 വീണ്ടും ഫോട്ടോ എടുക്കുക";
     return;
   }
 
+  // Start the device camera. Gallery remains available as a separate option.
   try {
-    // getUserMedia requires HTTPS (or localhost) and camera permission.
-    if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      throw new Error("ക്യാമറ ഉപയോഗിക്കാൻ ഈ പേജ് HTTPS വഴി തുറക്കണം. ക്യാമറ permission ലഭ്യമല്ലെങ്കിൽ താഴെയുള്ള ഗ്യാലറി/Camera option ഉപയോഗിക്കുക.");
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error("ഈ ഉപകരണത്തിൽ ക്യാമറ ലഭ്യമല്ല.");
     }
-
-    // Ask only for video. The front camera is preferred on mobile.
     stream = await navigator.mediaDevices.getUserMedia({
-      audio: false,
-      video: {
-        facingMode: "user",
-        width: { ideal: 1280 },
-        height: { ideal: 1280 }
-      }
+      video: { facingMode: { ideal: "user" }, width: { ideal: 1280 }, height: { ideal: 1280 } },
+      audio: false
     });
-
-    const v = $("video");
-    v.srcObject = stream;
-    v.muted = true;
-    v.playsInline = true;
+    $("video").srcObject = stream;
     $("video").style.display = "block";
     $("photoPreview").style.display = "none";
     $("cameraPlaceholder").style.display = "none";
     $("photoAdjust").style.display = "none";
     $("cameraBox").classList.add("is-live");
     $("cameraBtn").textContent = "● ഫോട്ടോ എടുക്കുക";
-
-    // Some mobile browsers need play() explicitly after assigning srcObject.
-    try { await v.play(); } catch (playError) { console.warn("video.play() warning:", playError); }
   } catch (e) {
-    console.error("Camera start error:", e);
-    const msg = e && e.name === "NotAllowedError"
-      ? "📷 ക്യാമറ permission അനുവദിച്ചിട്ടില്ല. Browser settings-ൽ Camera permission Allow ചെയ്ത് വീണ്ടും ശ്രമിക്കുക."
-      : e && e.name === "NotFoundError"
-        ? "📷 ക്യാമറ കണ്ടെത്താനായില്ല."
-        : e && e.name === "NotReadableError"
-          ? "📷 മറ്റൊരു app ക്യാമറ ഉപയോഗിക്കുന്നുണ്ട്. അത് അടച്ച് വീണ്ടും ശ്രമിക്കുക."
-          : `📷 ക്യാമറ തുറക്കാൻ കഴിഞ്ഞില്ല: ${e.message || "Unknown error"}`;
-    showNotice($("memberNotice"), "warn", msg + "\nഗ്യാലറിയിൽ നിന്ന് ഫോട്ടോ തിരഞ്ഞെടുക്കാനും കഴിയും.");
-    // Native mobile camera fallback: opening the file picker with capture="user".
-    setTimeout(() => $("photoInput").click(), 250);
+    showNotice($("memberNotice"), "warn", "📷 ക്യാമറ തുറക്കാൻ കഴിഞ്ഞില്ല. ഗ്യാലറിയിൽ നിന്ന് ഫോട്ടോ തിരഞ്ഞെടുക്കാം.");
   }
 }
+
+// ============================================================
+// LOCATION FUNCTIONS
+// ============================================================
 
 // ============================================================
 // SUBMIT ALL - Final submission
@@ -1769,6 +1912,9 @@ async function submitAll() {
     return;
   }
 
+  // IMPORTANT: do not set isSubmitting before submitMasterData().
+  // The previous version did that and submitMasterData() immediately
+  // returned because it saw isSubmitting === true.
   const masterSaved = await submitMasterData();
   if (!masterSaved) return;
 
@@ -1822,7 +1968,7 @@ async function submitAll() {
 async function init() {
   if ($("branch")) $("branch").value = "1003";
 
-
+  // These requests are independent; fetch them in parallel for a faster first load.
   await Promise.all([
     loadDropdownData(),
     fetchMasterData(),
@@ -1839,277 +1985,8 @@ async function init() {
   });
   
   updateHomeIdSearchButton();
- 
-}
-
-// ============================================================
-// GET AREA ABBREVIATION
-// ============================================================
-
-function getAreaAbbreviation(areaValue) {
-  const value = String(areaValue ?? "").trim();
-  if (!value) return "";
-  const parts = value.split("-");
-  if (parts.length < 2) return "";
-  return parts[parts.length - 1].trim().replace(/\s+/g, "").toUpperCase();
-}
-
-function calculateNextHomeId(areaValue, dataMap = masterDataCache) {
-  const abbreviation = getAreaAbbreviation(areaValue);
-  if (!abbreviation) return "";
-
-  const areaValues = Array.isArray(masterAreaValuesCache)
-    ? masterAreaValuesCache
-    : Object.values(dataMap || {}).map(item => item?.area);
-
-  let count = 0;
-  areaValues.forEach(existingArea => {
-    if (getAreaAbbreviation(existingArea) === abbreviation) count++;
-  });
-
-  return `${abbreviation}${count + 1}`;
-}
-
-function refreshGeneratedHomeId() {
-  const areaValue = val("area");
-  const homeId = calculateNextHomeId(areaValue);
-  generatedHomeId = homeId;
-  $("homeId").value = homeId;
-  $("homeId").dataset.generatedArea = areaValue;
-  $("homeId").dataset.generatedValue = homeId;
-  return homeId;
-}
-
-function findMasterHomeIdInsensitive(homeId) {
-  const wanted = String(homeId ?? "").trim().toUpperCase();
-  if (!wanted) return null;
-  const keys = Object.keys(masterDataCache || {});
-  const key = keys.find(k => String(k).trim().toUpperCase() === wanted);
-  return key ? masterDataCache[key] : null;
-}
-
-// ============================================================
-// FETCH MASTER DATA
-// ============================================================
-
-async function fetchMasterData() {
-  try {
-    const response = await fetch(
-      CONFIG.APP_POST_URL + "?action=master&_=" + Date.now(),
-      { method: "GET", cache: "no-store" }
-    );
-    const text = await response.text();
-    const data = JSON.parse(text);
-    if (!data.success) throw new Error(data.error || "Master data unavailable.");
-
-    const rows = data.rows || [];
-    if (rows.length < 2) {
-      masterDataCache = {};
-      masterAreaValuesCache = [];
-      return {};
-    }
-
-    const masterMap = {};
-    masterAreaValuesCache = rows.slice(1).map(row =>
-      String(row[MASTER_COLUMNS.AREA] ?? "").trim()
-    );
-    rows.slice(1).forEach(row => {
-      const homeId = String(row[MASTER_COLUMNS.HOME_ID] ?? "").trim();
-      if (!homeId) return;
-      masterMap[homeId] = {
-        branch: String(row[MASTER_COLUMNS.BRANCH] ?? "").trim(),
-        homeId,
-        addressLine1: String(row[MASTER_COLUMNS.ADDRESS_LINE_1] ?? "").trim(),
-        addressLine2: String(row[MASTER_COLUMNS.ADDRESS_LINE_2] ?? "").trim(),
-        area: String(row[MASTER_COLUMNS.AREA] ?? "").trim(),
-        location: String(row[MASTER_COLUMNS.LOCATION] ?? "").trim(),
-        postOffice: String(row[MASTER_COLUMNS.POST_OFFICE] ?? "").trim(),
-        district: String(row[MASTER_COLUMNS.DISTRICT] ?? "").trim(),
-        status: String(row[MASTER_COLUMNS.STATUS] ?? "").trim(),
-        email: String(row[MASTER_COLUMNS.EMAIL] ?? "").trim()
-      };
-    });
-
-    masterDataCache = masterMap;
-    return masterMap;
-  } catch (error) {
-    console.error("Error fetching master data:", error);
-    showNotice($("homeNotice"), "err", `❌ Master വിവരങ്ങൾ ലഭിച്ചില്ല: ${escapeHtml(error.message)}`);
-    return {};
-  }
-}
-
-function closeAllAppModals() {
-  document.querySelectorAll(".modal-backdrop.show, .modal-overlay.show, .modal.show").forEach(el => el.classList.remove("show"));
-  ["homeModeModal", "forgotHomeIdModal", "memberModal", "summaryModal", "registeredMembersModal"].forEach(id => {
-    const el = $(id);
-    if (el) el.classList.remove("show");
-  });
-  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
-  if ($("cameraBox")) $("cameraBox").classList.remove("is-live");
-}
-
-function setHomeIdSearchNotice(show, message = "⏳ കുടുംബ ഐഡി തിരയുന്നു...") {
-  const box = $("homeIdSearchNotice");
-  if (!box) return;
-  box.style.display = show ? "block" : "none";
-  if (show) box.textContent = message;
-}
-
-function showHomeLookupPopup(type, message) {
-  const overlay = $("alertOverlay");
-  const messageBox = $("alertMessage");
-  if (!overlay || !messageBox) return;
-
-  messageBox.textContent = message;
-  overlay.classList.add("show");
-
-  const title = $("alertTitle");
-  if (title) {
-    title.textContent =
-      type === "error" ? "❌ കുടുംബ ഐഡി പരിശോധിക്കൽ" :
-      type === "success" ? "✅ കുടുംബ ഐഡി പരിശോധിച്ചു" :
-      "ℹ️ കുടുംബ ഐഡി വിവരം";
-  }
-}
-
-function setHomeDataLoading(show) {
-  const box = $("homeDataLoading");
-  if (!box) return;
-  box.style.display = show ? "block" : "none";
-  if (show) {
-    box.textContent = "⏳ കുടുംബ വിവരങ്ങൾ അപ്ഡേറ്റ് ചെയ്യുന്നു...";
-  }
-}
-
-function clearHomeDataLoading() {
-  setHomeDataLoading(false);
-}
-
-async function validateExistingHomeId(options = {}) {
-  const { force = false, showResult = true } = options;
-  const homeIdEl = $("homeId");
-  const entered = val("homeId");
-
-  if (!entered) {
-    showNotice($("homeNotice"), "warn", "ദയവായി നിലവിലുള്ള ശാഖാ കുടുംബ ഐഡി നമ്പർ നൽകുക.");
-    homeIdEl.focus();
-    return false;
-  }
-
-  const validatedId = String(homeIdEl.dataset.validatedHomeId || "").trim();
-
-  if (
-    !force &&
-    homeIdEl.dataset.validated === "true" &&
-    validatedId &&
-    validatedId.toUpperCase() === entered.toUpperCase() &&
-    currentHomeData
-  ) {
-    return true;
-  }
-
-  if (homeLookupInProgress) return false;
-  homeLookupInProgress = true;
-  setHomeDataLoading(true);
-
-  try {
-    await fetchMasterData();
-    const homeData = findMasterHomeIdInsensitive(entered);
-
-    if (!homeData) {
-      homeIdEl.dataset.validated = "false";
-      homeIdEl.dataset.validatedHomeId = "";
-      currentHomeData = null;
-      const errorMessage =
-        `${entered} എന്ന കുടുംബ ഐഡി കണ്ടെത്തിയില്ല. ശരിയായ ഐഡി നൽകുക.`;
-
-      showNotice($("homeNotice"), "err", `❌ ${escapeHtml(errorMessage)}`);
-      showHomeLookupPopup("error", errorMessage);
-      homeIdEl.focus();
-      return false;
-    }
-
-    homeIdEl.value = homeData.homeId;
-    homeIdEl.dataset.validated = "true";
-    homeIdEl.dataset.validatedHomeId = homeData.homeId;
-
-    fillFormFromMaster(homeData);
-
-    if (showResult) {
-      const statusMessage =
-        `കുടുംബ നമ്പർ ${homeData.homeId} നിലവിലുണ്ട്. ` +
-        `മാസ്റ്റർ വിവരങ്ങൾ മെയിൻ ഫോമിൽ പൂരിപ്പിച്ചു.`;
-
-      showNotice($("homeNotice"), "ok", `✅ ${escapeHtml(statusMessage)}`);
-      showHomeLookupPopup("success", statusMessage);
-    }
-
-    return true;
-  } catch (error) {
-    console.error("❌ Existing family lookup error:", error);
-    showNotice(
-      $("homeNotice"),
-      "err",
-      `❌ കുടുംബ വിവരങ്ങൾ ലഭ്യമാക്കുന്നതിൽ പിഴവ് സംഭവിച്ചു: ${escapeHtml(error.message)}`
-    );
-    return false;
-  } finally {
-    homeLookupInProgress = false;
-    clearHomeDataLoading();
-  }
-}
-
-async function recheckGeneratedHomeId() {
-  if (homeEntryMode === "existing") {
-    const homeIdEl = $("homeId");
-    const entered = val("homeId");
-    const validatedId = String(homeIdEl.dataset.validatedHomeId || "").trim();
-
-    if (
-      homeIdEl.dataset.justRegistered === "true" &&
-      validatedId &&
-      entered &&
-      validatedId.toUpperCase() === entered.toUpperCase()
-    ) {
-      return true;
-    }
-
-    if (
-      homeIdEl.dataset.validated === "true" &&
-      validatedId &&
-      entered &&
-      validatedId.toUpperCase() === entered.toUpperCase() &&
-      currentHomeData
-    ) {
-      return true;
-    }
-
-    return validateExistingHomeId({ force: true });
-  }
-
-  await fetchMasterData();
-  const areaValue = val("area");
-  const expectedHomeId = calculateNextHomeId(areaValue, masterDataCache);
-
-  if (!expectedHomeId) {
-    showNotice($("homeNotice"), "warn", "ദയവായി തെരുവ് / പ്രധാന സ്ഥലം തിരഞ്ഞെടുക്കുക.");
-    $("area").focus();
-    return false;
-  }
-
-  const currentId = val("homeId");
-  if (currentId.toUpperCase() !== expectedHomeId.toUpperCase()) {
-    generatedHomeId = expectedHomeId;
-    $("homeId").value = expectedHomeId;
-    $("homeId").dataset.generatedArea = areaValue;
-    $("homeId").dataset.generatedValue = expectedHomeId;
-    showNotice($("homeNotice"), "warn", `⚠️ കുടുംബ ഐഡി പുതുക്കിയിട്ടുണ്ട്. ശരിയായ കുടുംബ ഐഡി: ${escapeHtml(expectedHomeId)}. വീണ്ടും "കുടുംബ വിവരങ്ങൾ ചേർക്കുക" ക്ലിക്ക് ചെയ്യുക.`);
-    return false;
-  }
-
-  generatedHomeId = expectedHomeId;
-  return true;
+  console.log("📊 Members data loaded:", membersDataCache.length, "records");
+  console.log("📊 Apps Script URL:", CONFIG.APPS_SCRIPT_URL);
 }
 
 // ============================================================
@@ -2214,7 +2091,6 @@ async function searchHomeIdFromMainField() {
 }
 
 $("searchHomeIdMain").onclick = searchHomeIdFromMainField;
-$("openMobileHomeLookup").onclick = openForgotHomeIdModal;
 
 $("homeId").addEventListener("input", function() {
   const cursor = this.selectionStart;
@@ -2246,6 +2122,13 @@ $("homeId").addEventListener("keydown", async function(e) {
     await searchHomeIdFromMainField();
   }
 });
+
+// IMPORTANT: no blur handler here.
+// The old blur handler caused:
+// blur -> validate -> fill form -> focus homeId -> blur again.
+// Therefore clicking Owner/House/Area/Email immediately returned focus
+// to Home ID and repeatedly reloaded the Master data.
+// Lookup is now explicit only (Enter/Save/Continue/mobile lookup).
 
 $("email").addEventListener("blur", function() {
   const email = val("email");
@@ -2299,6 +2182,7 @@ $("saveMember").onclick = async function() {
   const wasEditing = editingIndex >= 0;
   const oldIndex = editingIndex;
 
+  // Keep the confirmation preview visible while the record is being submitted.
   $("saveMember").disabled = true;
   $("editMember").disabled = true;
   showNotice($("memberNotice"), "info", `⏳ ${escapeHtml(memberToSubmit.name)} ന്റെ വിവരങ്ങൾ സമർപ്പിക്കുന്നു...`);
@@ -2315,6 +2199,7 @@ $("saveMember").onclick = async function() {
     return;
   }
 
+  // Only add/update the local member list after the server confirms success.
   if (wasEditing) {
     members[oldIndex] = memberToSubmit;
   } else {
@@ -2325,6 +2210,7 @@ $("saveMember").onclick = async function() {
   await fetchMembersData();
   renderMembers();
 
+  // Clear all previous member preview/form data before opening the next entry.
   pendingMember = null;
   editingIndex = -1;
   resetMemberForm();
@@ -2332,8 +2218,10 @@ $("saveMember").onclick = async function() {
   $("summaryModal").classList.remove("show");
   $("memberModal").classList.remove("show");
 
+  // Explicit submission-status alert.
   alert(`✅ അംഗത്തിന്റെ വിവരങ്ങൾ വിജയകരമായി സമർപ്പിച്ചു\n\nപേര്: ${memberToSubmit.name}\nMember ID: ${memberToSubmit.id}\n\n വിവരങ്ങൾ സംരക്ഷിച്ചു.`);
 
+  // After the status alert, ask whether another member should be entered.
   const addAnother = confirm(
     wasEditing
       ? "അംഗത്തിന്റെ വിവരങ്ങൾ വിജയകരമായി അപ്ഡേറ്റ് ചെയ്തു.\n\nമറ്റൊരു പുതിയ അംഗത്തിന്റെ വിവരങ്ങൾ ചേർക്കണോ?\n\nOK = പുതിയ അംഗം\nCancel = ഫോം അടയ്ക്കുക"
@@ -2341,9 +2229,11 @@ $("saveMember").onclick = async function() {
   );
 
   if (addAnother) {
+    // Completely fresh member form; old photo, location and values are removed.
     resetMemberForm();
     openMember();
   } else {
+    // User has completed member entry. Close both previews/modals.
     if (stream) {
       stream.getTracks().forEach(t => t.stop());
       stream = null;
@@ -2437,7 +2327,7 @@ $("summaryModal").addEventListener("click", function(e) {
   }
 });
 
-
+console.log("✅ Family Member Form initialized!");
 </script>
 </body>
 </html>
