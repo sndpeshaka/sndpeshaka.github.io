@@ -1205,9 +1205,6 @@ function fillFormFromMaster(homeData) {
   if (homeData.email) {
     $("email").value = homeData.email;
     $("email").dataset.originalValue = homeData.email;
-    $("email").readOnly = true;
-  } else {
-    $("email").readOnly = false;
   }
   
   if (homeData.area) {
@@ -1305,6 +1302,9 @@ async function submitMasterData() {
     status: val("status") || "Active",
     email
   };
+
+  const duplicateCheckPassed = await checkDuplicateHouseholdData(masterData);
+  if (!duplicateCheckPassed) return false;
 
   isSubmitting = true;
   showNotice($("homeNotice"), "info", "⏳ വിവരങ്ങൾ സംരക്ഷിക്കുന്നു...");
@@ -1961,6 +1961,69 @@ async function fetchMasterData() {
     showNotice($("homeNotice"), "err", `❌ Master വിവരങ്ങൾ ലഭിച്ചില്ല: ${escapeHtml(error.message)}`);
     return {};
   }
+}
+
+function normalizeDuplicateValue(value) {
+  return String(value ?? "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLocaleLowerCase();
+}
+
+async function checkDuplicateHouseholdData(masterData) {
+  await fetchMasterData();
+
+  const currentId = normalizeDuplicateValue(masterData.homeId);
+  const fields = [
+    ["ഗൃഹനാഥൻ / നാഥയുടെ പേര്", "addressLine1", masterData.owner],
+    ["വീട്ടുപേര്", "addressLine2", masterData.house],
+    ["സ്ഥലം", "location", masterData.location],
+    ["തെരുവ് / പ്രധാന സ്ഥലം", "area", masterData.area],
+    ["പോസ്റ്റ് ഓഫീസ്", "postOffice", masterData.postoffice],
+    ["ജില്ല", "district", masterData.district]
+  ];
+
+  const matches = [];
+
+  Object.values(masterDataCache || {}).forEach(existing => {
+    const existingId = normalizeDuplicateValue(existing.homeId);
+    if (!existingId || existingId === currentId) return;
+
+    const matchedFields = fields
+      .filter(([, key, value]) => {
+        const newValue = normalizeDuplicateValue(value);
+        const oldValue = normalizeDuplicateValue(existing[key]);
+        return newValue && oldValue && newValue === oldValue;
+      })
+      .map(([label]) => label);
+
+    // Warn only when the important household identity details match.
+    // This avoids treating a common district/area alone as a duplicate.
+    const ownerMatch = normalizeDuplicateValue(masterData.owner) &&
+      normalizeDuplicateValue(masterData.owner) === normalizeDuplicateValue(existing.addressLine1);
+    const houseMatch = normalizeDuplicateValue(masterData.house) &&
+      normalizeDuplicateValue(masterData.house) === normalizeDuplicateValue(existing.addressLine2);
+
+    if ((ownerMatch && houseMatch) || matchedFields.length >= 4) {
+      matches.push({ homeId: existing.homeId, fields: matchedFields });
+    }
+  });
+
+  if (!matches.length) return true;
+
+  const details = matches.slice(0, 5).map(match =>
+    `• കുടുംബ ഐഡി <b>${escapeHtml(match.homeId)}</b>` +
+    (match.fields.length ? `<br><span style="font-size:12px">${escapeHtml(match.fields.join(", "))} പൊരുത്തപ്പെടുന്നു.</span>` : "")
+  ).join("<br><br>");
+
+  const more = matches.length > 5 ? `<br><br>മറ്റും ${matches.length - 5} കുടുംബങ്ങൾ കണ്ടെത്തിയിട്ടുണ്ട്.` : "";
+
+  showNotice(
+    $("homeNotice"),
+    "warn",
+    `⚠️ സമാനമായ കുടുംബ വിവരങ്ങൾ ഇതിനകം നിലവിലുണ്ട്.<br><br>${details}${more}<br><br>ദയവായി വിവരങ്ങൾ പരിശോധിച്ച ശേഷം മാത്രം വീണ്ടും Save ചെയ്യുക.`
+  );
+  return false;
 }
 
 function closeAllAppModals() {
