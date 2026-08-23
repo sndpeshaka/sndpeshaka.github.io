@@ -1205,6 +1205,9 @@ function fillFormFromMaster(homeData) {
   if (homeData.email) {
     $("email").value = homeData.email;
     $("email").dataset.originalValue = homeData.email;
+    $("email").readOnly = true;
+  } else {
+    $("email").readOnly = false;
   }
   
   if (homeData.area) {
