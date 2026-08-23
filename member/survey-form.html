@@ -1205,6 +1205,9 @@ function fillFormFromMaster(homeData) {
   if (homeData.email) {
     $("email").value = homeData.email;
     $("email").dataset.originalValue = homeData.email;
+    $("email").readOnly = true;
+  } else {
+    $("email").readOnly = false;
   }
   
   if (homeData.area) {
@@ -1217,7 +1220,10 @@ function fillFormFromMaster(homeData) {
     try { 
       $("location").value = homeData.location;
       $("location").dataset.originalValue = homeData.location;
+      $("location").disabled = true;
     } catch(e) {}
+  } else {
+    try { $("location").disabled = false; } catch(e) {}
   }
   if (homeData.postOffice) {
     try { 
@@ -2243,6 +2249,10 @@ function setHomeEntryMode(mode) {
   homeId.dataset.justRegistered = "false";
   currentHomeData = null;
   isHomeDataChanged = false;
+
+  // New family: email and location must remain editable.
+  $("email").readOnly = false;
+  $("location").disabled = false;
 
   const notice = $("homeNotice");
   if (mode === "new") {
